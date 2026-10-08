@@ -1,13 +1,16 @@
 {
-  "name": "sushi-belt",
-  "version": "0.1.0",
+  "name": "sushi-live-game",
+  "version": "1.0.0",
   "private": true,
-  "description": "회전초밥 벨트 규칙 시험판 (정적 한 페이지를 서빙)",
+  "description": "초밥 서빙 게임 — 2인 실시간 동시진행 디지털 버전 (WebSocket server)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "build": "python3 build.py",
-    "test": "node test_core.js"
+    "start": "node server.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
 }

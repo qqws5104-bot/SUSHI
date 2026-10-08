@@ -1,0 +1,221 @@
+// 2026-08-28: 사용자가 "초밥도둑이 들고간 초밥을 성공처리하네 계속"이라고 재차 리포트.
+//
+// test_theft_scoring.js는 GameRoom을 직접 구동해 서버 로직(scoreInvoice/resultLabel/round log)이
+// 정확함을 이미 확인했지만, 그건 클라이언트가 실제로 화면에 뭘 그리는지까지는 보지 못한다. 사용자가
+// "계속" 눈으로 본다고 재차 말했으므로, 이번엔 진짜 브라우저(Playwright) + 진짜 WS 서버로 처음부터
+// 끝까지 플레이해서, 도난당한 주문표가 (a) 라운드 결과 화면, (b) 내 주문표 목록, (c) 최종 결과 화면
+// 세 군데 모두에서 실제 렌더링 텍스트/스타일로 "미서빙"/실패로 보이는지 직접 확인한다.
+//
+// test_hosted.js의 검증된 idle/voting/result 대기 패턴(텍스트 매칭 기반, 임의의 sleep 없음)을 그대로
+// 재사용한다 -- 임의 sleep으로 라운드 타이밍을 추측하면 서버 상태와 어긋나기 쉽다는 걸 시행착오로 확인함.
+"use strict";
+const { chromium } = require("playwright");
+const { COURIERS } = require("./game-data.js");
+const COURIER_NAME = {};
+COURIERS.forEach((c) => { COURIER_NAME[c.key] = c.name; });
+
+const BASE = "http://localhost:3000";
+function log(...args) { console.log("[test-theft-e2e]", ...args); }
+
+async function clickSel(page, selector) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return false;
+    el.click();
+    return true;
+  }, selector);
+}
+async function countSel(page, selector) { return page.evaluate((sel) => document.querySelectorAll(sel).length, selector); }
+async function bodyText(page) { return page.evaluate(() => document.body.innerText); }
+async function pressSpace(page) {
+  await page.evaluate(() => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " ", bubbles: true, cancelable: true }));
+  });
+}
+async function waitFor(fn, { timeout = 15000, interval = 100, label = "condition" } = {}) {
+  const start = Date.now();
+  for (;;) {
+    const v = await fn();
+    if (v) return v;
+    if (Date.now() - start > timeout) throw new Error("timeout waiting for: " + label);
+    await new Promise((r) => setTimeout(r, interval));
+  }
+}
+
+// 2026-10-06: 라운드 준비(스페이스) 직후 우선 초밥 지정 10초 창이 열린다 -- 지정할 초밥이 있는 쪽은 "확정"으로 통과시킨다.
+function assert_(c, m) { if (!c) throw new Error("ASSERT FAILED: " + m); }
+async function passPriority(p1, p2, nextSel) {
+  await waitFor(async () => (await countSel(p1, ".priority-window")) > 0 || (await countSel(p1, nextSel)) > 0, { label: "priority window (or straight on)", timeout: 8000 });
+  if ((await countSel(p1, ".priority-window")) === 0) return;
+  // 간헐적으로 render()가 클릭 직전에 DOM을 갈아끼워 클릭이 유실될 수 있어서, 창이 닫힐 때까지 다시 눌러 준다.
+  await waitFor(async () => {
+    if ((await countSel(p1, ".priority-window")) === 0) return true;
+    if (await countSel(p1, '[data-action="confirm-priority"]')) await clickSel(p1, '[data-action="confirm-priority"]').catch(() => {});
+    if (await countSel(p2, '[data-action="confirm-priority"]')) await clickSel(p2, '[data-action="confirm-priority"]').catch(() => {});
+    return (await countSel(p1, ".priority-window")) === 0;
+  }, { label: "priority window closes", timeout: 6000 });
+}
+
+async function main() {
+  const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+  const seedCtx = await browser.newContext();
+  const seedPage = await seedCtx.newPage();
+  await seedPage.goto(BASE + "/");
+  const room = new URL(seedPage.url()).searchParams.get("room");
+  await seedCtx.close();
+  log("room:", room);
+  const roomUrl = BASE + "/?room=" + room + "&mgtest=1"; // 미니게임 칸 빠른 처리용 테스트 훅
+
+  const ctx1 = await browser.newContext(), ctx2 = await browser.newContext();
+  const p1 = await ctx1.newPage(), p2 = await ctx2.newPage();
+  const errors = [];
+  for (const [label, p] of [["p1", p1], ["p2", p2]]) {
+    p.on("pageerror", (e) => errors.push(label + " pageerror: " + e.message));
+  }
+
+  await p1.goto(roomUrl);
+  await p2.goto(roomUrl);
+  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
+
+  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
+  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.haru), { label: "p1 picks haru" });
+  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
+  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.pado), { label: "p2 picks pado" });
+
+  await pressSpace(p1); await pressSpace(p2);
+  await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "전반 secure phase" });
+  log("전반 secure phase 진입 -- 아무것도 제작하지 않음(전반 결과는 이 테스트와 무관)");
+
+  await waitFor(async () => {
+    const t1 = await bodyText(p1), t2 = await bodyText(p2);
+    return t1.includes("회전 벨트") && t2.includes("회전 벨트");
+  }, { label: "전반 elevator phase (idle gate) 도달", timeout: 15000 });
+  log("전반 elevator phase 진입");
+
+  // 전반 7라운드: 제작한 게 없어 서빙도 없다 -- idle/result 게이트만 통과시키며 흘려보낸다.
+  for (let round = 1; round <= 7; round++) {
+    await pressSpace(p1); await pressSpace(p2); // idle 또는 이전 라운드의 result 게이트 통과
+    await passPriority(p1, p2, '[data-action="vote-up"]');
+    await waitFor(async () => (await countSel(p1, '[data-action="vote-up"]')) > 0, { label: `전반 round ${round} voting 시작`, timeout: 8000 });
+    await clickSel(p1, '[data-action="vote-up"]');
+    await clickSel(p2, '[data-action="vote-up"]');
+    await waitFor(async () => (await bodyText(p1)).includes(`라운드 ${round} 결과`), { label: `전반 round ${round} 결과`, timeout: 8000 });
+  }
+  log("전반 7라운드 통과");
+  // 마지막(7) 라운드 결과 게이트도 다른 라운드와 동일하게 "둘 다 스페이스"로 넘겨야 half가 끝난다
+  // (setElevatorReady: el.state==="result"이고 round>=ELEVATOR_ROUNDS일 때 비로소 _finishHalf 호출).
+  await pressSpace(p1); await pressSpace(p2);
+
+  await waitFor(async () => (await bodyText(p1)).includes("전반 종료"), { label: "halftime 화면", timeout: 8000 });
+  await pressSpace(p1); await pressSpace(p2);
+  await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "후반 secure phase", timeout: 8000 });
+  log("후반 secure phase 진입");
+
+  // p2가 지정 초밥의 빨강칸(fixed-floor-1)을 제작 -- floorIdx가 확정적으로 0(빨강)이 된다.
+  await clickSel(p2, '[data-action="open-cell"][data-cell="fixed-floor-1"]');
+  await waitFor(async () => (await countSel(p2, ".mg-root, #puzzle-overlay img")) > 0, { label: "p2 지정 접시 칸 열림(우봉고 오버레이 또는 디지털 미니게임)" });
+  await p2.evaluate(() => { if (document.querySelector(".mg-root") && window.__mgFinish) return window.__mgFinish(); const b = document.querySelector('[data-action="complete-cell"]'); if (b) b.click(); });
+  await waitFor(async () => (await countSel(p2, ".floor-btn.mine")) > 0, { label: "p2 fixed-floor-1 제작 확인" });
+  log("p2가 빨강행 지정 초밥 제작 완료");
+
+  await waitFor(async () => {
+    const t1 = await bodyText(p1), t2 = await bodyText(p2);
+    return t1.includes("회전 벨트") && t2.includes("회전 벨트");
+  }, { label: "후반 elevator phase (idle gate) 도달", timeout: 15000 });
+
+  // ---- 후반 round 1: idle 게이트 통과 -> thief window. p1이 빨강(접시 인덱스 0)에 도둑 배치, p2는 넘김 ----
+  await pressSpace(p1); await pressSpace(p2);
+  await passPriority(p1, p2, ".thief-window");
+  await waitFor(async () => (await countSel(p1, ".thief-window")) > 0, { label: "후반 round 1 thief window", timeout: 8000 });
+  await clickSel(p1, '.thief-floors [data-action="place-thief"][data-floor-idx="0"]');
+  await waitFor(async () => (await bodyText(p1)).includes("배치했어요"), { label: "p1 thief 배치 확인" });
+  await clickSel(p2, '[data-action="skip-thief"]');
+  await waitFor(async () => (await countSel(p1, '[data-action="vote-up"]')) > 0, { label: "round 1 voting 시작" });
+
+  // round 1은 투표 없이(회전 벨트이 시작 접시 주황에 그대로 머물도록) 그냥 흘려보낸다 -- p2의 빨강행
+  // 주문표가 이 라운드에 서빙되면(도둑이 아직 활성화 전이라 정상 성공) 시나리오가 깨진다.
+  await waitFor(async () => (await bodyText(p1)).includes("라운드 1 결과"), { label: "round 1 결과", timeout: 8000 });
+  await pressSpace(p1); await pressSpace(p2);
+
+  // ---- 후반 round 2: 지난 라운드 도둑이 이제 활성화. 후반 2회 한도라 p1도 아직 1회 남아 있어 창이 뜬다 -> 둘 다 넘김 ----
+  await passPriority(p1, p2, ".thief-window");
+  await waitFor(async () => (await countSel(p1, ".thief-window")) > 0, { label: "후반 round 2 thief window", timeout: 8000 });
+  assert_(await countSel(p1, '[data-action="skip-thief"]') === 1 && (await bodyText(p1)).includes("남은 횟수 1회"), "p1은 후반 2회 중 1회를 썼으니 round 2에도 창이 뜨고 남은 횟수 1회로 표시");
+  await clickSel(p1, '[data-action="skip-thief"]');
+  await clickSel(p2, '[data-action="skip-thief"]');
+  await waitFor(async () => (await countSel(p1, '[data-action="vote-up"]')) > 0, { label: "round 2 voting 시작" });
+
+  // 회전 벨트을 주황(시작) -> 빨강로 한 칸 내려서, p2의 빨강행 주문표가 이번 라운드에 서빙(=도난)되게 한다.
+  await clickSel(p1, '[data-action="vote-down"]');
+  await waitFor(async () => (await bodyText(p1)).includes("라운드 2 결과"), { label: "round 2 결과", timeout: 8000 });
+
+  // ---- 핵심 검증 1: p2의 라운드 결과 화면(내 주문표 목록 + 이번 라운드 서빙 안내) ----
+  const p2ResultText = await bodyText(p2);
+  log("p2 round-2 결과 화면 텍스트 일부:", p2ResultText.replace(/\n+/g, " | ").slice(0, 500));
+  if (!p2ResultText.includes("도난당했어요")) {
+    throw new Error("REGRESSION: p2's round-result callout does not mention the theft -- expected '초밥도둑에게 도난당했어요!'");
+  }
+  log("확인: 라운드 결과 화면에 '도난당했어요' 안내가 정확히 표시됨");
+
+  // ---- 핵심 검증 2: p2의 주문표 목록에서 그 주문표의 스티커가 '미서빙'(pending 스타일)인지,
+  // 초록 '성공' 배지(class="sticker"만, pending 없음)로 잘못 표시되진 않는지 ----
+  const invoiceCheck = await p2.evaluate(() => {
+    const invoices = Array.from(document.querySelectorAll(".invoice"));
+    const target = invoices.find((el) => el.querySelector(".meta .d") && el.querySelector(".meta .d").textContent.includes("빨강"));
+    if (!target) return { found: false };
+    const sticker = target.querySelector(".sticker");
+    return {
+      found: true,
+      stickerText: sticker ? sticker.textContent : null,
+      stickerIsPending: sticker ? sticker.classList.contains("pending") : null,
+    };
+  });
+  log("p2 주문표 목록에서 찾은 빨강행 주문표 스티커 상태:", JSON.stringify(invoiceCheck));
+  if (!invoiceCheck.found) throw new Error("could not find the 빨강 (지정 초밥) invoice row in p2's invoice list");
+  if (invoiceCheck.stickerText !== "미서빙") {
+    throw new Error(`REGRESSION: stolen invoice's sticker text should be "미서빙", got "${invoiceCheck.stickerText}"`);
+  }
+  if (!invoiceCheck.stickerIsPending) {
+    throw new Error("REGRESSION: stolen invoice's sticker should have the muted/pending style, not the green success style");
+  }
+  log("확인: 주문표 목록에서도 도난 주문표가 초록 '성공' 배지가 아니라 미서빙(pending) 스타일로 표시됨");
+
+  // ---- 나머지 라운드들은 그냥 흘려보내 후반 끝까지 진행, 최종 결과 화면 확인 ----
+  await pressSpace(p1); await pressSpace(p2);
+  for (let round = 3; round <= 7; round++) {
+    if (round < 7) {
+      await passPriority(p1, p2, ".thief-window");
+      await waitFor(async () => (await countSel(p1, ".thief-window")) > 0, { label: `후반 round ${round} thief window`, timeout: 8000 });
+      if (await countSel(p1, '[data-action="skip-thief"]')) await clickSel(p1, '[data-action="skip-thief"]');
+      if (await countSel(p2, '[data-action="skip-thief"]')) await clickSel(p2, '[data-action="skip-thief"]');
+    } else {
+      // 마지막 라운드: 도둑은 "다음 라운드부터" 작동하는데 다음이 없으므로 창이 아예 열리지 않는다
+      await passPriority(p1, p2, '[data-action="vote-up"]');
+      assert_((await countSel(p1, ".thief-window")) === 0, "마지막 라운드엔 초밥도둑 창이 열리지 않는다");
+    }
+    await waitFor(async () => (await countSel(p1, '[data-action="vote-up"]')) > 0, { label: `후반 round ${round} voting`, timeout: 8000 });
+    await clickSel(p1, '[data-action="vote-up"]');
+    await clickSel(p2, '[data-action="vote-up"]');
+    await waitFor(async () => (await bodyText(p1)).includes(`라운드 ${round} 결과`), { label: `후반 round ${round} 결과`, timeout: 8000 });
+    await pressSpace(p1); await pressSpace(p2);
+  }
+  log("후반 7라운드 전체 완료");
+
+  await waitFor(async () => (await bodyText(p1)).includes("승리") || (await bodyText(p1)).includes("무승부"), { label: "end 화면", timeout: 8000 });
+
+  // ---- 핵심 검증 3: 최종 결과 화면(후반 표)에서도 이 주문표가 '미서빙'으로 표시되는지 ----
+  const endText = await p2.evaluate(() => document.body.innerText);
+  const b1Row = endText.split("\n").find((line) => line.includes("빨강") && /미서빙|성공/.test(line));
+  log("최종 결과 화면의 해당 행:", b1Row);
+  if (!b1Row || !b1Row.includes("미서빙")) {
+    throw new Error(`REGRESSION: final results table should show 미서빙 for the stolen 빨강 invoice, found row: ${b1Row}`);
+  }
+  log("확인: 최종 결과 화면에서도 도난 주문표가 정확히 '미서빙'으로 표시됨");
+
+  if (errors.length) throw new Error("page errors: " + errors.join("; "));
+
+  await browser.close();
+  log("ALL CHECKS PASSED -- 도난당한 초밥은 라운드 결과 화면, 주문표 목록, 최종 결과 화면 세 군데 모두에서 일관되게 '미서빙'/실패로 표시됨 (성공으로 보이는 곳 없음)");
+}
+
+main().catch((e) => { console.error("[test-theft-e2e] FAILED:", e); process.exit(1); });

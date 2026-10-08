@@ -1,0 +1,136 @@
+// 2026-08-28: 사용자 리포트 검증 -- "초밥도둑이 도둑질한 초밥은 미서빙으로 처리되어야해".
+//
+// 코드를 읽어보면 game-room.js의 scoreInvoice/resultLabel은 이미 stolen 주문표를 무조건 실패(-penalty
+// / "미서빙")로 처리하도록 되어 있고(2026-08-27 커밋 ce12f26), origin/main과도 diff 없이 동일하다.
+// 다만 "실제로 성공/정상 서빙으로 처리되는 걸 봤다"는 리포트가 있었으므로, 정적 코드 리뷰만으로
+// 끝내지 않고 실제 GameRoom을 구동해서 진짜로 도난이 발생하는 시나리오를 결정론적으로 재현해본다.
+//
+// 실시간 타이머(secure phase 3분, VOTE_MS 5초 등)를 실제로 기다리지 않기 위해, WS/브라우저 없이
+// GameRoom 인스턴스를 직접 만들어서 내부 메서드(_endSecurePhase, _finishHalf, _resolveRound 등)를
+// 바로 호출한다 -- private 컨벤션(_ 접두사)일 뿐 실제로 호출을 막아주진 않으므로 테스트 목적으로는
+// 안전하고 빠르다.
+//
+// 시나리오: "지정 초밥" 종류는 칸의 num이 곧 서빙 접시라 접시를 미리 알 수 있다(game-data.js:
+// TYPES의 네 번째 종류, num=0 -> FLOORS[0] = "빨강"). 후반 1라운드에 seat 1이 빨강(floorIdx 0)에
+// 초밥도둑을 놓고, seat 2는 그 지정 초밥(빨강행)를 제작해둔다. 도둑은 "다음 라운드부터" 작동하므로
+// 2라운드에 회전 벨트을 빨강로 보내 seat 2의 그 주문표가 서빙되게 만들면, stolen:true가 찍혀야 하고
+// scoreInvoice/resultLabel 모두 "실패/미서빙"으로 나와야 한다.
+"use strict";
+const assert = require("assert");
+const { GameRoom, scoreInvoice, resultLabel, totalScore } = require("./game-room.js");
+const { TYPES } = require("./game-data.js");
+
+function log(...args) { console.log("[test-theft]", ...args); }
+
+const fixedFloorCatIdx = TYPES.findIndex((t) => t.key === "fixed-floor");
+assert(fixedFloorCatIdx === TYPES.length - 1, "assumption check: fixed-floor is the last category");
+const fixedFloorPenalty = TYPES[fixedFloorCatIdx].penalty;
+
+let lastState = null;
+const room = new GameRoom("TEST", (state) => { lastState = state; });
+
+// ---- 좌석/셰프 선택 ----
+let r = room.pickCourier("haru", "clientA");
+assert(r.ok && r.seat === "1", "seat 1 should be haru/clientA");
+r = room.pickCourier("pado", "clientB");
+assert(r.ok && r.seat === "2", "seat 2 should be pado/clientB");
+
+// ---- 로비 -> 전반 secure (실제 타이머는 기다리지 않고 바로 끝냄, 이 테스트는 전반 결과 자체엔
+// 관심 없음 -- 오직 후반 초밥도둑 메커닉만 검증) ----
+room.setReady("1");
+room.setReady("2");
+assert.strictEqual(room.state.phase, "secure", "should enter 전반 secure phase after both ready");
+room._endSecurePhase();
+assert.strictEqual(room.state.phase, "elevator", "should enter 전반 elevator phase");
+
+// ---- 전반 회전 벨트은 이 테스트와 무관 -- 곧장 하프 종료로 스킵 ----
+room._finishHalf();
+assert.strictEqual(room.state.phase, "halftime", "should reach halftime after 전반");
+assert.strictEqual(room.state.half, 2, "half should advance to 2");
+
+// ---- 후반 시작 ----
+room.halftimeReady("1");
+room.halftimeReady("2");
+assert.strictEqual(room.state.phase, "secure", "should enter 후반 secure phase");
+
+// seat 2가 지정 초밥의 빨강칸(num=0)을 제작 -- floorIdx가 확정적으로 0(빨강)이 된다.
+room.secureCell("2", "fixed-floor-1");
+const seat2Inv = room.state.players["2"].invoices.find((v) => v.catIdx === fixedFloorCatIdx);
+assert(seat2Inv, "seat 2 should have acquired the fixed-floor invoice");
+assert.strictEqual(seat2Inv.floorIdx, 0, "fixed-floor-1 should map to floorIdx 0 (빨강)");
+log("seat 2 secured a 빨강-bound 지정 초밥 invoice:", seat2Inv.id);
+
+room._endSecurePhase();
+assert.strictEqual(room.state.phase, "elevator", "should enter 후반 elevator phase");
+assert.strictEqual(room.state.half, 2, "still half 2");
+
+// ---- 후반 라운드 1: idle -> thief window. seat 1이 빨강(floorIdx 0)에 도둑을 놓고, seat 2는 넘긴다.
+room.setElevatorReady("1");
+room.setElevatorReady("2");
+// 2026-10-06: 준비가 끝나면 우선 초밥 지정 전용 시간("priority")이 맨 먼저 열린다 (seat 2는 미서빙 주문표가 있음).
+assert.strictEqual(room.state.elevator.state, "priority", "both ready -> the priority-pick window opens first");
+room.confirmPriority("1");
+assert.strictEqual(room.state.elevator.state, "priority", "one confirmation must not close the window");
+room.confirmPriority("2");
+assert.strictEqual(room.state.elevator.state, "thief", "후반 round 1 should open the thief window after both confirm the priority pick");
+
+room.placeThief("1", 0); // 빨강을 노림
+room.placeThief("2", null); // 넘김
+assert.strictEqual(room.state.elevator.state, "voting", "both done placing/skipping should advance straight to voting");
+assert.deepStrictEqual(room.state.elevator.thieves.active, [], "round 1's own thief has not activated yet (활성화는 다음 라운드부터)");
+
+// 라운드 1에서는 접시 이동 없이(주황에 머무름) 곧장 해소 -- seat 2의 빨강행 주문표가 이 라운드에 서빙되면
+// 안 되므로(그러면 도둑이 활성화되기 전에 이미 서빙 완료돼버려서 시나리오가 깨진다).
+assert.strictEqual(room.state.elevator.floorIdx, 1, "elevator should still be at start floor (주황, idx 1) with no votes cast");
+room._resolveRound();
+assert.strictEqual(room.state.elevator.state, "result", "round 1 should resolve to result");
+assert.strictEqual(seat2Inv.deliveredRound, null, "seat 2's 빨강 invoice must still be undelivered after round 1");
+
+// ---- 후반 라운드 2: idle(result) -> thief window. 이번엔 round 1에 놓은 도둑이 activate된다.
+room.setElevatorReady("1");
+room.setElevatorReady("2");
+assert.strictEqual(room.state.elevator.round, 2, "should now be round 2");
+room.confirmPriority("1"); room.confirmPriority("2"); // 우선 초밥 지정 창 통과 (자동 확정 상태면 무시됨)
+assert.strictEqual(room.state.elevator.state, "thief", "round 2 should also open a thief window");
+assert.deepStrictEqual(
+  room.state.elevator.thieves.active,
+  [{ seat: "1", floorIdx: 0 }],
+  "round 1's thief placement (seat 1 -> 빨강) must now be active for round 2"
+);
+log("confirmed: round-1 thief placement activated exactly one round later, as designed");
+
+// seat 1은 후반 2회 한도 중 1회만 썼으므로 아직 자동 스킵이 아니다(2026-10-07: 1회 -> 2회). 둘 다 넘겨서 voting으로.
+assert.strictEqual(room.state.elevator.thieves.skipped["1"], false, "seat 1 still has 1 placement left (2 per half)");
+room.placeThief("1", null);
+room.placeThief("2", null);
+assert.strictEqual(room.state.elevator.state, "voting", "round 2 should now be voting");
+
+// 회전 벨트을 주황(idx 1) -> 빨강(idx 0)으로 이동시켜 seat 2의 그 주문표를 이번 라운드에 서빙시킨다.
+room.vote("1", "down");
+assert.strictEqual(room.state.elevator.floorIdx, 0, "elevator should now be at 빨강 (idx 0)");
+room._resolveRound();
+assert.strictEqual(room.state.elevator.state, "result", "round 2 should resolve to result");
+
+// ---- 핵심 검증: seat 2의 그 주문표가 도난당했고, 그 결과가 "미서빙"/실패로 정확히 채점되는가 ----
+assert.strictEqual(seat2Inv.deliveredRound, 2, "invoice should be marked delivered on round 2 (도난도 '서빙 시도는 됨' 처리)");
+assert.strictEqual(seat2Inv.stolen, true, "invoice must be marked stolen -- a thief was active on its floor this round");
+assert.strictEqual(seat2Inv.deliveredWasPriority, false, "stolen delivery must never get the priority multiplier");
+
+const score = scoreInvoice(seat2Inv);
+assert.strictEqual(score, -fixedFloorPenalty, `stolen invoice must score as a flat penalty (-${fixedFloorPenalty}), got ${score}`);
+
+const label = resultLabel(seat2Inv);
+assert.strictEqual(label, "미서빙", `stolen invoice must be labeled 미서빙 (undelivered), got "${label}"`);
+
+// 라운드 로그(클라이언트의 실시간 "이번 라운드 서빙" 안내가 읽는 데이터)에도 stolen:true가 찍혀야 함.
+const roundLog = room.state.elevator.log.find((l) => l.round === 2);
+const deliveredEntry = roundLog.delivered.find((d) => d.seat === "2");
+assert(deliveredEntry, "round 2's delivered log should include seat 2's delivery");
+assert.strictEqual(deliveredEntry.stolen, true, "round log entry must also mark this delivery as stolen");
+assert.strictEqual(deliveredEntry.priority, false, "round log entry must not mark a stolen delivery as priority");
+
+// 전체 합산 점수도 이 페널티를 정확히 반영하는지 (다른 주문표가 하나도 없으므로 정확히 -penalty와 같아야 함)
+const seat2Total = totalScore("2", room.state);
+assert.strictEqual(seat2Total, -fixedFloorPenalty, "seat 2's total score for 후반 so far should equal exactly the theft penalty (no other invoices)");
+
+log("ALL CHECKS PASSED -- stolen invoice correctly scored as a flat penalty and labeled 미서빙, both in scoreInvoice/resultLabel and in the round log data the client renders from");
