@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>회전초밥 벨트 시험장</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <div>
+      <div class="eyebrow">Sushi Belt · 규칙 시험</div>
+      <h1>회전초밥 벨트 시험장</h1>
+      <p class="sub" id="subRule">벨트는 끝이 없이 한 바퀴를 돕니다. 5초 동안 두 사람이 서로 밀고, 멈췄을 때 내 자리 앞에 내 주문이 와 있으면 점수를 받아요. 내가 당긴 만큼 상대의 접시도 같이 움직입니다.</p>
+    </div>
+    <div class="top-actions"><button class="btn ghost" id="restart">처음부터</button></div>
+  </div>
+
+  <div class="stage">
+    <section class="panel s0" aria-label="왼쪽 자리">
+      <h2 id="h0"></h2>
+      <div class="keys" id="k0"></div>
+      <div class="label">내 주문</div>
+      <div id="order0"></div>
+      <div class="pad" id="pad0"><button class="btn dir" data-dir="-1" aria-label="반시계 방향으로 밀기">◀</button><button class="btn dir" data-dir="1" aria-label="시계 방향으로 밀기">▶</button></div>
+      <div class="label" id="frontLbl0">지금 내 앞 접시</div>
+      <div class="front" id="front0"></div>
+      <div class="label" id="budgetLabel0"></div>
+      <div class="bar"><i id="bar0"></i></div>
+      <div class="bar-num" id="bn0"></div>
+      <div class="score" id="score0"></div>
+    </section>
+
+    <div class="beltwrap">
+      <div class="belt" id="belt">
+        <div class="track"></div>
+        <div class="rot"></div>
+        <div class="frames"></div>
+        <div class="hole">
+          <div class="round" id="round"></div>
+          <div class="clock" id="clock">5.0</div>
+          <div class="msg" id="msg"></div>
+          <button class="btn big" id="holeBtn">시작</button>
+        </div>
+        <div id="ov"></div>
+      </div>
+      <div class="timebar"><i></i></div>
+    </div>
+
+    <section class="panel s1" aria-label="오른쪽 자리">
+      <h2 id="h1"></h2>
+      <div class="keys" id="k1"></div>
+      <div class="label">내 주문</div>
+      <div id="order1"></div>
+      <div class="pad" id="pad1"><button class="btn dir" data-dir="-1" aria-label="반시계 방향으로 밀기">◀</button><button class="btn dir" data-dir="1" aria-label="시계 방향으로 밀기">▶</button></div>
+      <div class="label" id="frontLbl1">지금 내 앞 접시</div>
+      <div class="front" id="front1"></div>
+      <div class="label" id="budgetLabel1"></div>
+      <div class="bar"><i id="bar1"></i></div>
+      <div class="bar-num" id="bn1"></div>
+      <div class="score" id="score1"></div>
+    </section>
+  </div>
+
+  <details class="settings">
+    <summary>규칙 바꿔 보기 (바꾸면 처음부터 다시 시작해요)</summary>
+    <div class="settings-grid">
+      <label>상대
+        <select id="sMode"><option value="bot">컴퓨터와 (내 주문만 보임)</option><option value="two">둘이서 한 화면 (주문이 둘 다 보임)</option></select>
+        <small>둘이서 모드는 주문이 서로에게 보여요. 숨기는 규칙은 화면이 따로인 실제 사이트에서만 됩니다.</small>
+      </label>
+      <label>접시 구성
+        <select id="sPlates"><option value="color">색 10가지 (주문 = 접시 색, 주문 종류 4가지)</option><option value="sushi">맛 8종 12칸 (주문 = 초밥 맛, 접시 가격대가 점수)</option></select>
+      </label>
+      <label>자리 규칙
+        <select id="sRule"><option value="any">한 칸 공유: 아래 한 칸에 온 접시를 둘이 같이 씀 (엘리베이터 방식)</option><option value="fixed">각자 자리: 내 앞 접시만 먹음 (자리 2개)</option></select>
+      </label>
+      <label>브레이크
+        <select id="sBrake"><option value="budget">밀기 총량 제한</option><option value="cap">라운드당 이동 범위 제한</option><option value="free">제한 없음 (연타 싸움)</option></select>
+      </label>
+      <label id="rowBudget">밀기 총량 (한 사람, 7라운드 전체)<input id="sBudget" type="number" min="1" max="500" step="1"></label>
+      <label id="rowCap">이동 범위 (라운드 시작 위치에서 몇 칸)<input id="sCap" type="number" min="1" max="6" step="1"></label>
+      <label>라운드 시간 (초)<input id="sMs" type="number" min="1" max="30" step="0.5"></label>
+      <label>종료 시각 흔들림 (±초)<input id="sJit" type="number" min="0" max="3" step="0.5"><small>0이면 정확히 라운드 시간에 끝나요. 올리면 언제 끝날지 몰라서, 마지막 순간에 몰아 미는 작전이 약해져요.</small></label>
+      <label>맞물리는 주문 비율 (%)<input id="sCoop" type="number" min="0" max="100" step="5"><small>이 확률로 "벨트를 어느 위치로 돌리면 두 사람 주문이 동시에 맞는" 쌍을 줘요. 본인들은 모릅니다. 0이면 완전 무작위.</small></label>
+      <label id="rowBot">컴퓨터 연타 속도 (초당)<input id="sBot" type="number" min="1" max="12" step="0.5"></label>
+      <label><span><input id="sSound" type="checkbox"> 소리 켜기</span></label>
+    </div>
+    <p class="note" id="publicNote">둘이서 모드 키: 1P는 <kbd>A</kbd> <kbd>D</kbd>, 2P는 <kbd>←</kbd> <kbd>→</kbd>. 키를 꾹 누르면 연속 입력되지 않고, 눌러야 한 칸씩 움직여요.</p>
+    <p class="note" id="plateNote"></p>
+  </details>
+</div>
+<script>
+/*__CORE__*/
+</script>
+<script>
+/*__UI__*/
+</script>
+</body>
+</html>
