@@ -24,6 +24,7 @@
 URL로도 됩니다: `?plates=color&mode=two&seatRule=any&brake=cap&cap=4&budget=48&coop=30&roundMs=5000&jitter=1&rounds=7&botRate=3&seed=1&sound=0` (`plates=sushi`가 이전 12칸 8종).
 
 ## 파일
+- `server.js`, `package.json`, `render.yaml` -- Render 같은 Node 웹 서비스로 띄우는 최소 서버(의존성 없음, `belt_proto.html` 한 장을 서빙, `/health`). 시작 명령 `node server.js`.
 - `belt-core.js` -- 규칙 전부 (시간/난수를 받는 순수 모듈, 브라우저·node 공용). 봇(`makeBot`)도 여기.
 - `belt-ui.js`, `belt.css`, `belt_page.html` -- 화면. `python3 build.py`가 `belt_proto.html` 하나로 합친다.
 - `test_core.js` (규칙 + 봇 시뮬레이션), `test_ui.js`, `test_ui_jitter.js` (Playwright). `sim_color.js` (색 10종 vs 6종 비교), `shot*.js` 스크린샷 도우미.

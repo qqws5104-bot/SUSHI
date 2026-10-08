@@ -1,0 +1,13 @@
+{
+  "name": "sushi-belt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "회전초밥 벨트 규칙 시험판 (정적 한 페이지를 서빙)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "python3 build.py",
+    "test": "node test_core.js"
+  },
+  "engines": { "node": ">=18" }
+}
