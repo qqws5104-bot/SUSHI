@@ -1,5 +1,5 @@
 // 시험용 퍼즐 풀이기 (2026-10-08) -- test_minigames_extra.js 공용.
-// iceSolve(rows): 도마 미끄럼 최단 키 문자열 / twinSolve(rows, mirror): 쌍둥이 서빙 최단 키 문자열. 풀 수 없으면 null.
+// iceSolve(rows): 초밥 담기 최단 키 문자열 / twinSolve(rows, mirror): 쌍둥이 서빙 최단 키 문자열. 풀 수 없으면 null.
 "use strict";
 const DIR = [[0, -1, "U"], [0, 1, "D"], [-1, 0, "L"], [1, 0, "R"]];
 function iceParse(rows) {

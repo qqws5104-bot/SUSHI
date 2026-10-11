@@ -40,12 +40,15 @@ function drawRoom(playerState) {
 // fixedFloor 종류(지정 초밥)는 칸의 num(0..5)이 그대로 FLOORS 인덱스가 된다 -- 무작위가 아니라
 // 어느 칸을 제작했는지에 따라 서빙지가 결정되어 있다. 그 외 종류는 기존처럼 무작위 접시. room은 이제
 // 호출부(secureCell)에서 drawRoom()으로 뽑아 넘겨준다 (플레이어별 중복 방지, 위 참고).
-function randomInvoice(seat, catIdx, num, acquiredSeq, room) {
+function randomInvoice(seat, catIdx, num, acquiredSeq, room, sushi) {
   const t = TYPES[catIdx];
+  const pool = t.sushi || [];
+  const sushiKey = pool.indexOf(sushi) >= 0 ? sushi : (pool.length ? pool[Math.floor(Math.random() * pool.length)] : null);
   const floorIdx = t.fixedFloor ? num : Math.floor(Math.random() * FLOORS.length);
   return {
     id: "inv-" + seat + "-" + acquiredSeq,
     catIdx, floorIdx, room, acquiredSeq,
+    sushi: sushiKey, // 이 주문표의 구체적인 초밥 (예: 연어) -- TYPES[catIdx].sushi 중 하나
     deliveredRound: null,
     stolen: false, // 초밥도둑에게 뺏긴 경우 true (후반 전용, 확정 마이너스 점수)
     deliveredWasPriority: false, // 서빙된 그 라운드에 우선 초밥으로 지정돼 있었는지 (확정, 이후 안 바뀜)
@@ -233,7 +236,7 @@ class GameRoom {
   //    같은 종류의 빈 칸 아무거나를 대신 준다. 종류 전체가 소진됐으면 그냥 무시(= 늦은 사람은 허탕).
   //  * 지정 초밥: 칸이 곧 서빙 접시라 서로 대체가 안 된다. 그 접시를 이미 남이 가져갔으면 무시(선점자 우선).
   // 포기(클라이언트가 이 메시지를 안 보내고 게임만 닫음)는 여기까지 오지 않으므로 보드는 그대로다.
-  secureCell(seat, cellId) {
+  secureCell(seat, cellId, sushi) {
     if (this.state.phase !== "secure") return;
     let cell = cellById(this.state, cellId);
     if (!cell) return; // 모르는 id
@@ -249,7 +252,7 @@ class GameRoom {
     this.state.acquireCounter[seat] += 1;
     cell.acquiredSeq = this.state.acquireCounter[seat];
     const room = drawRoom(this.state.players[seat]);
-    this.state.players[seat].invoices.push(randomInvoice(seat, cell.catIdx, cell.num, cell.acquiredSeq, room));
+    this.state.players[seat].invoices.push(randomInvoice(seat, cell.catIdx, cell.num, cell.acquiredSeq, room, sushi));
     // 2026-10-07: 보드가 다 비면 남은 시간을 기다리지 않고 곧 회전 벨트으로 넘어간다(할 게 없는 빈 시간 방지).
     // 클라이언트의 카운트다운이 secureEndsAt을 보므로 그 값을 짧게 당겨 둔다. _scheduleAt은 타이머 슬롯이 하나라
     // 원래의 3분 타이머를 대체한다(낡은 타이머가 다음 하프의 제작 단계를 끊을 일 없음).

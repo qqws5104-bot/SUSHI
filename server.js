@@ -106,7 +106,7 @@ const server = http.createServer((req, res) => {
 
 // ---- 레일 화면(/rail)의 버튼 처리 ----
 // side 쪽 플레이어가 풀 칸을 정해서(room.railCellFor) 그 좌석 주인의 모든 연결에 "open-game"을 보낸다.
-// 칸 제작는 여전히 플레이어가 게임을 끝내고 보내는 secure-cell 한 가지뿐이다 (서버 규칙은 그대로).
+// 칸 제작은 여전히 플레이어가 게임을 끝내고 보내는 secure-cell 한 가지뿐이다 (서버 규칙은 그대로).
 function handleRailPress(entry, code, msg) {
   const side = msg.side;
   if (side !== "1" && side !== "2") return;
@@ -188,7 +188,7 @@ wss.on("connection", (ws, req) => {
         if (!conn.seat || typeof msg.cellId !== "string") return;
         const wasBusy = entry.busy[conn.seat];
         entry.busy[conn.seat] = false; // 끝냈으니 레일 화면에서 다시 누를 수 있다 (room.secureCell의 브로드캐스트에 같이 실려 간다)
-        entry.room.secureCell(conn.seat, msg.cellId);
+        entry.room.secureCell(conn.seat, msg.cellId, typeof msg.sushi === "string" ? msg.sushi : null);
         if (wasBusy) broadcast(code, entry.room.state); // 중복 메시지라 room이 방송을 안 했을 때를 위해
         break;
       }

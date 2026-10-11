@@ -496,6 +496,9 @@ HEAD_HTML = """<!doctype html>
     transition:transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease; }
   .floor-stop.current .car { opacity:1; transform:scale(1.3); border-color:var(--ink); box-shadow:0 1.4cqw 3.5cqw rgba(43,29,18,0.4); }
   .belt-mark { position:absolute; left:0; right:0; top:100cqw; text-align:center; font-family:var(--font-display); font-weight:800; font-size:6.5cqw; color:var(--ink); letter-spacing:0.04em; }
+  .inv-sushi { flex:0 0 auto; width:2.3rem; display:inline-flex; align-items:center; }
+  .inv-sushi-svg { width:100%; height:auto; display:block; }
+  .invoice .t .inv-type { font-weight:600; font-size:0.72rem; color:var(--muted); margin-left:0.2rem; }
   .round-pill { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.8rem; border-radius:999px;
     background:rgba(37,105,168,0.12); color:var(--sky); font-family:var(--font-display); font-weight:600; font-size:0.85rem; }
   .vote-buttons { display:flex; flex-direction:column; gap:0.7rem; margin-top:1rem; }
@@ -790,6 +793,28 @@ APP_JS_TEMPLATE = r"""
   function roomCode(floorIdx, room) {
     return FLOORS[floorIdx] + " " + room + "번";
   }
+  // 제작된 초밥의 구체적인 종류 (inv.sushi = TYPES[catIdx].sushi 중 하나, 예: "salmon" -> "연어"). 이름/그림은 minigames.js의 SUSHI.
+  function sushiShort(key) { return key && window.MiniGames && MiniGames.SUSHI[key] ? MiniGames.SUSHI[key] : ""; }
+  function sushiIcon(key) { return key && window.MiniGames && MiniGames.SUSHI[key] ? '<span class="inv-sushi">' + MiniGames.sushiSvg(key, "inv-sushi-svg") + '</span>' : ''; }
+  function invTitle(inv) {
+    var t = TYPES[inv.catIdx], sn = sushiShort(inv.sushi);
+    return sn ? esc(sn) + ' 초밥 <small class="inv-type">' + esc(t.name.replace(" 초밥", "")) + '</small>' : esc(t.name);
+  }
+  function chipText(inv) { var sn = sushiShort(inv.sushi); return (sn ? sn + ' · ' : '') + roomCode(inv.floorIdx, inv.room); }
+  function findInvoiceById(id) {
+    if (!state || !state.players) return null;
+    var out = null;
+    ["1", "2"].forEach(function (sn) { (state.players[sn].invoices || []).forEach(function (v) { if (v.id === id) out = v; }); });
+    return out;
+  }
+  // 칸을 열 때마다 이번에 만들 초밥을 클라이언트가 무작위로 고른다 (TYPES[].sushi 중). 서버는 그 키가 목록에 있는지만 검증해 주문표에 붙인다.
+  var sushiPicks = {};
+  function newSushiPick(cellId) {
+    var m = cellMeta(cellId, state.half), pool = (m && TYPES[m.catIdx].sushi) || [];
+    sushiPicks[cellId] = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    return sushiPicks[cellId];
+  }
+  function sushiFor(cellId) { return sushiPicks[cellId] || newSushiPick(cellId); }
 
   // ---------- 셰프(courier) 표시 이름 -- 2026-08-27 신설 ----------
   // "플레이어 1/2" 대신 화면 곳곳에서 좌석을 부를 때 이걸 쓴다. 아직 그 좌석이 셰프를 안 골랐으면
@@ -949,7 +974,7 @@ APP_JS_TEMPLATE = r"""
           + '<span class="rbp">성공 ' + fmtWon(t.reward) + ' · 실패 ' + fmtWon(-t.penalty) + '</span></button>';
         mine += '<div class="my-chips">' + myCells.map(function (c) {
           var inv = invFor(c);
-          return '<span class="my-chip">' + (inv ? esc(roomCode(inv.floorIdx, inv.room)) : '제작') + '</span>';
+          return '<span class="my-chip">' + (inv ? esc(chipText(inv)) : '제작') + '</span>';
         }).join('') + '</div>';
       }
       mine += '</div>';
@@ -977,7 +1002,7 @@ APP_JS_TEMPLATE = r"""
   // TYPES[catIdx].mini(game-data.js)가 있는 종류의 칸은 우봉고 대신 minigames.js의 게임을 띄운다
   // (null이면 기존 우봉고 이미지 + "완료" 버튼). 게임은 #app이 아니라 #mg-layer에 mount한다 -- 이유는 CSS 주석 참고.
   // 서버는 이 게임을 모른다: 클라이언트가 끝까지 풀었다고 판정하면 예전과 똑같은 secure-cell 하나만 보낸다.
-  var MINI_NAME = { pack: "상자 포장", inspect: "이상 확인", sticker: "주문표 붙이기", map: "주문 서빙", soko: "재료 정리", ice: "도마 미끄럼", route: "벨트 경로", twin: "쌍둥이 서빙", pipe: "컨베이어 잇기", hanoi: "초밥 쌓기" };
+  var MINI_NAME = { pack: "상자 포장", inspect: "이상 확인", sticker: "주문표 붙이기", map: "주문 서빙", soko: "재료 정리", ice: "초밥 담기", route: "도마 닦기", twin: "쌍둥이 서빙", pipe: "컨베이어 잇기", hanoi: "초밥 쌓기" };
   // ?mgtest=1 이면 불량 검수의 정답 칸에 data-defect를 노출한다 (자동 테스트 전용 -- 일반 플레이엔 안 붙음).
   var TEST_HOOKS = /[?&]mgtest=1(&|$)/.test(location.search);
   var mg = null; // { cellId, ctl }
@@ -993,6 +1018,7 @@ APP_JS_TEMPLATE = r"""
   function openCell(cellId) {
     var m = cellMeta(cellId, state.half);
     if (m && TYPES[m.catIdx].mini && window.MiniGames) { openMiniGame(cellId); return; }
+    newSushiPick(cellId);
     local.openCellId = cellId; render();
   }
   // 레일 화면이 "이 칸을 풀어라"고 보냈을 때. 이미 뭔가 하고 있으면(서버도 막지만 경합 대비) 무시한다.
@@ -1006,6 +1032,7 @@ APP_JS_TEMPLATE = r"""
   function openMiniGame(cellId) {
     var meta = cellMeta(cellId, state.half);
     var t = TYPES[meta.catIdx];
+    var pickedSushi = newSushiPick(cellId);
     closeMiniGame();
     var layer = document.getElementById("mg-layer");
     layer.innerHTML = '<div class="mg-wrap"><div class="mg-clock">제작 시간<b id="mg-clock">--:--</b></div><div id="mg-host"></div></div>';
@@ -1013,11 +1040,11 @@ APP_JS_TEMPLATE = r"""
     mg = {
       cellId: cellId,
       ctl: MiniGames.start(document.getElementById("mg-host"), {
-        kind: t.mini, level: perHalf(t.miniLevel),
+        kind: t.mini, level: perHalf(t.miniLevel), sushi: pickedSushi,
         // 지정 초밥은 칸이 곧 서빙 접시라 주문표에 그 접시를 그대로 찍는다 (호수는 제작 순간 서버가 정하므로 표기 안 함).
         label: t.fixedFloor ? FLOORS[meta.num] : null,
         testHooks: TEST_HOOKS,
-        onDone: function () { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id }); },
+        onDone: function () { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id) }); },
         onCancel: function () { closeMiniGame(); },
       }),
     };
@@ -1030,7 +1057,7 @@ APP_JS_TEMPLATE = r"""
         var id = mg.cellId;
         markPending(id);
         closeMiniGame();
-        send({ type: "secure-cell", seat: mySeat(), cellId: id });
+        send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id) });
         return true;
       };
     }
@@ -1102,7 +1129,7 @@ APP_JS_TEMPLATE = r"""
       var flagText = inv.deliveredWasPriority ? ('우선 x' + PRIORITY_MULTIPLIER + ' 성공') : (isPendingPriority ? ('이번 라운드 우선 x' + PRIORITY_MULTIPLIER) : '');
       return '<div class="invoice' + (delivered ? ' delivered' : '') + (isPriority ? ' is-priority' : '') + '">'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + '<div class="meta"><div class="t">' + esc(t.name) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
         + '<span class="sticker' + (delivered && !inv.stolen ? '' : ' pending') + '">' + stickerText + '</span>'
         + '</div>';
     }).join("") + '</div>';
@@ -1118,7 +1145,7 @@ APP_JS_TEMPLATE = r"""
         ? ' — <span style="color:var(--danger);font-weight:700;">초밥도둑에게 도난당했어요! (' + fmtWon(-t.penalty) + ')</span>'
         : ' (' + fmtWon(d.priority ? t.reward * PRIORITY_MULTIPLIER : t.reward) + (d.priority ? ' · 우선 x' + PRIORITY_MULTIPLIER : '') + ')';
       return '<div class="delivered-item"><span class="swatch" style="background:' + t.color + '"></span>'
-        + roomCode(d.floorIdx, d.room) + ' ' + esc(t.name) + note
+        + roomCode(d.floorIdx, d.room) + ' ' + (function () { var iv = findInvoiceById(d.invoiceId), sn = iv ? sushiShort(iv.sushi) : ""; return sn ? esc(sn) + ' 초밥 (' + esc(t.name.replace(" 초밥", "")) + ')' : esc(t.name); })() + note
         + '</div>';
     }).join('') + '</div>';
   }
@@ -1147,7 +1174,7 @@ APP_JS_TEMPLATE = r"""
       return '<div class="invoice' + (confirmed ? ' delivered' : ' pickable') + (picked ? ' is-priority' : '') + '"'
         + (confirmed ? '' : (' data-action="pick-priority" data-inv="' + (picked ? '' : inv.id) + '"')) + '>'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + '<div class="meta"><div class="t">' + esc(t.name) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 성공 시 ' + fmtWon(t.reward) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 성공 시 ' + fmtWon(t.reward) + '</div></div>'
         + '<span class="sticker' + (picked ? '' : ' pending') + '">' + (picked ? ('우선 x' + PRIORITY_MULTIPLIER) : '선택') + '</span>'
         + '</div>';
     }).join('') + '</div>';
@@ -1259,7 +1286,7 @@ APP_JS_TEMPLATE = r"""
             + (myChosen ? '' : (' data-action="choose-delivery" data-inv="' + invId + '"'))
             + '>'
             + '<span class="swatch" style="background:' + t.color + '"></span>'
-            + '<div class="meta"><div class="t">' + esc(t.name) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
+            + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
             + '<span class="sticker' + (isChosen ? '' : ' pending') + '">' + (isChosen ? '선택됨' : '선택') + '</span>'
             + '</div>';
         }).join('') + '</div>';
@@ -1348,7 +1375,7 @@ APP_JS_TEMPLATE = r"""
       var t = TYPES[inv.catIdx];
       var pts = scoreInvoice(inv);
       var label = resultLabel(inv) + (inv.deliveredWasPriority ? ' · 우선' : '');
-      html += '<tr><td>' + esc(t.name) + '</td><td>' + roomCode(inv.floorIdx, inv.room) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
+      html += '<tr><td>' + esc(t.name) + (sushiShort(inv.sushi) ? ' · ' + esc(sushiShort(inv.sushi)) : '') + '</td><td>' + roomCode(inv.floorIdx, inv.room) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
     });
     if (!invs.length) html += '<tr><td colspan="4" style="color:var(--muted)">제작한 초밥 없음</td></tr>';
     html += '</tbody></table>';
@@ -1551,7 +1578,7 @@ APP_JS_TEMPLATE = r"""
     TYPES.forEach(function (t, catIdx) {
       var left = boardLeft(st, catIdx);
       var chips = mine.filter(function (inv) { return inv.catIdx === catIdx; })
-        .map(function (inv) { return '<span class="my-chip">' + esc(roomCode(inv.floorIdx, inv.room)) + '</span>'; }).join('');
+        .map(function (inv) { return '<span class="my-chip">' + esc(chipText(inv)) + '</span>'; }).join('');
       html += '<div class="rw-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '" style="--c:' + t.color + '">'
         + '<span class="rw-ico">' + CAT_ICONS[catIdx] + '</span><span class="rw-name">' + esc(t.name) + '<small>' + esc(MINI_NAME[t.mini] || '우봉고') + '</small></span>'
         + '<span class="rw-left">남은 <b>' + left + '</b>/' + t.count + '</span><span class="rw-mine">' + (chips || '<small>아직 없음</small>') + '</span></div>';
@@ -1751,6 +1778,7 @@ APP_JS_TEMPLATE = r"""
       }
       if (!freeCell) { if (!sawPending) showToast(tt.name + "은(는) 이미 소진됐어요"); return; }
       if (tt.mini && window.MiniGames) { openMiniGame(freeCell.id); return; }
+      newSushiPick(freeCell.id);
       local.openCellId = freeCell.id; render(); return;
     }
     if (action === "give-up") { local.openCellId = null; notifyGameClosed(); render(); return; }
@@ -1758,7 +1786,7 @@ APP_JS_TEMPLATE = r"""
       var cid = t.getAttribute("data-cell");
       markPending(cid);
       local.openCellId = null;
-      send({ type: "secure-cell", seat: mySeat(), cellId: cid });
+      send({ type: "secure-cell", seat: mySeat(), cellId: cid, sushi: sushiFor(cid) });
       render();
       return;
     }

@@ -23,13 +23,33 @@
     sticker: { name: "주문표 붙이기" },
     map:     { name: "주문 서빙" },
     soko:    { name: "재료 정리" },
-    ice:     { name: "도마 미끄럼" },
-    route:   { name: "벨트 경로" },
+    ice:     { name: "초밥 담기" },
+    route:   { name: "도마 닦기" },
     twin:    { name: "쌍둥이 서빙" },
     pipe:    { name: "컨베이어 잇기" },
     hanoi:   { name: "초밥 쌓기" },
   };
   var LEVEL_NAME = ["쉬움", "보통", "어려움"];
+
+  // 제작하는 초밥 (표시 전용 -- 어떤 키가 어떤 종류에 속하는지는 game-data.js의 TYPES[].sushi가 정한다).
+  // 그림은 위에서 본 니기리: 밥 + 네타(topping). 헤더 칩, 초밥 담기의 수집 아이템, 주문표 목록에서 같이 쓴다.
+  var SUSHI_TOP = {
+    egg: '<rect x="26" y="34" width="48" height="26" rx="6" fill="#f4cf4a"/><rect x="45" y="30" width="10" height="32" rx="2" fill="#1f2a24"/>',
+    tofu: '<path d="M24 56q-2-22 26-24q28 2 26 24z" fill="#d9922e"/><path d="M30 44h40" stroke="#b36f17" stroke-width="2.4" stroke-dasharray="4 4"/><ellipse cx="50" cy="35" rx="14" ry="5" fill="#fdfbf4"/>',
+    salmon: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#f08a4b"/><path d="M28 44q10-5 18 0M44 39q10-5 18 0M52 50q9-4 16 0" stroke="#ffd9bd" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    ikura: '<rect x="28" y="36" width="44" height="26" rx="9" fill="#1f2a24"/><ellipse cx="50" cy="38" rx="19" ry="8" fill="#f26a2e"/><circle cx="41" cy="36" r="3.4" fill="#ff9a58"/><circle cx="50" cy="33" r="3.4" fill="#ff8a45"/><circle cx="59" cy="36" r="3.4" fill="#ff9a58"/><circle cx="46" cy="40" r="3.2" fill="#e85a22"/><circle cx="55" cy="40" r="3.2" fill="#e85a22"/>',
+    eel: '<ellipse cx="50" cy="46" rx="29" ry="13" fill="#6b3a1e"/><path d="M26 44q24-9 48 0" stroke="#b27a47" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M34 52q16 4 32 0" stroke="#3f200d" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    tuna: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#b3262e"/><path d="M30 46q20-8 40 0" stroke="#e7727a" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    shrimp: '<path d="M24 52q2-20 28-20q20 0 24 16q-6 6-26 6q-20 0-26-2z" fill="#f4a79b"/><path d="M36 36q3 10 0 18M48 33q3 12 0 22M60 34q3 11 0 20" stroke="#dd6f64" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M74 46l10-6l-2 10z" fill="#dd6f64"/>',
+    octopus: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#f3dbe1"/><path d="M24 46q26-14 52 0" stroke="#9c4f73" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="38" cy="48" r="2.2" fill="#c98aa6"/><circle cx="50" cy="50" r="2.2" fill="#c98aa6"/><circle cx="62" cy="48" r="2.2" fill="#c98aa6"/>',
+  };
+  var SUSHI = {
+    egg: "계란", tofu: "유부", salmon: "연어", ikura: "연어알", eel: "장어", tuna: "참치", shrimp: "새우", octopus: "문어",
+  };
+  function sushiSvg(key, cls) {
+    return '<svg class="' + (cls || "mg-sushi-svg") + '" viewBox="12 24 76 50" aria-hidden="true"><ellipse cx="50" cy="58" rx="25" ry="12" fill="#fdfbf4" stroke="#d9d2c0"/>' + (SUSHI_TOP[key] || SUSHI_TOP.egg) + "</svg>";
+  }
+
 
   // 상자 포장에서 방향키를 잘못 눌렀을 때의 규칙 (2026-10-06 결정: 영상처럼 "reset" -- 처음부터 다시).
   //   reset  : 입력한 순서 전체를 처음부터 다시
@@ -701,16 +721,20 @@
   var MAP_LOCK_MS = 800;   // 틀린 서빙 뒤 멈춤
   var MAP_STEP_MS = 70;    // 방향키를 꾹 누를 때 한 칸씩 가는 최소 간격
   var MAP_VEC = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-  var HOUSE_SVG = '<svg class="mg-hsvg" viewBox="0 0 40 40" aria-hidden="true"><path d="M5 19 20 6l15 13Z" class="mg-roof"/><rect x="9" y="19" width="22" height="15" class="mg-wall"/><rect x="17" y="25" width="6" height="9" class="mg-door"/></svg>';
-  var VAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="11" width="21" height="17" rx="2" class="mg-van-box"/><path d="M25 16h7l4 5v7H25Z" class="mg-van-cab"/><circle cx="12" cy="30" r="3.4" class="mg-van-wh"/><circle cx="30" cy="30" r="3.4" class="mg-van-wh"/></svg>';
+  // 손님 자리(테이블): 위에서 본 나무 테이블 + 접시 + 젓가락. 지도 서빙의 "집" 대신 쓴다 (CSS 클래스 이름은 mg-roof 등을 그대로 재사용).
+  var HOUSE_SVG = '<svg class="mg-hsvg" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" class="mg-roof"/><circle cx="20" cy="20" r="9" class="mg-wall"/><path d="M12 33l15-24M15 34l15-24" class="mg-door"/></svg>';
+  // 지도를 돌아다니는 셰프 (쟁반을 든 모습). 이름은 예전 VAN_SVG 그대로 두고 그림만 교체.
+  var VAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="31" rx="16" ry="5" class="mg-van-box"/><circle cx="20" cy="17" r="7" class="sk-m-face"/><path d="M12 13c-2-6 3-9 6-6 1-3 6-3 7 0 3-3 8 0 6 6-4-1-15-1-19 0Z" class="sk-m-cap"/><path d="M11 36c0-7 4-11 9-11s9 4 9 11Z" class="sk-m-body"/><circle cx="17.3" cy="17.5" r="1" class="sk-m-eye"/><circle cx="22.7" cy="17.5" r="1" class="sk-m-eye"/></svg>';
 
   function mapKey(x, y) { return x + "," + y; }
-  // 호실 번호: 접시(1~5) + 0 + 호(1~9) = 101 ~ 509. 목표는 무작위, 미끼 중 similar개는 목표와 같은 접시 또는 같은 호(번갈아)를 가진다.
+  // 주문 번호: 접시 색(빨강~보라) + 번호(1~9) = "주황 3번". 게임 본체의 주문표 표기(roomCode)와 같다.
+  // 목표는 무작위, 미끼 중 similar개는 목표와 같은 접시 색 또는 같은 번호(번갈아)를 가진다.
+  var MAP_PLATES = ["빨강", "주황", "노랑", "초록", "파랑", "보라"];
   function assignRoomLabels(houses, targets, similar) {
-    var used = {};
-    function code(f, r) { return String(f * 100 + r); }
+    var used = {}, meta = {};
+    function code(f, r) { var cd = MAP_PLATES[f] + " " + r + "번"; meta[cd] = { f: f, r: r }; return cd; }
     function takeRandom() {
-      for (;;) { var cd = code(1 + rand(5), 1 + rand(9)); if (!used[cd]) { used[cd] = 1; return cd; } }
+      for (;;) { var cd = code(rand(MAP_PLATES.length), 1 + rand(9)); if (!used[cd]) { used[cd] = 1; return cd; } }
     }
     targets.forEach(function (t) { t.label = takeRandom(); });
     var tset = {}; targets.forEach(function (t) { tset[mapKey(t.x, t.y)] = 1; });
@@ -719,9 +743,9 @@
     for (var i = 0; i < decoys.length; i++) {
       var cand = [];
       if (i < n) {
-        var f = parseInt(targets[i].label.charAt(0), 10), r = parseInt(targets[i].label.charAt(2), 10);
-        for (var a = 1; a <= 5; a++) for (var b = 1; b <= 9; b++) {
-          var same = i % 2 === 0 ? (a === f && b !== r) : (b === r && a !== f); // 짝수: 같은 접시 다른 호 / 홀수: 같은 호 다른 접시
+        var m = meta[targets[i].label], f = m.f, r = m.r;
+        for (var a = 0; a < MAP_PLATES.length; a++) for (var b = 1; b <= 9; b++) {
+          var same = i % 2 === 0 ? (a === f && b !== r) : (b === r && a !== f); // 짝수: 같은 접시 다른 번호 / 홀수: 같은 번호 다른 접시
           if (same && !used[code(a, b)]) cand.push(code(a, b));
         }
       }
@@ -776,7 +800,7 @@
       var k = mapKey(x, y), h = houseAt[k], isDepot = x === plan.depot.x && y === plan.depot.y;
       tiles += '<div class="mg-tile' + (h ? " is-house" : "") + (blockAt[k] ? " is-block" : "") + (isDepot ? " is-depot" : "") + '" data-x="' + x + '" data-y="' + y + '">'
         + (h ? HOUSE_SVG + '<b class="mg-lab">' + h.label + '</b><span class="mg-chk">✓</span>'
-          : blockAt[k] ? '<span class="mg-fence"></span>' : isDepot ? '<span class="mg-dep">센터</span>' : "")
+          : blockAt[k] ? '<span class="mg-fence"></span>' : isDepot ? '<span class="mg-dep">주방</span>' : "")
         + "</div>";
     }
     var dots = ""; for (var di = 0; di < N; di++) dots += '<span class="mg-dot"></span>';
@@ -784,7 +808,7 @@
       '<div class="mg-map-top"><div class="mg-flashbar"><i></i></div><p class="mg-phase"></p></div>'
       + '<div class="mg-map is-covered" style="--cols:' + W + ';--rows:' + H + '">' + tiles
       + '<div class="mg-courier" style="--cx:' + plan.depot.x + ';--cy:' + plan.depot.y + '">' + VAN_SVG + '</div>'
-      + '<div class="mg-cover"><div class="mg-parcels"></div><span class="mg-cover-note">지도는 초밥을 확인한 뒤에 나와요</span></div></div>'
+      + '<div class="mg-cover"><div class="mg-parcels"></div><span class="mg-cover-note">홀 지도는 주문표를 확인한 뒤에 나와요</span></div></div>'
       + '<div class="mg-map-foot"><div class="mg-dots">' + dots + '</div><button type="button" class="mg-replay" tabindex="-1" disabled>주문표 다시 보기</button></div>'
       + '<p class="mg-freeze-note"></p>'
       + '<div class="mg-pad">'
@@ -815,7 +839,7 @@
       var html = "";
       for (var i = 0; i < N; i++) {
         html += '<div class="mg-parcel' + (i < idx ? " is-done" : "") + '" style="--d:' + (i * MAP_POP_STAGGER_MS) + 'ms">'
-          + '<i class="pn">' + (i + 1) + '</i><span class="pbox"><b class="pl">' + plan.targets[i].label + '호</b></span><span class="pk">✓</span></div>';
+          + '<i class="pn">' + (i + 1) + '</i><span class="pbox"><b class="pl">' + plan.targets[i].label + '</b></span><span class="pk">✓</span></div>';
       }
       parcelsEl.innerHTML = html; // 새로 그려야 팝업 애니메이션이 처음부터 다시 돈다
       phaseEl.textContent = "초밥 주문표를 외우세요! 이 순서대로 서빙해요";
@@ -830,7 +854,7 @@
     function showMap() {
       phase = "play";
       map.classList.remove("is-covered");
-      phaseEl.textContent = "지도가 나왔어요! 호실을 찾아 순서대로 서빙하세요";
+      phaseEl.textContent = "홀 지도가 나왔어요! 주문 번호의 자리를 찾아 순서대로 서빙하세요";
       paintDots();
       updateReplay();
     }
@@ -865,7 +889,7 @@
       c.addMistake();
       locked = true;
       restartAnim(tile, "is-wrong");
-      note.textContent = tile.classList.contains("is-house") ? "그 호실이 아니에요!" : "서빙할 집이 아니에요";
+      note.textContent = tile.classList.contains("is-house") ? "그 주문 번호가 아니에요!" : "손님 자리가 아니에요";
       c.later(function () { locked = false; note.textContent = ""; }, MAP_LOCK_MS);
     }
     function press(k) {
@@ -901,8 +925,8 @@
     updateReplay();
     return {
       hint: function () {
-        return "먼저 주문표만 붙은 초밥이 순서대로 잠깐 떠요 -- 호실 번호와 순서를 외우세요. 그다음 지도가 나오면 그 호실의 집을 찾아 방향키로 이동하고, 도착하면 스페이스로 서빙해요. "
-          + "비슷한 번호의 집이 섞여 있어요. 엉뚱한 집에서 서빙하면 실수예요. 시작 " + Math.round(replayAfter / 1000) + "초 뒤부터는 주문표를 다시 볼 수 있어요.";
+        return "먼저 주문표가 순서대로 잠깐 떠요 -- 주문 번호(접시 색 + 번호)와 순서를 외우세요. 그다음 홀 지도가 나오면 그 번호의 손님 자리를 찾아 방향키로 이동하고, 도착하면 스페이스로 서빙해요. "
+          + "비슷한 번호의 자리가 섞여 있어요. 엉뚱한 자리에서 서빙하면 실수예요. 시작 " + Math.round(replayAfter / 1000) + "초 뒤부터는 주문표를 다시 볼 수 있어요.";
       },
     };
   }
@@ -1005,8 +1029,10 @@
     return false;
   }
 
-  var SK_BOX_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="7" width="32" height="28" rx="2.5" class="sk-bx-body"/><rect x="4" y="7" width="32" height="8" rx="2.5" class="sk-bx-top"/><rect x="16" y="7" width="8" height="17" class="sk-bx-tape"/><path class="sk-bx-ok" d="M12 25l6 6 11-12"/></svg>';
-  var SK_MAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="14" r="7.5" class="sk-m-face"/><path d="M11.5 12.5c0-6 4-8.5 8.5-8.5s8.5 2.5 8.5 8.5Z" class="sk-m-cap"/><rect x="19" y="10" width="14" height="3.4" rx="1.6" class="sk-m-brim"/><path d="M9 36c0-8 5-13 11-13s11 5 11 13Z" class="sk-m-body"/><circle cx="16.6" cy="15" r="1.1" class="sk-m-eye"/><circle cx="23.4" cy="15" r="1.1" class="sk-m-eye"/></svg>';
+  // 재료 상자(생선 상자): 나무 상자 + 흰 생선 무늬. 재료 정리의 "상자"다 (CSS 클래스 이름은 sk-bx-*를 그대로 재사용).
+  var SK_BOX_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="7" width="32" height="28" rx="2.5" class="sk-bx-body"/><rect x="4" y="7" width="32" height="8" rx="2.5" class="sk-bx-top"/><path class="sk-bx-tape" d="M9 25c4-6 11-6 15 0c-4 6-11 6-15 0ZM24 25l6-4.5v9Z"/><path class="sk-bx-ok" d="M12 25l6 6 11-12"/></svg>';
+  // 셰프: 흰 조리모(토크) + 흰 조리복. 도마 미끄럼/재료 정리/도마 닦기에서 플레이어 말이다 (클래스 이름은 sk-m-*를 그대로 재사용).
+  var SK_MAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="17" r="7.5" class="sk-m-face"/><path d="M11.5 14c-3.5-5 1-9.5 5-7.5 1.5-3.5 7-3.5 8 0 4-2 8.5 2.5 5 7.5-5-1.4-13-1.4-18 0Z" class="sk-m-cap"/><rect x="11.6" y="12.6" width="16.8" height="3" rx="1.4" class="sk-m-brim"/><path d="M9 37c0-8 5-13 11-13s11 5 11 13Z" class="sk-m-body"/><path d="M20 24v13" class="sk-m-line"/><circle cx="16.6" cy="18" r="1.1" class="sk-m-eye"/><circle cx="23.4" cy="18" r="1.1" class="sk-m-eye"/></svg>';
 
   function sokoGame(body, c) {
     var pool = SOKO_POOL[c.level - 1] && SOKO_POOL[c.level - 1].length ? SOKO_POOL[c.level - 1] : SOKO_POOL[1];
@@ -1113,7 +1139,7 @@
     paint();
     return {
       hint: function () {
-        return "방향키(←↑↓→)로 걸으며 상자를 밀어 노란 접시 칸에 모두 넣으세요. 상자는 밀기만 되고 당길 수는 없어요! 구석에 끼면 Z(백스페이스)로 되돌리고, R로 처음부터 다시 해요.";
+        return "방향키(←↑↓→)로 걸으며 재료 상자를 밀어 동그란 접시 칸에 모두 올리세요. 상자는 밀기만 되고 당길 수는 없어요! 구석에 끼면 Z(백스페이스)로 되돌리고, R로 처음부터 다시 해요.";
       },
     };
   }
@@ -1380,7 +1406,7 @@
     var p = S.S, got = {}, hist = [], moves = 0, sliding = false;
     if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: rows }));
     var floor = gridCells(S, function (i) { return S.wall[i] ? "is-rock" : i === S.G ? "is-tgt" : "is-ice"; });
-    var items = S.P.map(function (i) { return '<span class="sk-box ic-item">' + SK_BOX_SVG + "</span>"; }).join("");
+    var items = S.P.map(function (i) { return '<span class="sk-box ic-item">' + sushiSvg(c.sushi || "egg", "ic-sushi") + "</span>"; }).join("");
     body.innerHTML = '<div class="sk-wrap"><div class="sk-board" style="--cols:' + W + ';--rows:' + S.H + '"><div class="sk-floor">' + floor + "</div>"
       + items + '<span class="sk-man ic-man">' + SK_MAN_SVG + "</span></div></div>"
       + '<p class="sk-status"><span>초밥 <b class="ic-got">0</b> / ' + S.P.length + "</span><span>미끄러짐 <b class=\"ic-moves\">0</b></span></p>"
@@ -1407,13 +1433,13 @@
       var dist = r.path.length; p = r.to; moves++;
       sliding = true; c.later(function () { sliding = false; }, Math.max(90, dist * 55) - 10);
       paint(dist);
-      if (p === S.G && count() === S.P.length) { note.textContent = "서빙 완료!"; c.later(c.finish, Math.max(90, dist * 55) + 330); }
+      if (p === S.G && count() === S.P.length) { note.textContent = "초밥 담기 완료!"; c.later(c.finish, Math.max(90, dist * 55) + 330); }
       else if (p === S.G) note.textContent = "접시 칸에 멈췄지만 초밥을 아직 다 못 모았어요";
       else note.textContent = "";
     }
     bindPad(body, c, "data-ic", act);
     paint(1);
-    return { hint: function () { return "방향키를 누르면 벽이나 바위에 부딪힐 때까지 쭉 미끄러져요. 노란 접시 칸에 정확히 멈추세요. 상자는 지나가기만 해도 실려요. Z로 되돌리고 R로 다시 시작해요."; } };
+    return { hint: function () { return "방향키를 누르면 와사비 덩어리나 도마 가장자리에 부딪힐 때까지 쭉 미끄러져요. 동그란 접시 칸에 정확히 멈추세요. 초밥은 지나가기만 해도 담겨요. Z로 되돌리고 R로 다시 시작해요."; } };
   }
 
   // ---------- 쌍둥이 서빙 ----------
@@ -1503,7 +1529,7 @@
     if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: plan.rows, path: plan.solution }));
     var floor = ""; for (i = 0; i < W * H; i++) floor += '<i class="sk-cell ' + (isOpen[i] ? "is-road" : "is-wall") + '"></i>';
     body.innerHTML = '<div class="sk-wrap"><div class="sk-board rt-board" style="--cols:' + W + ';--rows:' + H + '"><div class="sk-floor">' + floor + '</div><svg class="rt-line" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none"><polyline points="" fill="none"/></svg><span class="sk-man rt-man">' + SK_MAN_SVG + "</span></div></div>"
-      + '<p class="sk-status"><span>지나온 길 <b class="rt-n">1</b> / ' + open.length + '</span></p><p class="mg-freeze-note"></p>'
+      + '<p class="sk-status"><span>닦은 칸 <b class="rt-n">1</b> / ' + open.length + '</span></p><p class="mg-freeze-note"></p>'
       + '<div class="pk-pad sk-pad">' + arrowPad("data-rt", actBtn("data-rt", "undo", "한 칸 되돌리기", "Z · ⌫") + actBtn("data-rt", "restart", "처음부터", "R")) + "</div>";
     var cellEls = body.querySelectorAll(".sk-cell"), man = body.querySelector(".rt-man"), line = body.querySelector(".rt-line polyline");
     var nEl = body.querySelector(".rt-n"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".sk-board");
@@ -1549,7 +1575,7 @@
       var ni = ny * W + nx;
       if (!isOpen[ni] || visited[ni]) { restartAnim(man, "is-bump"); return; }
       trail.push(ni); visited[ni] = 1;
-      if (trail.length === open.length) { paint(); note.textContent = "모든 길을 지났어요!"; c.later(c.finish, 420); return; }
+      if (trail.length === open.length) { paint(); note.textContent = "도마를 다 닦았어요!"; c.later(c.finish, 420); return; }
       var ok = reachableAll();
       if (!ok && !doomed) { c.addMistake(); note.textContent = "남은 길로 갈 수 없게 됐어요 — Z로 되돌려 보세요"; restartAnim(boardEl, "is-shake"); }
       else if (ok) note.textContent = "";
@@ -1557,7 +1583,7 @@
     }
     bindPad(body, c, "data-rt", act);
     paint();
-    return { hint: function () { return "창고(주황 칸)에서 출발해 방향키로 길을 따라가며 모든 길 칸을 한 번씩만 지나가세요. 한 번 지난 칸은 다시 못 가요. 막히면 Z로 한 칸씩 되돌리세요. 남은 길로 갈 수 없게 되면 알려줘요."; } };
+    return { hint: function () { return "주방 입구(주황 칸)에서 출발해 방향키로 도마의 모든 칸을 한 번씩만 닦으세요. 한 번 닦은 칸은 다시 못 가요. 막히면 Z로 한 칸씩 되돌리세요. 남은 칸을 다 닦을 수 없게 되면 알려줘요."; } };
   }
 
   // ---------- 컨베이어 잇기 (파이프) ----------
@@ -1718,7 +1744,8 @@
     var rootEl = el("div", "mg-root mg-kind-" + kind);
     rootEl.innerHTML =
       '<header class="mg-head"><div class="mg-title"><span class="mg-name">' + KINDS[kind].name + '</span>'
-      + '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span></div>'
+      + '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span>'
+      + (opts.sushi && SUSHI[opts.sushi] ? '<span class="mg-making" data-sushi="' + opts.sushi + '">' + sushiSvg(opts.sushi) + '<b>' + SUSHI[opts.sushi] + ' 초밥</b> 제작 중</span>' : '') + '</div>'
       + '<div class="mg-stats"><span class="mg-time">0.0초</span><span class="mg-miss">실수 0</span></div>'
       + '<button type="button" class="mg-giveup">포기</button></header>'
       + '<div class="mg-body"></div><p class="mg-hint"></p>'
@@ -1735,7 +1762,7 @@
     var tick = setInterval(function () { if (!finished) timeEl.textContent = fmtSec(performance.now() - t0); }, 100);
 
     var ctx = {
-      level: level, label: opts.label, testHooks: !!opts.testHooks, opts: opts,
+      level: level, label: opts.label, sushi: SUSHI[opts.sushi] ? opts.sushi : null, testHooks: !!opts.testHooks, opts: opts,
       isFinished: function () { return finished || destroyed; },
       later: function (fn, ms) {
         var id = setTimeout(function () { if (!destroyed) fn(); }, ms);
@@ -1782,6 +1809,8 @@
   root.MiniGames = {
     start: start,
     KINDS: KINDS,
+    SUSHI: SUSHI,
+    sushiSvg: sushiSvg,
     LEVEL_NAME: LEVEL_NAME,
     MAP_REPLAY_AFTER_MS: MAP_REPLAY_AFTER_MS,
     setMistakeRule: function (rule) { if (rule === "reset" || rule === "freeze" || rule === "ignore") config.mistakeRule = rule; },

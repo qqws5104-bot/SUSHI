@@ -296,10 +296,10 @@
 }
 .mg-tile.is-house { background: #f8f0dc; box-shadow: inset 0 0 0 2px rgba(122, 90, 48, 0.35); }
 .mg-hsvg { position: absolute; inset: 6% 12% 26% 12%; width: 76%; height: 68%; }
-.mg-roof { fill: #c7402d; } .mg-wall { fill: #e9d6a8; stroke: #7a5a30; stroke-width: 1.4; } .mg-door { fill: #7a5a30; }
+.mg-roof { fill: #b98a54; stroke: #7a5a30; stroke-width: 1.4; } .mg-wall { fill: #fff; stroke: #bdb59f; stroke-width: 1.2; } .mg-door { fill: none; stroke: #5b3a1a; stroke-width: 1.6; stroke-linecap: round; }
 .mg-lab {
   position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); font-family: var(--mg-font-display); font-weight: 700;
-  font-size: 0.72rem; line-height: 1; padding: 0.1rem 0.28rem; border-radius: 4px; background: #fffdf5; border: 1px solid #7a5a30; color: #2b1d12; white-space: nowrap;
+  font-size: 0.6rem; line-height: 1; padding: 0.1rem 0.22rem; border-radius: 4px; background: #fffdf5; border: 1px solid #7a5a30; color: #2b1d12; white-space: nowrap;
 }
 .mg-chk {
   position: absolute; right: -4px; top: -6px; width: 1.2rem; height: 1.2rem; border-radius: 50%; display: none; align-items: center; justify-content: center; z-index: 3;
@@ -315,7 +315,7 @@
 .mg-dep { font-family: var(--mg-font-display); font-weight: 700; font-size: 0.7rem; color: #f4f1ea; letter-spacing: 0.08em; position: absolute; top: 4px; }
 .mg-cover {
   position: absolute; inset: 0; z-index: 6; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 0.7rem; border-radius: 12px;
-  text-align: center; padding: 0.5rem; background: repeating-linear-gradient(45deg, #c9b58a 0 12px, #bfa97c 12px 24px);
+  text-align: center; padding: 0.5rem; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 10px), linear-gradient(180deg, #46321f, #35261a);
 }
 .mg-cover-note { background: rgba(255, 252, 244, 0.85); padding: 0.25rem 0.8rem; border-radius: 999px; color: #5a4224; font-weight: 800; font-size: 0.8rem; }
 .mg-map.is-covered .mg-cover { display: flex; }
@@ -323,13 +323,13 @@
 .mg-parcels { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.6rem 0.7rem; max-width: 100%; }
 .mg-parcel { position: relative; animation: mg-popin 0.34s cubic-bezier(.2, 1.6, .4, 1) both; animation-delay: var(--d, 0ms); }
 .mg-parcel .pbox {
-  position: relative; display: flex; align-items: center; justify-content: center; width: 86px; height: 70px; border-radius: 6px;
-  background: linear-gradient(160deg, var(--mg-card-light), var(--mg-card)); border: 2px solid var(--mg-card-edge); box-shadow: 0 5px 10px rgba(43, 29, 18, 0.35);
+  position: relative; display: flex; align-items: center; justify-content: center; width: 112px; height: 66px; border-radius: 4px; padding-top: 10px; box-sizing: border-box; overflow: hidden;
+  background: #fffdf3; border: 2px solid #d8cba6; box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4);
 }
-.mg-parcel .pbox::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 12px; transform: translateX(-50%); background: var(--mg-tape); opacity: 0.85; }
+.mg-parcel .pbox::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 11px; background: #c7402d; }
 .mg-parcel .pl {
-  position: relative; z-index: 1; font-family: var(--mg-font-display); font-weight: 700; font-size: 1.3rem; line-height: 1; padding: 0.3rem 0.45rem;
-  background: #fffefa; border: 2px solid #9a8460; border-radius: 4px; color: #2b1d12; white-space: nowrap; transform: rotate(-3deg);
+  position: relative; z-index: 1; font-family: var(--mg-font-display); font-weight: 700; font-size: 1.3rem; line-height: 1; padding: 0.2rem 0.3rem;
+  background: transparent; border: 0; border-radius: 4px; color: #2b1d12; white-space: nowrap;
 }
 .mg-parcel .pn {
   position: absolute; left: -7px; top: -9px; z-index: 2; width: 1.6rem; height: 1.6rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -347,7 +347,7 @@
   transition: left 0.09s linear, top 0.09s linear; display: flex; align-items: flex-end; justify-content: center;
 }
 .mg-courier svg { width: 88%; height: 88%; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)); }
-.mg-van-box { fill: #e2691a; stroke: #7a3a0e; stroke-width: 1.4; } .mg-van-cab { fill: #f4b27a; stroke: #7a3a0e; stroke-width: 1.4; } .mg-van-wh { fill: #2b1d12; }
+.mg-van-box { fill: rgba(43, 29, 18, 0.18); stroke: none; } .mg-van-cab { fill: #f4b27a; stroke: #7a3a0e; stroke-width: 1.4; } .mg-van-wh { fill: #2b1d12; }
 .mg-courier.is-bump { animation: mg-shake 0.2s ease; }
 .mg-map-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin: 0.6rem auto 0.2rem; width: min(100%, 420px); }
 .mg-dots { display: flex; gap: 0.35rem; }
@@ -361,7 +361,7 @@
 .mg-replay:hover:not(:disabled) { background: rgba(43, 29, 18, 0.06); }
 .mg-replay:disabled { opacity: 0.4; cursor: default; }
 .mg-kind-map .mg-pad, .mg-kind-sticker .mg-pad { margin-top: 0.3rem; }
-@media (max-width: 480px) { .mg-map { --ts: 52px; } .mg-lab { font-size: 0.62rem; } .mg-parcel .pbox { width: 68px; height: 58px; } .mg-parcel .pl { font-size: 1.05rem; } }
+@media (max-width: 480px) { .mg-map { --ts: 52px; } .mg-lab { font-size: 0.56rem; } .mg-parcel .pbox { width: 84px; height: 56px; } .mg-parcel .pl { font-size: 1.05rem; } }
 @media (max-height: 820px) {
   .mg-map { --ts: 50px; }
   .mg-map-top { min-height: 2rem; margin-bottom: 0.3rem; }
@@ -436,8 +436,8 @@
   box-shadow: inset 0 0 0 1px rgba(43, 29, 18, 0.35);
 }
 .sk-cell.is-tgt {
-  background: repeating-linear-gradient(45deg, #f6dc7a 0 6px, #f0c94a 6px 12px);
-  box-shadow: inset 0 0 0 2px #c99a00;
+  background: radial-gradient(circle at 50% 50%, #fff 0 33%, #d4ccb8 35% 40%, #fff 42% 56%, transparent 58%), #efe3c2;
+  box-shadow: inset 0 0 0 2px #cfc3a4;
 }
 .sk-box, .sk-man {
   position: absolute; left: 0; top: 0; width: var(--cell); height: var(--cell);
@@ -456,9 +456,10 @@
 .sk-box.is-dead .sk-bx-top { fill: #e6a99f; }
 .sk-man { z-index: 2; }
 .sk-m-face { fill: #f2c9a0; stroke: #6b4e26; stroke-width: 1.4; }
-.sk-m-cap { fill: #E8681C; stroke: #8f3d0c; stroke-width: 1.4; }
-.sk-m-brim { fill: #c4561a; }
-.sk-m-body { fill: #2f4a7d; stroke: #1c2e52; stroke-width: 1.4; }
+.sk-m-cap { fill: #fffdf7; stroke: #a8a090; stroke-width: 1.4; }
+.sk-m-brim { fill: #e2dccb; }
+.sk-m-line { fill: none; stroke: #cfc7b3; stroke-width: 1.4; stroke-linecap: round; }
+.sk-m-body { fill: #fbf8f0; stroke: #a8a090; stroke-width: 1.4; }
 .sk-m-eye { fill: #2b1d12; }
 @keyframes sk-bump {
   0%, 100% { transform: translate(calc(var(--x) * var(--cell)), calc(var(--y) * var(--cell))); }
@@ -473,8 +474,8 @@
 
 /* ================= 소코반류 시험용 게임 5종 (빙판 서빙 / 서빙 경로 / 쌍둥이 서빙 / 컨베이어 잇기 / 초밥 쌓기) ================= */
 /* 빙판 서빙 */
-.sk-cell.is-ice { background: linear-gradient(135deg, #e4f3fb, #cbe6f5); box-shadow: inset 0 0 0 1px rgba(80, 140, 180, 0.18); }
-.sk-cell.is-rock { background: radial-gradient(circle at 35% 30%, #a9b2ba, #6c7680 70%); box-shadow: inset 0 0 0 2px rgba(43, 54, 66, 0.35); border-radius: 30%; }
+.sk-cell.is-ice { background: repeating-linear-gradient(90deg, rgba(150, 105, 50, 0.07) 0 2px, transparent 2px 9px), linear-gradient(135deg, #f1dfb8, #e6cf9f); box-shadow: inset 0 0 0 1px rgba(122, 90, 48, 0.2); }
+.sk-cell.is-rock { background: radial-gradient(circle at 35% 30%, #b8dd8c, #5f9a3a 70%); box-shadow: inset 0 0 0 2px rgba(40, 80, 25, 0.35); border-radius: 38%; }
 .ic-item.is-gone { opacity: 0; transform: translate(calc(var(--x) * var(--cell)), calc(var(--y) * var(--cell))) scale(0.4); }
 .ic-item { transition: opacity 0.15s, transform 0.15s; }
 .ic-man { transition-property: transform; transition-timing-function: cubic-bezier(.25, .8, .35, 1); }
@@ -490,7 +491,7 @@
 .sk-man.is-home { filter: drop-shadow(0 0 4px #2f8f52); }
 
 /* 서빙 경로 */
-.sk-cell.is-road { background: #efe4c8; box-shadow: inset 0 0 0 1px rgba(122, 90, 48, 0.18); }
+.sk-cell.is-road { background: repeating-linear-gradient(90deg, rgba(150, 105, 50, 0.06) 0 2px, transparent 2px 9px), #f1e2bd; box-shadow: inset 0 0 0 1px rgba(122, 90, 48, 0.18); }
 .sk-cell.is-road.is-trail { background: #f7dca0; }
 .sk-cell.is-road.is-start { box-shadow: inset 0 0 0 3px #e2691a; }
 .rt-board .sk-cell.is-wall { background: repeating-linear-gradient(45deg, #b9b2a2 0 5px, #a9a190 5px 10px); box-shadow: inset 0 0 0 1px rgba(60, 50, 30, 0.25); }
@@ -523,3 +524,9 @@
 .hn-hand { position: relative; height: 38px; width: min(100%, 460px); margin: 6px auto 0; }
 .hn-held { position: absolute; top: 0; left: calc((var(--p) * 33.33%) + 0.5%); width: 32%; display: flex; justify-content: center; transition: left 0.1s; }
 .hn-held .hn-box { margin: 0 auto; }
+
+/* 제작 중인 초밥 칩 (헤더) + 초밥 담기의 수집 아이템 */
+.mg-making { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.5rem; padding: 0.1rem 0.5rem 0.1rem 0.25rem; border-radius: 999px; background: #fff4e0; border: 1px solid #e0c79a; font-size: 0.78rem; color: #2b1d12; white-space: nowrap; }
+.mg-making b { font-weight: 800; }
+.mg-sushi-svg { width: 2.2rem; height: auto; display: block; }
+.ic-sushi { transform: scale(1.18); }

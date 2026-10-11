@@ -318,6 +318,9 @@ async function main() {
     const t1 = Date.now();
     if (mode === "space") { await pressSpace(p1); await pressSpace(p2); }
     else {
+      // p2에게 미서빙 초밥이 하나도 안 남았으면 p2는 자동 확정이라, p1 혼자 확정해도 창이 닫히는 게 정상이다
+      // (벨트가 순환이라 라운드마다 서빙이 고르게 퍼져서 가끔 그렇게 된다 -- 그 경우엔 아래 단독 확정 검사를 건너뛴다).
+      const p2StillNeeds = (await countSel(p2, '[data-action="confirm-priority"]')) > 0;
       await clickSel(p1, '[data-action="confirm-priority"]');
       if (mode === "pick") {
         await waitFor(async () => (await countSel(p1, ".priority-window .invoice.pickable")) === 0, { label: "p1 locked after confirming" });
@@ -326,7 +329,7 @@ async function main() {
         if (hasPick && (await countSel(p1, ".priority-window .invoice.is-priority")) !== 1) throw new Error("confirmed priority pick changed after confirmation");
       }
       await p1.waitForTimeout(250);
-      if ((await countSel(p1, ".priority-window")) === 0) throw new Error(`${label} round ${round}: window closed after only p1 confirmed`);
+      if (p2StillNeeds && (await countSel(p1, ".priority-window")) === 0) throw new Error(`${label} round ${round}: window closed after only p1 confirmed`);
       if ((await countSel(p2, '[data-action="confirm-priority"]')) > 0) await clickSel(p2, '[data-action="confirm-priority"]');
     }
     await waitFor(async () => (await countSel(p1, ".priority-window")) === 0, { label: `${label} round ${round}: priority window closes once both confirm`, timeout: 4000 });

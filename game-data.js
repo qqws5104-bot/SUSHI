@@ -14,6 +14,8 @@
 //   "pack"(상자 포장) / "inspect"(불량 검수) / "sticker"(주문표 붙이기) / "map"(주문 서빙 -- 2026-10-07 특선 초밥의 우봉고를 대체). null이면 기존 우봉고(퍼즐 이미지 +
 //   "완료" 버튼) 그대로. 서버는 이 두 필드를 쓰지 않는다 -- 클라이언트(build_client.py)만 읽는다.
 //   난이도/배치를 바꾸는 곳은 여기 한 군데다. 보상(reward)과 같이 봐야 하는 값(HANDOVER 9.4).
+// sushi: 이 종류를 제작하면 나올 수 있는 구체적인 초밥 키 목록 (이름/그림은 표시 전용이라 클라이언트 minigames.js의 SUSHI에 있다).
+//   제작할 때 클라이언트가 고른 키를 서버가 이 목록에 있는지 검증해 주문표에 붙인다 (없거나 이상하면 서버가 무작위로 고른다).
 // fixedFloor: true인 종류는 각 칸의 num(0..count-1)이 곧 FLOORS의 인덱스로 고정된다 (무작위 배정 안 함).
 // 표시 순서는 이 배열 순서 그대로 보드에 반영된다 (2026-08-27: 지정 초밥을 맨 아래로 이동,
 // 중급 초밥은 주황+흰 글씨 대신 연두+검은 글씨로 -- 주황 배경에 흰 글씨만 유독 튀어서 변경).
@@ -31,13 +33,13 @@
 //   라운드 7번 x 1장 이하(실제론 3~5장)라서, 24칸은 두 사람이 다 가져도 남는 공급이었다. 비싼 종류일수록 적게 둔다.
 //   (이전엔 2026-10-06 사용자 요청으로 전 종류 6칸 통일이었다.)
 const TYPES = [
-  { key: "normal", name: "일반 초밥", count: 4, pieces: 2, reward: 2500, penalty: 1000,
+  { key: "normal", sushi: ["egg", "tofu"], name: "일반 초밥", count: 4, pieces: 2, reward: 2500, penalty: 1000,
     color: "#C9A576", ink: "#16233F", mini: "ice", miniLevel: 2 },
-  { key: "fragile", name: "중급 초밥", count: 4, pieces: 3, reward: 5000, penalty: 2500,
+  { key: "fragile", sushi: ["salmon", "ikura"], name: "중급 초밥", count: 4, pieces: 3, reward: 5000, penalty: 2500,
     color: "#C7E29A", ink: "#16233F", mini: "map", miniLevel: 3 },
-  { key: "valuable", name: "특선 초밥", count: 3, pieces: 4, reward: 10000, penalty: 5000,
+  { key: "valuable", sushi: ["eel", "tuna"], name: "특선 초밥", count: 3, pieces: 4, reward: 10000, penalty: 5000,
     color: "#F0B84A", ink: "#16233F", mini: "soko", miniLevel: 3 },
-  { key: "fixed-floor", name: "지정 초밥", count: 6, pieces: 3, fixedFloor: true, reward: 3000, penalty: 2500,
+  { key: "fixed-floor", sushi: ["shrimp", "octopus"], name: "지정 초밥", count: 6, pieces: 3, fixedFloor: true, reward: 3000, penalty: 2500,
     color: "#6DBBFD", ink: "#16233F", mini: "route", miniLevel: 3 },
 ];
 

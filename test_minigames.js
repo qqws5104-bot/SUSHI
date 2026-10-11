@@ -444,13 +444,13 @@ async function main() {
     assert((await page.$$(".mg-tile.is-house")).length === cfg.houses, `map L${lv} should have ${cfg.houses} houses`);
     assert(info.blocked.length === cfg.blocks && (await page.$$(".mg-tile.is-block")).length === cfg.blocks, `map L${lv} should have ${cfg.blocks} blocked tiles`);
     const labels = await page.$$eval(".mg-lab", (els) => els.map((e) => e.textContent));
-    assert(new Set(labels).size === labels.length && labels.every((t) => /^[1-5]0[1-9]$/.test(t)), "house labels are unique 3-digit room numbers: " + labels);
+    assert(new Set(labels).size === labels.length && labels.every((t) => /^(빨강|주황|노랑|초록|파랑|보라) [1-9]번$/.test(t)), "house labels are unique order numbers (접시 색 N번): " + labels);
     for (const t of info.targets) assert(bfsDirs(info, info.depot, t), `target ${t} reachable (blocked tiles must never cut a house off)`);
     // 주문표 단계: 지도는 가려져 있고(안 보임), 호실 번호가 순서(1..N)와 함께 목록으로만 뜬다
     assert((await page.$$(".mg-map.is-covered")).length === 1, "the map is covered while the parcels pop up");
     assert(await page.$eval(".mg-cover", (e) => getComputedStyle(e).display !== "none"), "the cover is actually displayed");
     const inv = await invoiceNums();
-    assert(inv.length === cfg.targets && inv.every((v, i) => v.n === String(i + 1) && /^[1-5]0[1-9]$/.test(v.room) && !v.done), "N parcels with only a room number are shown in order: " + JSON.stringify(inv));
+    assert(inv.length === cfg.targets && inv.every((v, i) => v.n === String(i + 1) && /^(빨강|주황|노랑|초록|파랑|보라) [1-9]번$/.test(v.room) && !v.done), "N parcels with only a room number are shown in order: " + JSON.stringify(inv));
     assert((await page.$$(".mg-cover .mg-parcel .pbox")).length === cfg.targets, "each parcel is a box carrying just the invoice");
     assert(await page.$eval(".mg-replay", (e) => e.disabled && /초 뒤/.test(e.textContent)), "replay is locked at the start and shows a countdown");
     for (let i = 0; i < info.targets.length; i++) assert((await labelAt(...info.targets[i])) === inv[i].room, `target ${i + 1} house carries invoice room ${inv[i].room}`);
@@ -463,7 +463,7 @@ async function main() {
     // 비슷한 번호 미끼: 목표와 같은 접시 또는 같은 호를 가진 미끼 집이 설정한 수 이상
     const targetRooms = new Set(inv.map((v) => v.room));
     const decoys = labels.filter((t) => !targetRooms.has(t));
-    const similarCount = decoys.filter((t) => inv.some((v) => v.room[0] === t[0] || v.room[2] === t[2])).length;
+    const similarCount = decoys.filter((t) => inv.some((v) => v.room.split(" ")[0] === t.split(" ")[0] || v.room.slice(-2, -1) === t.slice(-2, -1))).length;
     const guaranteed = Math.min(cfg.similar, cfg.targets); // 생성기는 목표 하나당 비슷한 미끼를 최대 하나씩만 보장한다(나머지는 우연)
     assert(similarCount >= guaranteed, `map L${lv}: at least ${guaranteed} decoys look like a target (same floor or same room), got ${similarCount}`);
     await waitMapShown();

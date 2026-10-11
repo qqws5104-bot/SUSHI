@@ -1,5 +1,5 @@
 // 2026-10-08 (배치 v2): 라이브 게임에서 종류별 난이도가 사용자 지정대로 적용되는지.
-//   일반 초밥 = 도마 미끄럼(보통, L2) / 중급 = 주문 서빙(어려움, L3: 7x5·주문표 4·공사장 6) / 지정 접시 = 벨트 경로(어려움: 6x5·막힘 3) /
+//   일반 초밥 = 초밥 담기(보통, L2) / 중급 = 주문 서빙(어려움, L3: 7x5·주문표 4·공사장 6) / 지정 접시 = 도마 닦기(어려움: 6x5·막힘 3) /
 //   특선 초밥 = 재료 정리(어려움: 상자 3). miniLevel이 숫자 하나라 전반과 후반의 난이도는 같다 (후반 보드에서 확인).
 // 전반 7라운드를 빠르게 흘려보낸 뒤(test_theft_e2e.js와 같은 흐름) 후반 보드에서 각 종류 칸을 열어 직접 센다.
 // 사전 준비: SECURE_PHASE_MS를 임시로 단축(예: 10 * 1000) + build_client.py 재빌드 + 서버 재시작. 끝나면 원복.
@@ -115,12 +115,12 @@ async function main() {
     await p1.waitForTimeout(300);
   };
 
-  // 2026-10-08 배치 v2: miniLevel이 숫자 하나라 후반도 전반과 같은 난이도다 (일반 = 도마 미끄럼 보통 / 나머지 어려움).
+  // 2026-10-08 배치 v2: miniLevel이 숫자 하나라 후반도 전반과 같은 난이도다 (일반 = 초밥 담기 보통 / 나머지 어려움).
   await openCell("normal-1");
   const iceRows = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan")).rows;
   const iceLen = iceSolve(iceRows).length;
-  assert_(await countSel(p1, "#mg-layer .mg-kind-ice") === 1 && iceLen >= 6 && iceLen <= 9, `일반 초밥 도마 미끄럼은 보통(L2, 최적 6~9번 미끄러짐)이어야 함, got ${iceLen}`);
-  log(`후반 일반 초밥(도마 미끄럼, 보통): 최적 ${iceLen}번 미끄러짐`);
+  assert_(await countSel(p1, "#mg-layer .mg-kind-ice") === 1 && iceLen >= 6 && iceLen <= 9, `일반 초밥 초밥 담기은 보통(L2, 최적 6~9번 미끄러짐)이어야 함, got ${iceLen}`);
+  log(`후반 일반 초밥(초밥 담기, 보통): 최적 ${iceLen}번 미끄러짐`);
   await giveUp();
 
   await openCell("fragile-1");
@@ -137,8 +137,8 @@ async function main() {
 
   await openCell("fixed-floor-3");
   const rt = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.rows.length === 5 && rt.rows[0].length === 6 && rt.rows.join("").split("#").length - 1 === 3, `지정 접시 벨트 경로(어려움): 6x5 / 막힌 칸 3이어야 함, got ${rt.rows.join("/")}`);
-  log("후반 지정 접시(벨트 경로, 어려움): 6x5, 막힌 칸 3");
+  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.rows.length === 5 && rt.rows[0].length === 6 && rt.rows.join("").split("#").length - 1 === 3, `지정 접시 도마 닦기(어려움): 6x5 / 막힌 칸 3이어야 함, got ${rt.rows.join("/")}`);
+  log("후반 지정 접시(도마 닦기, 어려움): 6x5, 막힌 칸 3");
   await giveUp();
 
   await openCell("valuable-1");

@@ -296,6 +296,9 @@
     transition:transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease; }
   .floor-stop.current .car { opacity:1; transform:scale(1.3); border-color:var(--ink); box-shadow:0 1.4cqw 3.5cqw rgba(43,29,18,0.4); }
   .belt-mark { position:absolute; left:0; right:0; top:100cqw; text-align:center; font-family:var(--font-display); font-weight:800; font-size:6.5cqw; color:var(--ink); letter-spacing:0.04em; }
+  .inv-sushi { flex:0 0 auto; width:2.3rem; display:inline-flex; align-items:center; }
+  .inv-sushi-svg { width:100%; height:auto; display:block; }
+  .invoice .t .inv-type { font-weight:600; font-size:0.72rem; color:var(--muted); margin-left:0.2rem; }
   .round-pill { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.8rem; border-radius:999px;
     background:rgba(37,105,168,0.12); color:var(--sky); font-family:var(--font-display); font-weight:600; font-size:0.85rem; }
   .vote-buttons { display:flex; flex-direction:column; gap:0.7rem; margin-top:1rem; }
@@ -675,10 +678,10 @@
 }
 .mg-tile.is-house { background: #f8f0dc; box-shadow: inset 0 0 0 2px rgba(122, 90, 48, 0.35); }
 .mg-hsvg { position: absolute; inset: 6% 12% 26% 12%; width: 76%; height: 68%; }
-.mg-roof { fill: #c7402d; } .mg-wall { fill: #e9d6a8; stroke: #7a5a30; stroke-width: 1.4; } .mg-door { fill: #7a5a30; }
+.mg-roof { fill: #b98a54; stroke: #7a5a30; stroke-width: 1.4; } .mg-wall { fill: #fff; stroke: #bdb59f; stroke-width: 1.2; } .mg-door { fill: none; stroke: #5b3a1a; stroke-width: 1.6; stroke-linecap: round; }
 .mg-lab {
   position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); font-family: var(--mg-font-display); font-weight: 700;
-  font-size: 0.72rem; line-height: 1; padding: 0.1rem 0.28rem; border-radius: 4px; background: #fffdf5; border: 1px solid #7a5a30; color: #2b1d12; white-space: nowrap;
+  font-size: 0.6rem; line-height: 1; padding: 0.1rem 0.22rem; border-radius: 4px; background: #fffdf5; border: 1px solid #7a5a30; color: #2b1d12; white-space: nowrap;
 }
 .mg-chk {
   position: absolute; right: -4px; top: -6px; width: 1.2rem; height: 1.2rem; border-radius: 50%; display: none; align-items: center; justify-content: center; z-index: 3;
@@ -694,7 +697,7 @@
 .mg-dep { font-family: var(--mg-font-display); font-weight: 700; font-size: 0.7rem; color: #f4f1ea; letter-spacing: 0.08em; position: absolute; top: 4px; }
 .mg-cover {
   position: absolute; inset: 0; z-index: 6; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 0.7rem; border-radius: 12px;
-  text-align: center; padding: 0.5rem; background: repeating-linear-gradient(45deg, #c9b58a 0 12px, #bfa97c 12px 24px);
+  text-align: center; padding: 0.5rem; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 10px), linear-gradient(180deg, #46321f, #35261a);
 }
 .mg-cover-note { background: rgba(255, 252, 244, 0.85); padding: 0.25rem 0.8rem; border-radius: 999px; color: #5a4224; font-weight: 800; font-size: 0.8rem; }
 .mg-map.is-covered .mg-cover { display: flex; }
@@ -702,13 +705,13 @@
 .mg-parcels { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.6rem 0.7rem; max-width: 100%; }
 .mg-parcel { position: relative; animation: mg-popin 0.34s cubic-bezier(.2, 1.6, .4, 1) both; animation-delay: var(--d, 0ms); }
 .mg-parcel .pbox {
-  position: relative; display: flex; align-items: center; justify-content: center; width: 86px; height: 70px; border-radius: 6px;
-  background: linear-gradient(160deg, var(--mg-card-light), var(--mg-card)); border: 2px solid var(--mg-card-edge); box-shadow: 0 5px 10px rgba(43, 29, 18, 0.35);
+  position: relative; display: flex; align-items: center; justify-content: center; width: 112px; height: 66px; border-radius: 4px; padding-top: 10px; box-sizing: border-box; overflow: hidden;
+  background: #fffdf3; border: 2px solid #d8cba6; box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4);
 }
-.mg-parcel .pbox::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 12px; transform: translateX(-50%); background: var(--mg-tape); opacity: 0.85; }
+.mg-parcel .pbox::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 11px; background: #c7402d; }
 .mg-parcel .pl {
-  position: relative; z-index: 1; font-family: var(--mg-font-display); font-weight: 700; font-size: 1.3rem; line-height: 1; padding: 0.3rem 0.45rem;
-  background: #fffefa; border: 2px solid #9a8460; border-radius: 4px; color: #2b1d12; white-space: nowrap; transform: rotate(-3deg);
+  position: relative; z-index: 1; font-family: var(--mg-font-display); font-weight: 700; font-size: 1.3rem; line-height: 1; padding: 0.2rem 0.3rem;
+  background: transparent; border: 0; border-radius: 4px; color: #2b1d12; white-space: nowrap;
 }
 .mg-parcel .pn {
   position: absolute; left: -7px; top: -9px; z-index: 2; width: 1.6rem; height: 1.6rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -726,7 +729,7 @@
   transition: left 0.09s linear, top 0.09s linear; display: flex; align-items: flex-end; justify-content: center;
 }
 .mg-courier svg { width: 88%; height: 88%; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)); }
-.mg-van-box { fill: #e2691a; stroke: #7a3a0e; stroke-width: 1.4; } .mg-van-cab { fill: #f4b27a; stroke: #7a3a0e; stroke-width: 1.4; } .mg-van-wh { fill: #2b1d12; }
+.mg-van-box { fill: rgba(43, 29, 18, 0.18); stroke: none; } .mg-van-cab { fill: #f4b27a; stroke: #7a3a0e; stroke-width: 1.4; } .mg-van-wh { fill: #2b1d12; }
 .mg-courier.is-bump { animation: mg-shake 0.2s ease; }
 .mg-map-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin: 0.6rem auto 0.2rem; width: min(100%, 420px); }
 .mg-dots { display: flex; gap: 0.35rem; }
@@ -740,7 +743,7 @@
 .mg-replay:hover:not(:disabled) { background: rgba(43, 29, 18, 0.06); }
 .mg-replay:disabled { opacity: 0.4; cursor: default; }
 .mg-kind-map .mg-pad, .mg-kind-sticker .mg-pad { margin-top: 0.3rem; }
-@media (max-width: 480px) { .mg-map { --ts: 52px; } .mg-lab { font-size: 0.62rem; } .mg-parcel .pbox { width: 68px; height: 58px; } .mg-parcel .pl { font-size: 1.05rem; } }
+@media (max-width: 480px) { .mg-map { --ts: 52px; } .mg-lab { font-size: 0.56rem; } .mg-parcel .pbox { width: 84px; height: 56px; } .mg-parcel .pl { font-size: 1.05rem; } }
 @media (max-height: 820px) {
   .mg-map { --ts: 50px; }
   .mg-map-top { min-height: 2rem; margin-bottom: 0.3rem; }
@@ -815,8 +818,8 @@
   box-shadow: inset 0 0 0 1px rgba(43, 29, 18, 0.35);
 }
 .sk-cell.is-tgt {
-  background: repeating-linear-gradient(45deg, #f6dc7a 0 6px, #f0c94a 6px 12px);
-  box-shadow: inset 0 0 0 2px #c99a00;
+  background: radial-gradient(circle at 50% 50%, #fff 0 33%, #d4ccb8 35% 40%, #fff 42% 56%, transparent 58%), #efe3c2;
+  box-shadow: inset 0 0 0 2px #cfc3a4;
 }
 .sk-box, .sk-man {
   position: absolute; left: 0; top: 0; width: var(--cell); height: var(--cell);
@@ -835,9 +838,10 @@
 .sk-box.is-dead .sk-bx-top { fill: #e6a99f; }
 .sk-man { z-index: 2; }
 .sk-m-face { fill: #f2c9a0; stroke: #6b4e26; stroke-width: 1.4; }
-.sk-m-cap { fill: #E8681C; stroke: #8f3d0c; stroke-width: 1.4; }
-.sk-m-brim { fill: #c4561a; }
-.sk-m-body { fill: #2f4a7d; stroke: #1c2e52; stroke-width: 1.4; }
+.sk-m-cap { fill: #fffdf7; stroke: #a8a090; stroke-width: 1.4; }
+.sk-m-brim { fill: #e2dccb; }
+.sk-m-line { fill: none; stroke: #cfc7b3; stroke-width: 1.4; stroke-linecap: round; }
+.sk-m-body { fill: #fbf8f0; stroke: #a8a090; stroke-width: 1.4; }
 .sk-m-eye { fill: #2b1d12; }
 @keyframes sk-bump {
   0%, 100% { transform: translate(calc(var(--x) * var(--cell)), calc(var(--y) * var(--cell))); }
@@ -852,8 +856,8 @@
 
 /* ================= 소코반류 시험용 게임 5종 (빙판 서빙 / 서빙 경로 / 쌍둥이 서빙 / 컨베이어 잇기 / 초밥 쌓기) ================= */
 /* 빙판 서빙 */
-.sk-cell.is-ice { background: linear-gradient(135deg, #e4f3fb, #cbe6f5); box-shadow: inset 0 0 0 1px rgba(80, 140, 180, 0.18); }
-.sk-cell.is-rock { background: radial-gradient(circle at 35% 30%, #a9b2ba, #6c7680 70%); box-shadow: inset 0 0 0 2px rgba(43, 54, 66, 0.35); border-radius: 30%; }
+.sk-cell.is-ice { background: repeating-linear-gradient(90deg, rgba(150, 105, 50, 0.07) 0 2px, transparent 2px 9px), linear-gradient(135deg, #f1dfb8, #e6cf9f); box-shadow: inset 0 0 0 1px rgba(122, 90, 48, 0.2); }
+.sk-cell.is-rock { background: radial-gradient(circle at 35% 30%, #b8dd8c, #5f9a3a 70%); box-shadow: inset 0 0 0 2px rgba(40, 80, 25, 0.35); border-radius: 38%; }
 .ic-item.is-gone { opacity: 0; transform: translate(calc(var(--x) * var(--cell)), calc(var(--y) * var(--cell))) scale(0.4); }
 .ic-item { transition: opacity 0.15s, transform 0.15s; }
 .ic-man { transition-property: transform; transition-timing-function: cubic-bezier(.25, .8, .35, 1); }
@@ -869,7 +873,7 @@
 .sk-man.is-home { filter: drop-shadow(0 0 4px #2f8f52); }
 
 /* 서빙 경로 */
-.sk-cell.is-road { background: #efe4c8; box-shadow: inset 0 0 0 1px rgba(122, 90, 48, 0.18); }
+.sk-cell.is-road { background: repeating-linear-gradient(90deg, rgba(150, 105, 50, 0.06) 0 2px, transparent 2px 9px), #f1e2bd; box-shadow: inset 0 0 0 1px rgba(122, 90, 48, 0.18); }
 .sk-cell.is-road.is-trail { background: #f7dca0; }
 .sk-cell.is-road.is-start { box-shadow: inset 0 0 0 3px #e2691a; }
 .rt-board .sk-cell.is-wall { background: repeating-linear-gradient(45deg, #b9b2a2 0 5px, #a9a190 5px 10px); box-shadow: inset 0 0 0 1px rgba(60, 50, 30, 0.25); }
@@ -902,6 +906,12 @@
 .hn-hand { position: relative; height: 38px; width: min(100%, 460px); margin: 6px auto 0; }
 .hn-held { position: absolute; top: 0; left: calc((var(--p) * 33.33%) + 0.5%); width: 32%; display: flex; justify-content: center; transition: left 0.1s; }
 .hn-held .hn-box { margin: 0 auto; }
+
+/* 제작 중인 초밥 칩 (헤더) + 초밥 담기의 수집 아이템 */
+.mg-making { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.5rem; padding: 0.1rem 0.5rem 0.1rem 0.25rem; border-radius: 999px; background: #fff4e0; border: 1px solid #e0c79a; font-size: 0.78rem; color: #2b1d12; white-space: nowrap; }
+.mg-making b { font-weight: 800; }
+.mg-sushi-svg { width: 2.2rem; height: auto; display: block; }
+.ic-sushi { transform: scale(1.18); }
 
 /* mainview.css -- 메인 모니터(?view=main) 전용 스타일. 큰 TV/프로젝터 화면용이라 모든 크기를 vh/vw로 잡는다.
  * 플레이어 화면과 같은 색 토큰(--bg, --gold, --ink ...)을 쓰고, 이 화면은 body.main-view 일 때만 적용된다. */
@@ -1011,13 +1021,33 @@ body.main-view #app { height: 100vh; min-height: 0; }
     sticker: { name: "주문표 붙이기" },
     map:     { name: "주문 서빙" },
     soko:    { name: "재료 정리" },
-    ice:     { name: "도마 미끄럼" },
-    route:   { name: "벨트 경로" },
+    ice:     { name: "초밥 담기" },
+    route:   { name: "도마 닦기" },
     twin:    { name: "쌍둥이 서빙" },
     pipe:    { name: "컨베이어 잇기" },
     hanoi:   { name: "초밥 쌓기" },
   };
   var LEVEL_NAME = ["쉬움", "보통", "어려움"];
+
+  // 제작하는 초밥 (표시 전용 -- 어떤 키가 어떤 종류에 속하는지는 game-data.js의 TYPES[].sushi가 정한다).
+  // 그림은 위에서 본 니기리: 밥 + 네타(topping). 헤더 칩, 초밥 담기의 수집 아이템, 주문표 목록에서 같이 쓴다.
+  var SUSHI_TOP = {
+    egg: '<rect x="26" y="34" width="48" height="26" rx="6" fill="#f4cf4a"/><rect x="45" y="30" width="10" height="32" rx="2" fill="#1f2a24"/>',
+    tofu: '<path d="M24 56q-2-22 26-24q28 2 26 24z" fill="#d9922e"/><path d="M30 44h40" stroke="#b36f17" stroke-width="2.4" stroke-dasharray="4 4"/><ellipse cx="50" cy="35" rx="14" ry="5" fill="#fdfbf4"/>',
+    salmon: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#f08a4b"/><path d="M28 44q10-5 18 0M44 39q10-5 18 0M52 50q9-4 16 0" stroke="#ffd9bd" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    ikura: '<rect x="28" y="36" width="44" height="26" rx="9" fill="#1f2a24"/><ellipse cx="50" cy="38" rx="19" ry="8" fill="#f26a2e"/><circle cx="41" cy="36" r="3.4" fill="#ff9a58"/><circle cx="50" cy="33" r="3.4" fill="#ff8a45"/><circle cx="59" cy="36" r="3.4" fill="#ff9a58"/><circle cx="46" cy="40" r="3.2" fill="#e85a22"/><circle cx="55" cy="40" r="3.2" fill="#e85a22"/>',
+    eel: '<ellipse cx="50" cy="46" rx="29" ry="13" fill="#6b3a1e"/><path d="M26 44q24-9 48 0" stroke="#b27a47" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M34 52q16 4 32 0" stroke="#3f200d" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    tuna: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#b3262e"/><path d="M30 46q20-8 40 0" stroke="#e7727a" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    shrimp: '<path d="M24 52q2-20 28-20q20 0 24 16q-6 6-26 6q-20 0-26-2z" fill="#f4a79b"/><path d="M36 36q3 10 0 18M48 33q3 12 0 22M60 34q3 11 0 20" stroke="#dd6f64" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M74 46l10-6l-2 10z" fill="#dd6f64"/>',
+    octopus: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#f3dbe1"/><path d="M24 46q26-14 52 0" stroke="#9c4f73" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="38" cy="48" r="2.2" fill="#c98aa6"/><circle cx="50" cy="50" r="2.2" fill="#c98aa6"/><circle cx="62" cy="48" r="2.2" fill="#c98aa6"/>',
+  };
+  var SUSHI = {
+    egg: "계란", tofu: "유부", salmon: "연어", ikura: "연어알", eel: "장어", tuna: "참치", shrimp: "새우", octopus: "문어",
+  };
+  function sushiSvg(key, cls) {
+    return '<svg class="' + (cls || "mg-sushi-svg") + '" viewBox="12 24 76 50" aria-hidden="true"><ellipse cx="50" cy="58" rx="25" ry="12" fill="#fdfbf4" stroke="#d9d2c0"/>' + (SUSHI_TOP[key] || SUSHI_TOP.egg) + "</svg>";
+  }
+
 
   // 상자 포장에서 방향키를 잘못 눌렀을 때의 규칙 (2026-10-06 결정: 영상처럼 "reset" -- 처음부터 다시).
   //   reset  : 입력한 순서 전체를 처음부터 다시
@@ -1689,16 +1719,20 @@ body.main-view #app { height: 100vh; min-height: 0; }
   var MAP_LOCK_MS = 800;   // 틀린 서빙 뒤 멈춤
   var MAP_STEP_MS = 70;    // 방향키를 꾹 누를 때 한 칸씩 가는 최소 간격
   var MAP_VEC = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-  var HOUSE_SVG = '<svg class="mg-hsvg" viewBox="0 0 40 40" aria-hidden="true"><path d="M5 19 20 6l15 13Z" class="mg-roof"/><rect x="9" y="19" width="22" height="15" class="mg-wall"/><rect x="17" y="25" width="6" height="9" class="mg-door"/></svg>';
-  var VAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="11" width="21" height="17" rx="2" class="mg-van-box"/><path d="M25 16h7l4 5v7H25Z" class="mg-van-cab"/><circle cx="12" cy="30" r="3.4" class="mg-van-wh"/><circle cx="30" cy="30" r="3.4" class="mg-van-wh"/></svg>';
+  // 손님 자리(테이블): 위에서 본 나무 테이블 + 접시 + 젓가락. 지도 서빙의 "집" 대신 쓴다 (CSS 클래스 이름은 mg-roof 등을 그대로 재사용).
+  var HOUSE_SVG = '<svg class="mg-hsvg" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" class="mg-roof"/><circle cx="20" cy="20" r="9" class="mg-wall"/><path d="M12 33l15-24M15 34l15-24" class="mg-door"/></svg>';
+  // 지도를 돌아다니는 셰프 (쟁반을 든 모습). 이름은 예전 VAN_SVG 그대로 두고 그림만 교체.
+  var VAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="31" rx="16" ry="5" class="mg-van-box"/><circle cx="20" cy="17" r="7" class="sk-m-face"/><path d="M12 13c-2-6 3-9 6-6 1-3 6-3 7 0 3-3 8 0 6 6-4-1-15-1-19 0Z" class="sk-m-cap"/><path d="M11 36c0-7 4-11 9-11s9 4 9 11Z" class="sk-m-body"/><circle cx="17.3" cy="17.5" r="1" class="sk-m-eye"/><circle cx="22.7" cy="17.5" r="1" class="sk-m-eye"/></svg>';
 
   function mapKey(x, y) { return x + "," + y; }
-  // 호실 번호: 접시(1~5) + 0 + 호(1~9) = 101 ~ 509. 목표는 무작위, 미끼 중 similar개는 목표와 같은 접시 또는 같은 호(번갈아)를 가진다.
+  // 주문 번호: 접시 색(빨강~보라) + 번호(1~9) = "주황 3번". 게임 본체의 주문표 표기(roomCode)와 같다.
+  // 목표는 무작위, 미끼 중 similar개는 목표와 같은 접시 색 또는 같은 번호(번갈아)를 가진다.
+  var MAP_PLATES = ["빨강", "주황", "노랑", "초록", "파랑", "보라"];
   function assignRoomLabels(houses, targets, similar) {
-    var used = {};
-    function code(f, r) { return String(f * 100 + r); }
+    var used = {}, meta = {};
+    function code(f, r) { var cd = MAP_PLATES[f] + " " + r + "번"; meta[cd] = { f: f, r: r }; return cd; }
     function takeRandom() {
-      for (;;) { var cd = code(1 + rand(5), 1 + rand(9)); if (!used[cd]) { used[cd] = 1; return cd; } }
+      for (;;) { var cd = code(rand(MAP_PLATES.length), 1 + rand(9)); if (!used[cd]) { used[cd] = 1; return cd; } }
     }
     targets.forEach(function (t) { t.label = takeRandom(); });
     var tset = {}; targets.forEach(function (t) { tset[mapKey(t.x, t.y)] = 1; });
@@ -1707,9 +1741,9 @@ body.main-view #app { height: 100vh; min-height: 0; }
     for (var i = 0; i < decoys.length; i++) {
       var cand = [];
       if (i < n) {
-        var f = parseInt(targets[i].label.charAt(0), 10), r = parseInt(targets[i].label.charAt(2), 10);
-        for (var a = 1; a <= 5; a++) for (var b = 1; b <= 9; b++) {
-          var same = i % 2 === 0 ? (a === f && b !== r) : (b === r && a !== f); // 짝수: 같은 접시 다른 호 / 홀수: 같은 호 다른 접시
+        var m = meta[targets[i].label], f = m.f, r = m.r;
+        for (var a = 0; a < MAP_PLATES.length; a++) for (var b = 1; b <= 9; b++) {
+          var same = i % 2 === 0 ? (a === f && b !== r) : (b === r && a !== f); // 짝수: 같은 접시 다른 번호 / 홀수: 같은 번호 다른 접시
           if (same && !used[code(a, b)]) cand.push(code(a, b));
         }
       }
@@ -1764,7 +1798,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       var k = mapKey(x, y), h = houseAt[k], isDepot = x === plan.depot.x && y === plan.depot.y;
       tiles += '<div class="mg-tile' + (h ? " is-house" : "") + (blockAt[k] ? " is-block" : "") + (isDepot ? " is-depot" : "") + '" data-x="' + x + '" data-y="' + y + '">'
         + (h ? HOUSE_SVG + '<b class="mg-lab">' + h.label + '</b><span class="mg-chk">✓</span>'
-          : blockAt[k] ? '<span class="mg-fence"></span>' : isDepot ? '<span class="mg-dep">센터</span>' : "")
+          : blockAt[k] ? '<span class="mg-fence"></span>' : isDepot ? '<span class="mg-dep">주방</span>' : "")
         + "</div>";
     }
     var dots = ""; for (var di = 0; di < N; di++) dots += '<span class="mg-dot"></span>';
@@ -1772,7 +1806,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       '<div class="mg-map-top"><div class="mg-flashbar"><i></i></div><p class="mg-phase"></p></div>'
       + '<div class="mg-map is-covered" style="--cols:' + W + ';--rows:' + H + '">' + tiles
       + '<div class="mg-courier" style="--cx:' + plan.depot.x + ';--cy:' + plan.depot.y + '">' + VAN_SVG + '</div>'
-      + '<div class="mg-cover"><div class="mg-parcels"></div><span class="mg-cover-note">지도는 초밥을 확인한 뒤에 나와요</span></div></div>'
+      + '<div class="mg-cover"><div class="mg-parcels"></div><span class="mg-cover-note">홀 지도는 주문표를 확인한 뒤에 나와요</span></div></div>'
       + '<div class="mg-map-foot"><div class="mg-dots">' + dots + '</div><button type="button" class="mg-replay" tabindex="-1" disabled>주문표 다시 보기</button></div>'
       + '<p class="mg-freeze-note"></p>'
       + '<div class="mg-pad">'
@@ -1803,7 +1837,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       var html = "";
       for (var i = 0; i < N; i++) {
         html += '<div class="mg-parcel' + (i < idx ? " is-done" : "") + '" style="--d:' + (i * MAP_POP_STAGGER_MS) + 'ms">'
-          + '<i class="pn">' + (i + 1) + '</i><span class="pbox"><b class="pl">' + plan.targets[i].label + '호</b></span><span class="pk">✓</span></div>';
+          + '<i class="pn">' + (i + 1) + '</i><span class="pbox"><b class="pl">' + plan.targets[i].label + '</b></span><span class="pk">✓</span></div>';
       }
       parcelsEl.innerHTML = html; // 새로 그려야 팝업 애니메이션이 처음부터 다시 돈다
       phaseEl.textContent = "초밥 주문표를 외우세요! 이 순서대로 서빙해요";
@@ -1818,7 +1852,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     function showMap() {
       phase = "play";
       map.classList.remove("is-covered");
-      phaseEl.textContent = "지도가 나왔어요! 호실을 찾아 순서대로 서빙하세요";
+      phaseEl.textContent = "홀 지도가 나왔어요! 주문 번호의 자리를 찾아 순서대로 서빙하세요";
       paintDots();
       updateReplay();
     }
@@ -1853,7 +1887,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       c.addMistake();
       locked = true;
       restartAnim(tile, "is-wrong");
-      note.textContent = tile.classList.contains("is-house") ? "그 호실이 아니에요!" : "서빙할 집이 아니에요";
+      note.textContent = tile.classList.contains("is-house") ? "그 주문 번호가 아니에요!" : "손님 자리가 아니에요";
       c.later(function () { locked = false; note.textContent = ""; }, MAP_LOCK_MS);
     }
     function press(k) {
@@ -1889,8 +1923,8 @@ body.main-view #app { height: 100vh; min-height: 0; }
     updateReplay();
     return {
       hint: function () {
-        return "먼저 주문표만 붙은 초밥이 순서대로 잠깐 떠요 -- 호실 번호와 순서를 외우세요. 그다음 지도가 나오면 그 호실의 집을 찾아 방향키로 이동하고, 도착하면 스페이스로 서빙해요. "
-          + "비슷한 번호의 집이 섞여 있어요. 엉뚱한 집에서 서빙하면 실수예요. 시작 " + Math.round(replayAfter / 1000) + "초 뒤부터는 주문표를 다시 볼 수 있어요.";
+        return "먼저 주문표가 순서대로 잠깐 떠요 -- 주문 번호(접시 색 + 번호)와 순서를 외우세요. 그다음 홀 지도가 나오면 그 번호의 손님 자리를 찾아 방향키로 이동하고, 도착하면 스페이스로 서빙해요. "
+          + "비슷한 번호의 자리가 섞여 있어요. 엉뚱한 자리에서 서빙하면 실수예요. 시작 " + Math.round(replayAfter / 1000) + "초 뒤부터는 주문표를 다시 볼 수 있어요.";
       },
     };
   }
@@ -1993,8 +2027,10 @@ body.main-view #app { height: 100vh; min-height: 0; }
     return false;
   }
 
-  var SK_BOX_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="7" width="32" height="28" rx="2.5" class="sk-bx-body"/><rect x="4" y="7" width="32" height="8" rx="2.5" class="sk-bx-top"/><rect x="16" y="7" width="8" height="17" class="sk-bx-tape"/><path class="sk-bx-ok" d="M12 25l6 6 11-12"/></svg>';
-  var SK_MAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="14" r="7.5" class="sk-m-face"/><path d="M11.5 12.5c0-6 4-8.5 8.5-8.5s8.5 2.5 8.5 8.5Z" class="sk-m-cap"/><rect x="19" y="10" width="14" height="3.4" rx="1.6" class="sk-m-brim"/><path d="M9 36c0-8 5-13 11-13s11 5 11 13Z" class="sk-m-body"/><circle cx="16.6" cy="15" r="1.1" class="sk-m-eye"/><circle cx="23.4" cy="15" r="1.1" class="sk-m-eye"/></svg>';
+  // 재료 상자(생선 상자): 나무 상자 + 흰 생선 무늬. 재료 정리의 "상자"다 (CSS 클래스 이름은 sk-bx-*를 그대로 재사용).
+  var SK_BOX_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="7" width="32" height="28" rx="2.5" class="sk-bx-body"/><rect x="4" y="7" width="32" height="8" rx="2.5" class="sk-bx-top"/><path class="sk-bx-tape" d="M9 25c4-6 11-6 15 0c-4 6-11 6-15 0ZM24 25l6-4.5v9Z"/><path class="sk-bx-ok" d="M12 25l6 6 11-12"/></svg>';
+  // 셰프: 흰 조리모(토크) + 흰 조리복. 도마 미끄럼/재료 정리/도마 닦기에서 플레이어 말이다 (클래스 이름은 sk-m-*를 그대로 재사용).
+  var SK_MAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="17" r="7.5" class="sk-m-face"/><path d="M11.5 14c-3.5-5 1-9.5 5-7.5 1.5-3.5 7-3.5 8 0 4-2 8.5 2.5 5 7.5-5-1.4-13-1.4-18 0Z" class="sk-m-cap"/><rect x="11.6" y="12.6" width="16.8" height="3" rx="1.4" class="sk-m-brim"/><path d="M9 37c0-8 5-13 11-13s11 5 11 13Z" class="sk-m-body"/><path d="M20 24v13" class="sk-m-line"/><circle cx="16.6" cy="18" r="1.1" class="sk-m-eye"/><circle cx="23.4" cy="18" r="1.1" class="sk-m-eye"/></svg>';
 
   function sokoGame(body, c) {
     var pool = SOKO_POOL[c.level - 1] && SOKO_POOL[c.level - 1].length ? SOKO_POOL[c.level - 1] : SOKO_POOL[1];
@@ -2101,7 +2137,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     paint();
     return {
       hint: function () {
-        return "방향키(←↑↓→)로 걸으며 상자를 밀어 노란 접시 칸에 모두 넣으세요. 상자는 밀기만 되고 당길 수는 없어요! 구석에 끼면 Z(백스페이스)로 되돌리고, R로 처음부터 다시 해요.";
+        return "방향키(←↑↓→)로 걸으며 재료 상자를 밀어 동그란 접시 칸에 모두 올리세요. 상자는 밀기만 되고 당길 수는 없어요! 구석에 끼면 Z(백스페이스)로 되돌리고, R로 처음부터 다시 해요.";
       },
     };
   }
@@ -2368,7 +2404,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     var p = S.S, got = {}, hist = [], moves = 0, sliding = false;
     if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: rows }));
     var floor = gridCells(S, function (i) { return S.wall[i] ? "is-rock" : i === S.G ? "is-tgt" : "is-ice"; });
-    var items = S.P.map(function (i) { return '<span class="sk-box ic-item">' + SK_BOX_SVG + "</span>"; }).join("");
+    var items = S.P.map(function (i) { return '<span class="sk-box ic-item">' + sushiSvg(c.sushi || "egg", "ic-sushi") + "</span>"; }).join("");
     body.innerHTML = '<div class="sk-wrap"><div class="sk-board" style="--cols:' + W + ';--rows:' + S.H + '"><div class="sk-floor">' + floor + "</div>"
       + items + '<span class="sk-man ic-man">' + SK_MAN_SVG + "</span></div></div>"
       + '<p class="sk-status"><span>초밥 <b class="ic-got">0</b> / ' + S.P.length + "</span><span>미끄러짐 <b class=\"ic-moves\">0</b></span></p>"
@@ -2395,13 +2431,13 @@ body.main-view #app { height: 100vh; min-height: 0; }
       var dist = r.path.length; p = r.to; moves++;
       sliding = true; c.later(function () { sliding = false; }, Math.max(90, dist * 55) - 10);
       paint(dist);
-      if (p === S.G && count() === S.P.length) { note.textContent = "서빙 완료!"; c.later(c.finish, Math.max(90, dist * 55) + 330); }
+      if (p === S.G && count() === S.P.length) { note.textContent = "초밥 담기 완료!"; c.later(c.finish, Math.max(90, dist * 55) + 330); }
       else if (p === S.G) note.textContent = "접시 칸에 멈췄지만 초밥을 아직 다 못 모았어요";
       else note.textContent = "";
     }
     bindPad(body, c, "data-ic", act);
     paint(1);
-    return { hint: function () { return "방향키를 누르면 벽이나 바위에 부딪힐 때까지 쭉 미끄러져요. 노란 접시 칸에 정확히 멈추세요. 상자는 지나가기만 해도 실려요. Z로 되돌리고 R로 다시 시작해요."; } };
+    return { hint: function () { return "방향키를 누르면 와사비 덩어리나 도마 가장자리에 부딪힐 때까지 쭉 미끄러져요. 동그란 접시 칸에 정확히 멈추세요. 초밥은 지나가기만 해도 담겨요. Z로 되돌리고 R로 다시 시작해요."; } };
   }
 
   // ---------- 쌍둥이 서빙 ----------
@@ -2491,7 +2527,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: plan.rows, path: plan.solution }));
     var floor = ""; for (i = 0; i < W * H; i++) floor += '<i class="sk-cell ' + (isOpen[i] ? "is-road" : "is-wall") + '"></i>';
     body.innerHTML = '<div class="sk-wrap"><div class="sk-board rt-board" style="--cols:' + W + ';--rows:' + H + '"><div class="sk-floor">' + floor + '</div><svg class="rt-line" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none"><polyline points="" fill="none"/></svg><span class="sk-man rt-man">' + SK_MAN_SVG + "</span></div></div>"
-      + '<p class="sk-status"><span>지나온 길 <b class="rt-n">1</b> / ' + open.length + '</span></p><p class="mg-freeze-note"></p>'
+      + '<p class="sk-status"><span>닦은 칸 <b class="rt-n">1</b> / ' + open.length + '</span></p><p class="mg-freeze-note"></p>'
       + '<div class="pk-pad sk-pad">' + arrowPad("data-rt", actBtn("data-rt", "undo", "한 칸 되돌리기", "Z · ⌫") + actBtn("data-rt", "restart", "처음부터", "R")) + "</div>";
     var cellEls = body.querySelectorAll(".sk-cell"), man = body.querySelector(".rt-man"), line = body.querySelector(".rt-line polyline");
     var nEl = body.querySelector(".rt-n"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".sk-board");
@@ -2537,7 +2573,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       var ni = ny * W + nx;
       if (!isOpen[ni] || visited[ni]) { restartAnim(man, "is-bump"); return; }
       trail.push(ni); visited[ni] = 1;
-      if (trail.length === open.length) { paint(); note.textContent = "모든 길을 지났어요!"; c.later(c.finish, 420); return; }
+      if (trail.length === open.length) { paint(); note.textContent = "도마를 다 닦았어요!"; c.later(c.finish, 420); return; }
       var ok = reachableAll();
       if (!ok && !doomed) { c.addMistake(); note.textContent = "남은 길로 갈 수 없게 됐어요 — Z로 되돌려 보세요"; restartAnim(boardEl, "is-shake"); }
       else if (ok) note.textContent = "";
@@ -2545,7 +2581,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     }
     bindPad(body, c, "data-rt", act);
     paint();
-    return { hint: function () { return "창고(주황 칸)에서 출발해 방향키로 길을 따라가며 모든 길 칸을 한 번씩만 지나가세요. 한 번 지난 칸은 다시 못 가요. 막히면 Z로 한 칸씩 되돌리세요. 남은 길로 갈 수 없게 되면 알려줘요."; } };
+    return { hint: function () { return "주방 입구(주황 칸)에서 출발해 방향키로 도마의 모든 칸을 한 번씩만 닦으세요. 한 번 닦은 칸은 다시 못 가요. 막히면 Z로 한 칸씩 되돌리세요. 남은 칸을 다 닦을 수 없게 되면 알려줘요."; } };
   }
 
   // ---------- 컨베이어 잇기 (파이프) ----------
@@ -2706,7 +2742,8 @@ body.main-view #app { height: 100vh; min-height: 0; }
     var rootEl = el("div", "mg-root mg-kind-" + kind);
     rootEl.innerHTML =
       '<header class="mg-head"><div class="mg-title"><span class="mg-name">' + KINDS[kind].name + '</span>'
-      + '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span></div>'
+      + '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span>'
+      + (opts.sushi && SUSHI[opts.sushi] ? '<span class="mg-making" data-sushi="' + opts.sushi + '">' + sushiSvg(opts.sushi) + '<b>' + SUSHI[opts.sushi] + ' 초밥</b> 제작 중</span>' : '') + '</div>'
       + '<div class="mg-stats"><span class="mg-time">0.0초</span><span class="mg-miss">실수 0</span></div>'
       + '<button type="button" class="mg-giveup">포기</button></header>'
       + '<div class="mg-body"></div><p class="mg-hint"></p>'
@@ -2723,7 +2760,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     var tick = setInterval(function () { if (!finished) timeEl.textContent = fmtSec(performance.now() - t0); }, 100);
 
     var ctx = {
-      level: level, label: opts.label, testHooks: !!opts.testHooks, opts: opts,
+      level: level, label: opts.label, sushi: SUSHI[opts.sushi] ? opts.sushi : null, testHooks: !!opts.testHooks, opts: opts,
       isFinished: function () { return finished || destroyed; },
       later: function (fn, ms) {
         var id = setTimeout(function () { if (!destroyed) fn(); }, ms);
@@ -2770,6 +2807,8 @@ body.main-view #app { height: 100vh; min-height: 0; }
   root.MiniGames = {
     start: start,
     KINDS: KINDS,
+    SUSHI: SUSHI,
+    sushiSvg: sushiSvg,
     LEVEL_NAME: LEVEL_NAME,
     MAP_REPLAY_AFTER_MS: MAP_REPLAY_AFTER_MS,
     setMistakeRule: function (rule) { if (rule === "reset" || rule === "freeze" || rule === "ignore") config.mistakeRule = rule; },
@@ -2781,7 +2820,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
 (function () {
   "use strict";
 
-  var TYPES = [{"key": "normal", "name": "일반 초밥", "count": 4, "pieces": 2, "reward": 2500, "penalty": 1000, "color": "#C9A576", "ink": "#16233F", "mini": "ice", "miniLevel": 2}, {"key": "fragile", "name": "중급 초밥", "count": 4, "pieces": 3, "reward": 5000, "penalty": 2500, "color": "#C7E29A", "ink": "#16233F", "mini": "map", "miniLevel": 3}, {"key": "valuable", "name": "특선 초밥", "count": 3, "pieces": 4, "reward": 10000, "penalty": 5000, "color": "#F0B84A", "ink": "#16233F", "mini": "soko", "miniLevel": 3}, {"key": "fixed-floor", "name": "지정 초밥", "count": 6, "pieces": 3, "fixedFloor": true, "reward": 3000, "penalty": 2500, "color": "#6DBBFD", "ink": "#16233F", "mini": "route", "miniLevel": 3}];
+  var TYPES = [{"key": "normal", "sushi": ["egg", "tofu"], "name": "일반 초밥", "count": 4, "pieces": 2, "reward": 2500, "penalty": 1000, "color": "#C9A576", "ink": "#16233F", "mini": "ice", "miniLevel": 2}, {"key": "fragile", "sushi": ["salmon", "ikura"], "name": "중급 초밥", "count": 4, "pieces": 3, "reward": 5000, "penalty": 2500, "color": "#C7E29A", "ink": "#16233F", "mini": "map", "miniLevel": 3}, {"key": "valuable", "sushi": ["eel", "tuna"], "name": "특선 초밥", "count": 3, "pieces": 4, "reward": 10000, "penalty": 5000, "color": "#F0B84A", "ink": "#16233F", "mini": "soko", "miniLevel": 3}, {"key": "fixed-floor", "sushi": ["shrimp", "octopus"], "name": "지정 초밥", "count": 6, "pieces": 3, "fixedFloor": true, "reward": 3000, "penalty": 2500, "color": "#6DBBFD", "ink": "#16233F", "mini": "route", "miniLevel": 3}];
   // 2026-08-28: 전반/후반이 서로 다른 21장 퍼즐 이미지 세트를 쓴다 (build_client.py의 REF_DIR_1/
   // REF_DIR_2 참고). 보드 구조(id/catIdx/num)는 동일하고 src(이미지)만 다르므로 배열을 통째로
   // 두 벌 두고, cellMeta(id, half)가 half에 맞는 쪽에서 찾는다.
@@ -2984,6 +3023,28 @@ body.main-view #app { height: 100vh; min-height: 0; }
   function roomCode(floorIdx, room) {
     return FLOORS[floorIdx] + " " + room + "번";
   }
+  // 제작된 초밥의 구체적인 종류 (inv.sushi = TYPES[catIdx].sushi 중 하나, 예: "salmon" -> "연어"). 이름/그림은 minigames.js의 SUSHI.
+  function sushiShort(key) { return key && window.MiniGames && MiniGames.SUSHI[key] ? MiniGames.SUSHI[key] : ""; }
+  function sushiIcon(key) { return key && window.MiniGames && MiniGames.SUSHI[key] ? '<span class="inv-sushi">' + MiniGames.sushiSvg(key, "inv-sushi-svg") + '</span>' : ''; }
+  function invTitle(inv) {
+    var t = TYPES[inv.catIdx], sn = sushiShort(inv.sushi);
+    return sn ? esc(sn) + ' 초밥 <small class="inv-type">' + esc(t.name.replace(" 초밥", "")) + '</small>' : esc(t.name);
+  }
+  function chipText(inv) { var sn = sushiShort(inv.sushi); return (sn ? sn + ' · ' : '') + roomCode(inv.floorIdx, inv.room); }
+  function findInvoiceById(id) {
+    if (!state || !state.players) return null;
+    var out = null;
+    ["1", "2"].forEach(function (sn) { (state.players[sn].invoices || []).forEach(function (v) { if (v.id === id) out = v; }); });
+    return out;
+  }
+  // 칸을 열 때마다 이번에 만들 초밥을 클라이언트가 무작위로 고른다 (TYPES[].sushi 중). 서버는 그 키가 목록에 있는지만 검증해 주문표에 붙인다.
+  var sushiPicks = {};
+  function newSushiPick(cellId) {
+    var m = cellMeta(cellId, state.half), pool = (m && TYPES[m.catIdx].sushi) || [];
+    sushiPicks[cellId] = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    return sushiPicks[cellId];
+  }
+  function sushiFor(cellId) { return sushiPicks[cellId] || newSushiPick(cellId); }
 
   // ---------- 셰프(courier) 표시 이름 -- 2026-08-27 신설 ----------
   // "플레이어 1/2" 대신 화면 곳곳에서 좌석을 부를 때 이걸 쓴다. 아직 그 좌석이 셰프를 안 골랐으면
@@ -3143,7 +3204,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
           + '<span class="rbp">성공 ' + fmtWon(t.reward) + ' · 실패 ' + fmtWon(-t.penalty) + '</span></button>';
         mine += '<div class="my-chips">' + myCells.map(function (c) {
           var inv = invFor(c);
-          return '<span class="my-chip">' + (inv ? esc(roomCode(inv.floorIdx, inv.room)) : '제작') + '</span>';
+          return '<span class="my-chip">' + (inv ? esc(chipText(inv)) : '제작') + '</span>';
         }).join('') + '</div>';
       }
       mine += '</div>';
@@ -3171,7 +3232,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
   // TYPES[catIdx].mini(game-data.js)가 있는 종류의 칸은 우봉고 대신 minigames.js의 게임을 띄운다
   // (null이면 기존 우봉고 이미지 + "완료" 버튼). 게임은 #app이 아니라 #mg-layer에 mount한다 -- 이유는 CSS 주석 참고.
   // 서버는 이 게임을 모른다: 클라이언트가 끝까지 풀었다고 판정하면 예전과 똑같은 secure-cell 하나만 보낸다.
-  var MINI_NAME = { pack: "상자 포장", inspect: "이상 확인", sticker: "주문표 붙이기", map: "주문 서빙", soko: "재료 정리", ice: "도마 미끄럼", route: "벨트 경로", twin: "쌍둥이 서빙", pipe: "컨베이어 잇기", hanoi: "초밥 쌓기" };
+  var MINI_NAME = { pack: "상자 포장", inspect: "이상 확인", sticker: "주문표 붙이기", map: "주문 서빙", soko: "재료 정리", ice: "초밥 담기", route: "도마 닦기", twin: "쌍둥이 서빙", pipe: "컨베이어 잇기", hanoi: "초밥 쌓기" };
   // ?mgtest=1 이면 불량 검수의 정답 칸에 data-defect를 노출한다 (자동 테스트 전용 -- 일반 플레이엔 안 붙음).
   var TEST_HOOKS = /[?&]mgtest=1(&|$)/.test(location.search);
   var mg = null; // { cellId, ctl }
@@ -3187,6 +3248,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
   function openCell(cellId) {
     var m = cellMeta(cellId, state.half);
     if (m && TYPES[m.catIdx].mini && window.MiniGames) { openMiniGame(cellId); return; }
+    newSushiPick(cellId);
     local.openCellId = cellId; render();
   }
   // 레일 화면이 "이 칸을 풀어라"고 보냈을 때. 이미 뭔가 하고 있으면(서버도 막지만 경합 대비) 무시한다.
@@ -3200,6 +3262,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
   function openMiniGame(cellId) {
     var meta = cellMeta(cellId, state.half);
     var t = TYPES[meta.catIdx];
+    var pickedSushi = newSushiPick(cellId);
     closeMiniGame();
     var layer = document.getElementById("mg-layer");
     layer.innerHTML = '<div class="mg-wrap"><div class="mg-clock">제작 시간<b id="mg-clock">--:--</b></div><div id="mg-host"></div></div>';
@@ -3207,11 +3270,11 @@ body.main-view #app { height: 100vh; min-height: 0; }
     mg = {
       cellId: cellId,
       ctl: MiniGames.start(document.getElementById("mg-host"), {
-        kind: t.mini, level: perHalf(t.miniLevel),
+        kind: t.mini, level: perHalf(t.miniLevel), sushi: pickedSushi,
         // 지정 초밥은 칸이 곧 서빙 접시라 주문표에 그 접시를 그대로 찍는다 (호수는 제작 순간 서버가 정하므로 표기 안 함).
         label: t.fixedFloor ? FLOORS[meta.num] : null,
         testHooks: TEST_HOOKS,
-        onDone: function () { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id }); },
+        onDone: function () { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id) }); },
         onCancel: function () { closeMiniGame(); },
       }),
     };
@@ -3224,7 +3287,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
         var id = mg.cellId;
         markPending(id);
         closeMiniGame();
-        send({ type: "secure-cell", seat: mySeat(), cellId: id });
+        send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id) });
         return true;
       };
     }
@@ -3296,7 +3359,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       var flagText = inv.deliveredWasPriority ? ('우선 x' + PRIORITY_MULTIPLIER + ' 성공') : (isPendingPriority ? ('이번 라운드 우선 x' + PRIORITY_MULTIPLIER) : '');
       return '<div class="invoice' + (delivered ? ' delivered' : '') + (isPriority ? ' is-priority' : '') + '">'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + '<div class="meta"><div class="t">' + esc(t.name) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
         + '<span class="sticker' + (delivered && !inv.stolen ? '' : ' pending') + '">' + stickerText + '</span>'
         + '</div>';
     }).join("") + '</div>';
@@ -3312,7 +3375,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
         ? ' — <span style="color:var(--danger);font-weight:700;">초밥도둑에게 도난당했어요! (' + fmtWon(-t.penalty) + ')</span>'
         : ' (' + fmtWon(d.priority ? t.reward * PRIORITY_MULTIPLIER : t.reward) + (d.priority ? ' · 우선 x' + PRIORITY_MULTIPLIER : '') + ')';
       return '<div class="delivered-item"><span class="swatch" style="background:' + t.color + '"></span>'
-        + roomCode(d.floorIdx, d.room) + ' ' + esc(t.name) + note
+        + roomCode(d.floorIdx, d.room) + ' ' + (function () { var iv = findInvoiceById(d.invoiceId), sn = iv ? sushiShort(iv.sushi) : ""; return sn ? esc(sn) + ' 초밥 (' + esc(t.name.replace(" 초밥", "")) + ')' : esc(t.name); })() + note
         + '</div>';
     }).join('') + '</div>';
   }
@@ -3341,7 +3404,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       return '<div class="invoice' + (confirmed ? ' delivered' : ' pickable') + (picked ? ' is-priority' : '') + '"'
         + (confirmed ? '' : (' data-action="pick-priority" data-inv="' + (picked ? '' : inv.id) + '"')) + '>'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + '<div class="meta"><div class="t">' + esc(t.name) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 성공 시 ' + fmtWon(t.reward) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 성공 시 ' + fmtWon(t.reward) + '</div></div>'
         + '<span class="sticker' + (picked ? '' : ' pending') + '">' + (picked ? ('우선 x' + PRIORITY_MULTIPLIER) : '선택') + '</span>'
         + '</div>';
     }).join('') + '</div>';
@@ -3453,7 +3516,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
             + (myChosen ? '' : (' data-action="choose-delivery" data-inv="' + invId + '"'))
             + '>'
             + '<span class="swatch" style="background:' + t.color + '"></span>'
-            + '<div class="meta"><div class="t">' + esc(t.name) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
+            + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
             + '<span class="sticker' + (isChosen ? '' : ' pending') + '">' + (isChosen ? '선택됨' : '선택') + '</span>'
             + '</div>';
         }).join('') + '</div>';
@@ -3542,7 +3605,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       var t = TYPES[inv.catIdx];
       var pts = scoreInvoice(inv);
       var label = resultLabel(inv) + (inv.deliveredWasPriority ? ' · 우선' : '');
-      html += '<tr><td>' + esc(t.name) + '</td><td>' + roomCode(inv.floorIdx, inv.room) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
+      html += '<tr><td>' + esc(t.name) + (sushiShort(inv.sushi) ? ' · ' + esc(sushiShort(inv.sushi)) : '') + '</td><td>' + roomCode(inv.floorIdx, inv.room) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
     });
     if (!invs.length) html += '<tr><td colspan="4" style="color:var(--muted)">제작한 초밥 없음</td></tr>';
     html += '</tbody></table>';
@@ -3745,7 +3808,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     TYPES.forEach(function (t, catIdx) {
       var left = boardLeft(st, catIdx);
       var chips = mine.filter(function (inv) { return inv.catIdx === catIdx; })
-        .map(function (inv) { return '<span class="my-chip">' + esc(roomCode(inv.floorIdx, inv.room)) + '</span>'; }).join('');
+        .map(function (inv) { return '<span class="my-chip">' + esc(chipText(inv)) + '</span>'; }).join('');
       html += '<div class="rw-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '" style="--c:' + t.color + '">'
         + '<span class="rw-ico">' + CAT_ICONS[catIdx] + '</span><span class="rw-name">' + esc(t.name) + '<small>' + esc(MINI_NAME[t.mini] || '우봉고') + '</small></span>'
         + '<span class="rw-left">남은 <b>' + left + '</b>/' + t.count + '</span><span class="rw-mine">' + (chips || '<small>아직 없음</small>') + '</span></div>';
@@ -3945,6 +4008,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       }
       if (!freeCell) { if (!sawPending) showToast(tt.name + "은(는) 이미 소진됐어요"); return; }
       if (tt.mini && window.MiniGames) { openMiniGame(freeCell.id); return; }
+      newSushiPick(freeCell.id);
       local.openCellId = freeCell.id; render(); return;
     }
     if (action === "give-up") { local.openCellId = null; notifyGameClosed(); render(); return; }
@@ -3952,7 +4016,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
       var cid = t.getAttribute("data-cell");
       markPending(cid);
       local.openCellId = null;
-      send({ type: "secure-cell", seat: mySeat(), cellId: cid });
+      send({ type: "secure-cell", seat: mySeat(), cellId: cid, sushi: sushiFor(cid) });
       render();
       return;
     }

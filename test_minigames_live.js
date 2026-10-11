@@ -2,7 +2,7 @@
 //
 // test_minigames.js는 시험장 페이지에서 게임 자체를 검증하고, 이 파일은 그 게임이 실제 게임에 붙었을 때의
 // 통합 문제를 본다:
-//   - 카테고리별로 올바른 게임이 뜨는가 (일반=도마 미끄럼 / 중급=주문 서빙 / 특선 초밥=재료 정리 / 지정 접시=벨트 경로 -- 2026-10-08 배치 v2)
+//   - 카테고리별로 올바른 게임이 뜨는가 (일반=초밥 담기 / 중급=주문 서빙 / 특선 초밥=재료 정리 / 지정 접시=도마 닦기 -- 2026-10-08 배치 v2)
 //   - 진짜로 풀면 칸이 제작되고(secure-cell), 포기하면 제작되지 않는가
 //   - ★ 플레이 도중에 상대가 칸을 제작해 서버 상태 브로드캐스트가 와도 내 게임이 안 날아가는가
 //     (render()가 #app을 통째로 갈아엎기 때문에, 미니게임을 #app 안에 두면 이게 깨진다)
@@ -114,7 +114,7 @@ async function playOpenGame(page) {
 }
 
 
-// 도마 미끄럼 봇: 미끄러지는 동안(칸당 ~55ms) 입력이 잠기므로 매 키 사이에 위치 훅(data-ic)이 안정될 때까지 기다린다.
+// 초밥 담기 봇: 미끄러지는 동안(칸당 ~55ms) 입력이 잠기므로 매 키 사이에 위치 훅(data-ic)이 안정될 때까지 기다린다.
 async function iceMove(page, key) { // 키를 누르고 data-ic(위치/수거/횟수)가 바뀔 때까지. 미끄러지는 동안은 입력이 잠겨 무시되므로 안 먹으면 다시 누른다.
   const read = () => page.getAttribute("#mg-layer .mg-body", "data-ic"), prev = await read();
   for (let t = 0; t < 40; t++) {
@@ -195,17 +195,17 @@ async function main() {
 
   // ---- a. 보드의 카테고리별 게임 이름 표시 ----
   // (보드가 그려지는 순간과 "초밥 제작" 문구가 뜨는 순간이 같은 틱이 아닐 수 있어 기다린다 -- 한 번 이 경쟁 상태로 실패함)
-  await waitFor(async () => (await bodyText(p1)).includes("도마 미끄럼"), { label: "board game names rendered" });
+  await waitFor(async () => (await bodyText(p1)).includes("초밥 담기"), { label: "board game names rendered" });
   const board = await bodyText(p1);
-  for (const name of ["도마 미끄럼", "주문 서빙", "재료 정리", "벨트 경로"]) assert(board.includes(name), `board should name the game '${name}'`);
-  log("보드에 카테고리별 게임 이름 표시: 도마 미끄럼(일반) / 주문 서빙(중급) / 재료 정리(특선 초밥) / 벨트 경로(지정 접시)");
+  for (const name of ["초밥 담기", "주문 서빙", "재료 정리", "도마 닦기"]) assert(board.includes(name), `board should name the game '${name}'`);
+  log("보드에 카테고리별 게임 이름 표시: 초밥 담기(일반) / 주문 서빙(중급) / 재료 정리(특선 초밥) / 도마 닦기(지정 접시)");
 
-  // ---- b. 일반 초밥 -> 도마 미끄럼(보통=L2), 남은 제작 시간 표시 ----
+  // ---- b. 일반 초밥 -> 초밥 담기(보통=L2), 남은 제작 시간 표시 ----
   await clickSel(p1, openSel("normal-1"));
-  await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-ice")) === 1, { label: "일반 초밥 = 도마 미끄럼" });
+  await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-ice")) === 1, { label: "일반 초밥 = 초밥 담기" });
   const clock = await p1.textContent("#mg-clock");
   assert(/^\d:\d\d$/.test(clock), "secure-phase clock shown inside the game layer, got: " + clock);
-  log(`일반 초밥 칸 -> 도마 미끄럼 열림, 제작 남은 시간 ${clock} 표시`);
+  log(`일반 초밥 칸 -> 초밥 담기 열림, 제작 남은 시간 ${clock} 표시`);
 
   // ---- c. ★ 플레이 도중 상대의 제작로 상태 브로드캐스트가 와도 내 게임이 유지되는가 ----
   const icState = async (pg) => (await pg.getAttribute("#mg-layer .mg-body", "data-ic")).split(",").map(Number);
@@ -223,13 +223,13 @@ async function main() {
   assert((await icState(p1)).join() === before.join(), "p1's progress (position, moves) must survive the broadcast");
   log("★ 플레이 도중 상대가 칸을 제작해 상태 브로드캐스트가 와도 내 게임/진행도 유지됨");
 
-  // ---- d. 도마 미끄럼을 진짜로 끝내면 제작 (처음부터 다시 풀어서) ----
+  // ---- d. 초밥 담기을 진짜로 끝내면 제작 (처음부터 다시 풀어서) ----
   await p1.keyboard.press("r"); await sleep(150);
   await playIce(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-root")) === 0, { label: "ice closes after completion" });
   await waitFor(async () => (await myCount(p1, 0)) === 1, { label: "normal box secured on p1" });
   assert((await countSel(p1, openSel("normal-3"))) === 1, "the normal-box button stays available (2 left)");
-  log("도마 미끄럼 완주 -> 레이어 닫힘 + normal-1 제작");
+  log("초밥 담기 완주 -> 레이어 닫힘 + normal-1 제작");
 
   // ---- e. 중급 -> 주문 서빙 (어려움=L3: 7x5 지도 / 주문표 4장) ----
   await clickSel(p1, openSel("fragile-1"));
@@ -240,11 +240,11 @@ async function main() {
   await waitFor(async () => (await myCount(p1, 1)) === 1, { label: "fragile box secured" });
   log("중급 초밥 칸 -> 주문 서빙(7x5, 주문표 4장) 완주 -> fragile-1 제작");
 
-  // ---- f. 지정 접시 -> 벨트 경로 (어려움=L3: 6x5 / 막힌 칸 3, 칸이 곧 서빙 접시) ----
+  // ---- f. 지정 접시 -> 도마 닦기 (어려움=L3: 6x5 / 막힌 칸 3, 칸이 곧 서빙 접시) ----
   await clickSel(p1, openSel("fixed-floor-2"));
-  await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-route")) === 1, { label: "지정 접시 = 벨트 경로" });
+  await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-route")) === 1, { label: "지정 접시 = 도마 닦기" });
   const rtPlan = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert(rtPlan.rows.length === 5 && rtPlan.rows[0].length === 6 && rtPlan.rows.join("").split("#").length - 1 === 3, "지정 접시 벨트 경로는 6x5 / 막힌 칸 3, got " + rtPlan.rows.join("/"));
+  assert(rtPlan.rows.length === 5 && rtPlan.rows[0].length === 6 && rtPlan.rows.join("").split("#").length - 1 === 3, "지정 접시 도마 닦기는 6x5 / 막힌 칸 3, got " + rtPlan.rows.join("/"));
   await playOpenGame(p1);
   await waitFor(() => isFloorMine(p1, 1), { label: "fixed-floor-2 (주황) secured by really playing the route game" });
   // 제작된 칸의 얼굴에는 주문표 목적지(호수)가 찍힌다 -- 보드에서 주황 행 칸(fixed-floor 행의 2번째)의 .invoice-label을 읽는다.
@@ -254,7 +254,7 @@ async function main() {
     return lab ? lab.textContent : null;
   });
   assert(/^주황 \d번$/.test(faceText), `invoice on fixed-floor-2 must be a 주황 order (주황 N번), got ${faceText}`);
-  log(`지정 접시 칸 -> 벨트 경로(6x5) 진짜로 플레이해서 완주 -> 제작, 주문표 목적지 ${faceText} (주황)`);
+  log(`지정 접시 칸 -> 도마 닦기(6x5) 진짜로 플레이해서 완주 -> 제작, 주문표 목적지 ${faceText} (주황)`);
 
   // ---- g. 특선 초밥 -> 재료 정리(소코반) (어려움=L3: 상자 3개) ----
   await clickSel(p1, openSel("valuable-1"));
