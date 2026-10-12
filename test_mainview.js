@@ -138,12 +138,12 @@ async function main() {
   ei = await elevInfo();
   const sec = parseInt(ei.time, 10);
   assert(sec >= 3 && sec <= 5, `moving timer should show the remaining ~5 seconds (server time), got "${ei.time}"`);
-  await p1.keyboard.press("ArrowUp");
+  await p1.keyboard.press("ArrowLeft");
   await waitFor(async () => (await elevInfo()).floor === "노랑", { label: "main follows the car to 노랑" });
   ei = await elevInfo();
   assert(ei.carTo === "2", "car element targets floor index 2");
   await shot(main, "main_6_elevator_moving");
-  log(`회전 벨트 단계: 라운드 1/5, 현재 접시 주황 -> 이동 중(${sec}초 남음) -> ArrowUp 후 노랑로 따라감`);
+  log(`회전 벨트 단계: 라운드 1/5, 현재 접시 주황 -> 이동 중(${sec}초 남음) -> ArrowLeft(시계) 후 노랑로 따라감`);
 
   // 메인이 아직 좌석 없음 확인: 서버 상태의 seatOwners는 두 플레이어뿐
   const owners = await main.evaluate(() => window.__bpOwners || null);

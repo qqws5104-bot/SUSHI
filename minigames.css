@@ -295,12 +295,9 @@
   background: repeating-linear-gradient(45deg, #efe3c8 0 8px, #eadcbc 8px 16px); /* 길 */
 }
 .mg-tile.is-house { background: #f8f0dc; box-shadow: inset 0 0 0 2px rgba(122, 90, 48, 0.35); }
-.mg-hsvg { position: absolute; inset: 6% 12% 26% 12%; width: 76%; height: 68%; }
-.mg-roof { fill: #b98a54; stroke: #7a5a30; stroke-width: 1.4; } .mg-wall { fill: #fff; stroke: #bdb59f; stroke-width: 1.2; } .mg-door { fill: none; stroke: #5b3a1a; stroke-width: 1.6; stroke-linecap: round; }
-.mg-lab {
-  position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); font-family: var(--mg-font-display); font-weight: 700;
-  font-size: 0.6rem; line-height: 1; padding: 0.1rem 0.22rem; border-radius: 4px; background: #fffdf5; border: 1px solid #7a5a30; color: #2b1d12; white-space: nowrap;
-}
+.mg-lab { position: absolute; inset: 7%; display: block; }
+.mg-psvg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 2px 1.5px rgba(43, 29, 18, 0.35)); }
+.mg-pnum { font-family: var(--mg-font-display); font-weight: 800; font-size: 30px; fill: #fff; stroke: #2b1d12; stroke-width: 4.2px; paint-order: stroke fill; stroke-linejoin: round; }
 .mg-chk {
   position: absolute; right: -4px; top: -6px; width: 1.2rem; height: 1.2rem; border-radius: 50%; display: none; align-items: center; justify-content: center; z-index: 3;
   font-size: 0.8rem; font-weight: 800; background: var(--mg-ok); color: #fff; border: 2px solid #fff;
@@ -322,21 +319,14 @@
 /* 주문표만 붙은 초밥 팝업 */
 .mg-parcels { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.6rem 0.7rem; max-width: 100%; }
 .mg-parcel { position: relative; animation: mg-popin 0.34s cubic-bezier(.2, 1.6, .4, 1) both; animation-delay: var(--d, 0ms); }
-.mg-parcel .pbox {
-  position: relative; display: flex; align-items: center; justify-content: center; width: 112px; height: 66px; border-radius: 4px; padding-top: 10px; box-sizing: border-box; overflow: hidden;
-  background: #fffdf3; border: 2px solid #d8cba6; box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4);
-}
-.mg-parcel .pbox::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 11px; background: #c7402d; }
-.mg-parcel .pl {
-  position: relative; z-index: 1; font-family: var(--mg-font-display); font-weight: 700; font-size: 1.3rem; line-height: 1; padding: 0.2rem 0.3rem;
-  background: transparent; border: 0; border-radius: 4px; color: #2b1d12; white-space: nowrap;
-}
+.mg-parcel .pbox { position: relative; display: block; width: 100px; height: 100px; }
+.mg-parcel .pbox .mg-psvg { filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.45)); }
 .mg-parcel .pn {
   position: absolute; left: -7px; top: -9px; z-index: 2; width: 1.6rem; height: 1.6rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   font-style: normal; font-family: var(--mg-font-display); font-weight: 800; font-size: 0.95rem; background: var(--mg-accent); color: var(--mg-accent-ink); border: 2px solid #fff;
 }
 .mg-parcel .pk { position: absolute; right: -6px; top: -8px; z-index: 2; display: none; width: 1.3rem; height: 1.3rem; border-radius: 50%; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; background: var(--mg-ok); color: #fff; border: 2px solid #fff; }
-.mg-parcel.is-done .pbox { opacity: 0.45; filter: grayscale(0.5); }
+.mg-parcel.is-done .pbox { opacity: 0.4; filter: grayscale(0.6); }
 .mg-parcel.is-done .pk { display: flex; }
 @keyframes mg-popin { from { transform: scale(0.15) translateY(14px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
 .mg-courier {
@@ -361,7 +351,7 @@
 .mg-replay:hover:not(:disabled) { background: rgba(43, 29, 18, 0.06); }
 .mg-replay:disabled { opacity: 0.4; cursor: default; }
 .mg-kind-map .mg-pad, .mg-kind-sticker .mg-pad { margin-top: 0.3rem; }
-@media (max-width: 480px) { .mg-map { --ts: 52px; } .mg-lab { font-size: 0.56rem; } .mg-parcel .pbox { width: 84px; height: 56px; } .mg-parcel .pl { font-size: 1.05rem; } }
+@media (max-width: 480px) { .mg-map { --ts: 52px; } .mg-parcel .pbox { width: 68px; height: 68px; } }
 @media (max-height: 820px) {
   .mg-map { --ts: 50px; }
   .mg-map-top { min-height: 2rem; margin-bottom: 0.3rem; }

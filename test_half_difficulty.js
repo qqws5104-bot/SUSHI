@@ -76,7 +76,7 @@ async function main() {
   await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "전반 secure phase" });
   log("전반 secure phase 진입 -- 아무것도 제작하지 않음(전반 결과는 이 테스트와 무관)");
   const PIECES = { normal: 2, fragile: 3, valuable: 4, "fixed-floor": 3 };
-  const NAME = { normal: "1천원 초밥", fragile: "2천원 초밥", valuable: "5천원 초밥", "fixed-floor": "3천원 초밥" };
+  const NAME = { normal: "계란 초밥", fragile: "흰살생선 초밥", valuable: "장어 초밥", "fixed-floor": "연어 초밥" };
   const CAT = { normal: 0, fragile: 1, valuable: 2 };
   const openOverlay = async (id) => {
     const kind = id.replace(/-\d+$/, "");

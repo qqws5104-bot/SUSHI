@@ -407,8 +407,8 @@ async function main() {
     return { grid: b.dataset.grid.split(",").map(Number), depot: b.dataset.depot.split(",").map(Number), blocked: P(b.dataset.blocked), targets: P(b.dataset.targets) };
   });
   const courierAt = () => page.evaluate(() => { const c = document.querySelector(".mg-courier"); return [c.style.getPropertyValue("--cx"), c.style.getPropertyValue("--cy")].map(Number); });
-  const invoiceNums = () => page.$$eval(".mg-cover .mg-parcel", (els) => els.map((e) => ({ n: e.querySelector(".pn").textContent, room: e.querySelector(".pl").textContent.replace("호", ""), done: e.classList.contains("is-done") })));
-  const labelAt = (x, y) => page.evaluate(([x, y]) => { const l = document.querySelector(`.mg-tile[data-x="${x}"][data-y="${y}"] .mg-lab`); return l ? l.textContent : null; }, [x, y]);
+  const invoiceNums = () => page.$$eval(".mg-cover .mg-parcel", (els) => els.map((e) => ({ n: e.querySelector(".pn").textContent, room: e.querySelector(".pbox").getAttribute("data-label"), done: e.classList.contains("is-done") })));
+  const labelAt = (x, y) => page.evaluate(([x, y]) => { const l = document.querySelector(`.mg-tile[data-x="${x}"][data-y="${y}"] .mg-lab`); return l ? l.getAttribute("data-label") : null; }, [x, y]);
   function bfsDirs(info, from, to) {
     const [W, H] = info.grid, bl = new Set(info.blocked.map((b) => b.join(",")));
     const prev = new Map([[from.join(","), null]]); const q = [from];
@@ -443,7 +443,7 @@ async function main() {
     assert(info.targets.length === cfg.targets, `map L${lv} should have ${cfg.targets} targets`);
     assert((await page.$$(".mg-tile.is-house")).length === cfg.houses, `map L${lv} should have ${cfg.houses} houses`);
     assert(info.blocked.length === cfg.blocks && (await page.$$(".mg-tile.is-block")).length === cfg.blocks, `map L${lv} should have ${cfg.blocks} blocked tiles`);
-    const labels = await page.$$eval(".mg-lab", (els) => els.map((e) => e.textContent));
+    const labels = await page.$$eval(".mg-lab", (els) => els.map((e) => e.getAttribute("data-label")));
     assert(new Set(labels).size === labels.length && labels.every((t) => /^(빨강|주황|노랑|초록|파랑|보라) [1-9]번$/.test(t)), "house labels are unique order numbers (접시 색 N번): " + labels);
     for (const t of info.targets) assert(bfsDirs(info, info.depot, t), `target ${t} reachable (blocked tiles must never cut a house off)`);
     // 주문표 단계: 지도는 가려져 있고(안 보임), 호실 번호가 순서(1..N)와 함께 목록으로만 뜬다
@@ -468,7 +468,8 @@ async function main() {
     assert(similarCount >= guaranteed, `map L${lv}: at least ${guaranteed} decoys look like a target (same floor or same room), got ${similarCount}`);
     await waitMapShown();
     assert(await page.$eval(".mg-cover", (e) => getComputedStyle(e).display === "none"), "the parcels disappear once the map shows");
-    assert(await page.$eval(".mg-tile.is-house .mg-lab", (e) => getComputedStyle(e).visibility !== "hidden"), "house numbers stay visible on the map");
+    assert(await page.$eval(".mg-tile.is-house .mg-lab .mg-pnum", (e) => getComputedStyle(e).visibility !== "hidden" && e.textContent.length >= 1), "접시 위의 번호는 지도에서 보인다 (글자 라벨이 아니라 접시 그림 + 숫자)");
+    assert((await page.$$(".mg-tile.is-house b.mg-lab")).length === 0 && (await page.$$(".mg-parcel b.pl")).length === 0, "주문표/집에 '빨강 3번' 같은 글자 라벨은 없다 -- 접시(색) + 숫자만");
     if (lv === 2) await shot("map_L2_map");
     if (lv === 3) await shot("map_L3_map");
     // 순서대로 서빙

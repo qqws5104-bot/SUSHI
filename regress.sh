@@ -9,6 +9,7 @@ trap restore EXIT
 run(){ echo "== $1"; timeout 400 node $1 2>&1 | tail -3; echo "exit=${PIPESTATUS[0]}"; }
 
 echo "######## 실물 우봉고 모드 (예비 -- python3 set_mini.py ubongo)"
+python3 build_minigame_proto.py >/dev/null
 python3 set_mini.py ubongo >/dev/null
 setsec "3 * 60 * 1000"
 for t in test_priority_window.js test_sushi_kind.js test_thief_limit.js test_shared_board.js test_theft_scoring.js test_restart.js test_minigames.js test_minigames_extra.js; do run $t; done

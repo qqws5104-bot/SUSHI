@@ -201,6 +201,14 @@ CELLS_1_JSON = json.dumps(CELLS_1, ensure_ascii=False)
 CELLS_2_JSON = json.dumps(CELLS_2, ensure_ascii=False)
 FLOORS_JSON = json.dumps(FLOORS, ensure_ascii=False)
 BOX_ART_JSON = json.dumps(BOX_ART, ensure_ascii=False)
+# 초밥 아이콘(내 초밥 목록용): 참고 일러스트에서 잘라 만든 art/sushi_<key>.webp. 없는 키는 클라이언트가 SVG로 대체한다.
+SUSHI_IMG = {}
+for _k in ("egg", "whitefish", "salmon", "eel"):
+    _p = os.path.join(os.path.dirname(__file__), "art", "sushi_" + _k + ".webp")
+    if os.path.exists(_p):
+        with open(_p, "rb") as _f:
+            SUSHI_IMG[_k] = "data:image/webp;base64," + base64.b64encode(_f.read()).decode("ascii")
+SUSHI_IMG_JSON = json.dumps(SUSHI_IMG, ensure_ascii=False)
 ROOMS_JSON = json.dumps(ROOMS, ensure_ascii=False)
 
 HEAD_HTML = """<!doctype html>
@@ -698,6 +706,36 @@ HEAD_HTML = """<!doctype html>
   .priority-window h4, .choice-box h4 { color:var(--team); font-weight:400; font-size:1.1rem; } .thief-window h4 { color:var(--danger); font-weight:400; font-size:1.1rem; }
   .choice-list .invoice.chosen { background:#c9f1d2; }
   .player-col.me h3 { color:var(--team); }
+  /* 서빙 칸 강조 + 방향 화살표 (2026-10-12) */
+  .belt-ring { height:120cqw; }
+  .belt-mark { top:112cqw; }
+  .serve-frame { position:absolute; left:50%; top:86cqw; width:34cqw; height:34cqw; margin:-17cqw 0 0 -17cqw; border-radius:50%; border:2.2cqw solid var(--ink);
+    box-shadow:0 0 0 2.4cqw var(--pop-yellow), 0 0 0 4.6cqw var(--ink); pointer-events:none; }
+  .serve-arrow { position:absolute; top:92cqw; width:21cqw; margin-top:-10cqw; display:flex; flex-direction:column; align-items:center; pointer-events:none; }
+  .serve-arrow.left { left:1.5cqw; } .serve-arrow.right { right:1.5cqw; }
+  .serve-arrow.right svg { transform:scaleX(-1); }
+  .serve-arrow svg { width:100%; height:auto; display:block; filter:drop-shadow(0 0.8cqw 0 var(--ink)); }
+  .serve-arrow polygon { fill:var(--pop-yellow); stroke:var(--ink); stroke-width:3.5; stroke-linejoin:round; }
+  .serve-arrow b { margin-top:1.8cqw; font-family:var(--font-pop); font-weight:400; font-size:5.6cqw; color:var(--ink); line-height:1; }
+  .vote-buttons { flex-direction:row; gap:0.8rem; }
+  .vote-buttons .btn { flex:1; font-size:1.25rem; padding:1rem 0.6rem; }
+  .vote-arrow { display:inline-block; font-size:1.6em; line-height:0.8; vertical-align:-0.1em; }
+  /* 벨트 접시: 참고 일러스트의 접시처럼 안쪽 링 + 하얀 물고기 문양 (이름은 아래에 작게) */
+  .floor-stop .car { flex-direction:column; gap:0.2cqw; position:relative; }
+  .floor-stop .car::before { content:""; position:absolute; inset:7%; border-radius:50%; border:0.5cqw solid rgba(255,255,255,0.5); pointer-events:none; }
+  .floor-stop .car .car-fish { width:8.5cqw; height:auto; fill:rgba(255,255,255,0.92); stroke:rgba(0,0,0,0.25); stroke-width:1; }
+  .floor-stop .car .car-fish .eye { fill:rgba(0,0,0,0.45); stroke:none; }
+  .floor-stop .car b { font-weight:400; font-size:6.4cqw; line-height:1; }
+  .rail-box .cell-art { inset:0; opacity:1; filter:none; background-size:cover; }
+  .rail-box::before { background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(0,0,0,0.05)); }
+  .rail-box .cat-left { background:rgba(255,255,255,0.9); border:2px solid var(--ink); border-radius:999px; padding:0 0.55rem; color:var(--ink); }
+  .rail-box .rb-game { background:rgba(255,255,255,0.9); border:2px solid var(--ink); }
+  .inv-sushi { width:3.1rem; }
+  .inv-sushi-img { width:100%; height:auto; display:block; border-radius:8px; border:2px solid var(--ink); }
+  /* 접시 색 표시 (번호는 안 쓴다): 색 동그라미 + "초록 접시" */
+  .invoice .t .inv-type { white-space:nowrap; }
+  .plate-tag { display:inline-flex; align-items:center; gap:0.35em; font-weight:700; }
+  .plate-dot { display:inline-block; width:1.05em; height:1.05em; flex:none; border-radius:50%; background:var(--p); border:2px solid var(--ink); box-shadow:inset 0 0 0 2px rgba(255,255,255,0.45); }
 </style>
 </head><body>
 <div id="app"></div>
@@ -731,6 +769,7 @@ APP_JS_TEMPLATE = r"""
   // catIdx로 인덱싱하는 종류별 보드-칸 배경 일러스트 (위 BOX_ART_DIR 참고). CELLS[].src(칸마다 다른
   // 퍼즐 이미지, 오버레이 전용)와는 별개 -- 이건 보드 위 21칸 자체의 배경으로 쓴다.
   var BOX_ART = @@BOX_ART_JSON@@;
+  var SUSHI_IMG = @@SUSHI_IMG_JSON@@;   // 초밥 키 -> 일러스트(data URI)
   // 2026-08-27 리스킨: board-label 카드용 평평한 라인 아이콘 (TYPES 순서와 동일 -- 트럭/깨진 유리잔/
   // 보석/체크마크 건물). box_art/의 3D 상자 일러스트와는 다른, 손으로 그린 별도의 단순한 SVG -- 그
   // 일러스트는 라벨 카드 안에 아이콘 크기로 넣기엔 스타일이 안 맞아서(입체 상자 그림 vs 평면 라인
@@ -901,17 +940,26 @@ APP_JS_TEMPLATE = r"""
   // Combines a floor + room slot into a single realistic-looking building room code, e.g.
   // "401호" (4F, slot 1) or "B03호" (B1, slot 3) -- floorIdx/room are still tracked separately
   // server-side (floorIdx drives elevator delivery-matching), this is purely a display format.
-  function roomCode(floorIdx, room) {
-    return FLOORS[floorIdx] + " " + room + "번";
+  // 2026-10-12 (사용자: "접시 색만 중요해. 몇번인지는 알릴 필요 없음"): 번호는 더 이상 화면에 안 낸다. 서빙은 접시 색으로만 정해진다
+  //   (inv.room은 서버에 남아 있지만 표시 전용 값이라 아무 데도 쓰지 않는다). 함수 이름은 그대로 두고 "접시 색"만 돌려준다.
+  function roomCode(floorIdx) {
+    return FLOORS[floorIdx] + " 접시";
+  }
+  // 접시 그림(색 동그라미) + "초록 접시" -- 주문표 목록/결과 표용 HTML.
+  function plateTag(floorIdx) {
+    return '<span class="plate-tag"><i class="plate-dot" style="--p:' + PLATE_HEX[floorIdx] + '"></i>' + esc(roomCode(floorIdx)) + '</span>';
   }
   // 제작된 초밥의 구체적인 종류 (inv.sushi = TYPES[catIdx].sushi 중 하나, 예: "salmon" -> "연어"). 이름/그림은 minigames.js의 SUSHI.
   function sushiShort(key) { return key && window.MiniGames && MiniGames.SUSHI[key] ? MiniGames.SUSHI[key] : ""; }
-  function sushiIcon(key) { return key && window.MiniGames && MiniGames.SUSHI[key] ? '<span class="inv-sushi">' + MiniGames.sushiSvg(key, "inv-sushi-svg") + '</span>' : ''; }
+  function sushiIcon(key) {
+    if (key && SUSHI_IMG[key]) return '<span class="inv-sushi"><img class="inv-sushi-img" alt="" src="' + SUSHI_IMG[key] + '"></span>';
+    return key && window.MiniGames && MiniGames.SUSHI[key] ? '<span class="inv-sushi">' + MiniGames.sushiSvg(key, "inv-sushi-svg") + '</span>' : '';
+  }
   function invTitle(inv) {
     var t = TYPES[inv.catIdx], sn = sushiShort(inv.sushi);
-    return sn ? esc(sn) + ' 초밥 <small class="inv-type">' + esc(t.name.replace(" 초밥", "")) + '</small>' : esc(t.name);
+    return sn ? esc(sn) + ' 초밥 <small class="inv-type">' + fmtWon(t.reward) + '</small>' : esc(t.name) + ' <small class="inv-type">' + fmtWon(t.reward) + '</small>';
   }
-  function chipText(inv) { var sn = sushiShort(inv.sushi); return (sn ? sn + ' · ' : '') + roomCode(inv.floorIdx, inv.room); }
+  function chipText(inv) { var sn = sushiShort(inv.sushi); return (sn ? sn + ' · ' : '') + FLOORS[inv.floorIdx]; }
   function findInvoiceById(id) {
     if (!state || !state.players) return null;
     var out = null;
@@ -991,7 +1039,7 @@ APP_JS_TEMPLATE = r"""
     var other = otherSeat ? !!st.ready[otherSeat] : false;
     return '<main class="stage"><div class="center-screen"><div class="lobby-box card">'
       + '<h2>' + esc(seatName("1", st)) + ' VS ' + esc(seatName("2", st)) + '</h2>'
-      + '<p class="rule-note">초밥 이름이 곧 판매가예요. 만든 초밥을 라운드 안에 못 팔면(서빙 못 함 · 도둑에게 뺏김) <b>원재료값</b>만큼 점수가 깎여요.</p>'
+      + '<p class="rule-note">초밥마다 판매가가 달라요(계란 1,000 · 흰살생선 2,000 · 연어 1,500 · 장어 3,000). 만든 초밥을 라운드 안에 못 팔면(서빙 못 함 · 도둑에게 뺏김) <b>원재료값</b>만큼 점수가 깎여요.</p>'
       + '<p>두 사람 모두 입장했으면 각자 자기 키보드의 <strong>스페이스바</strong>를 눌러 준비하세요.<br>'
       + '둘 다 준비되면 자동으로 시작하고, 최대 3분 동안(초밥이 다 떨어지면 일찍 끝나요) 초밥을 만든 뒤 회전 벨트 라운드(총 ' + ELEVATOR_ROUNDS + '라운드)로 넘어가요. 전반·후반 두 번 하고 점수를 합산해요.</p>'
       + '<div class="ready-row">'
@@ -1065,7 +1113,7 @@ APP_JS_TEMPLATE = r"""
           if (!cell.taken) mine += '<button class="floor-btn" data-action="open-cell" data-cell="' + cell.id + '">' + esc(FLOORS[num]) + '</button>';
           else if (cell.takenBy === seat) {
             var fInv = invFor(cell);
-            mine += '<button class="floor-btn is-gone mine" disabled><span>' + esc(FLOORS[num]) + '</span>' + (fInv ? '<small>' + esc(roomCode(fInv.floorIdx, fInv.room)) + '</small>' : '') + '</button>';
+            mine += '<button class="floor-btn is-gone mine" disabled><span>' + esc(FLOORS[num]) + '</span>' + (fInv ? '<small>' + esc(sushiShort(fInv.sushi)) + '</small>' : '') + '</button>';
           }
           else mine += '<button class="floor-btn is-gone" disabled title="상대가 먼저 가져갔어요">' + esc(FLOORS[num]) + '</button>';
         }
@@ -1203,11 +1251,15 @@ APP_JS_TEMPLATE = r"""
   // 순환 벨트: 접시 6장이 원으로 놓여 있고, 현재 접시가 항상 6시 "서빙 칸"에 오도록 통째로 돌아간다.
   // cur는 접시 번호(연속값 -- 메인 모니터는 한 바퀴 넘어가도 최단 방향으로 돌도록 누적값을 넘긴다).
   // 각 접시는 .floor-stop (DOM 순서 = FLOORS 순서), 현재 접시에만 .current. 접시 안의 .car가 색 원반이다.
+  // 2026-10-12: 서빙 칸(6시)에 굵은 테두리 + 양옆 방향 화살표. 왼쪽 화살표 = 시계 방향(← 키), 오른쪽 화살표 = 반시계 방향(→ 키).
+  //   벨트가 시계 방향으로 돌면 6시 자리에서는 접시가 왼쪽으로 지나가므로 화살표 방향이 실제 움직임과 맞다.
+  var ARROW_SVG = '<svg viewBox="0 0 60 40" aria-hidden="true"><polygon points="4,20 26,3 26,13 56,13 56,27 26,27 26,37" /></svg>';
+  var SERVE_ARROWS = '<span class="serve-arrow left">' + ARROW_SVG + '<b>시계</b></span><span class="serve-arrow right">' + ARROW_SVG + '<b>반시계</b></span>';
   function ringHtml(cur, extraCls, ringId, toCur) {
-    var h = '<div class="belt-ring ' + (extraCls || '') + '"' + (ringId ? ' id="' + ringId + '" data-to="' + toCur + '"' : '') + ' style="--cur:' + cur + '"><div class="belt-track"></div>';
+    var h = '<div class="belt-ring ' + (extraCls || '') + '"' + (ringId ? ' id="' + ringId + '" data-to="' + toCur + '"' : '') + ' style="--cur:' + cur + '"><div class="belt-track"></div><span class="serve-frame"></span>' + SERVE_ARROWS;
     FLOORS.forEach(function (f, i) {
       var isCur = (((Math.round(toCur === undefined ? cur : toCur) % FLOORS.length) + FLOORS.length) % FLOORS.length) === i;
-      h += '<div class="floor-stop' + (isCur ? ' current' : '') + '" style="--i:' + i + '"><span class="car" style="background:' + PLATE_HEX[i] + ';color:' + PLATE_INK[i] + '">' + f + '</span></div>';
+      h += '<div class="floor-stop' + (isCur ? ' current' : '') + '" style="--i:' + i + '"><span class="car" style="background:' + PLATE_HEX[i] + ';color:' + PLATE_INK[i] + '"><svg class="car-fish" viewBox="0 0 40 24" aria-hidden="true"><path d="M3 12c5-8 15-9 22-3l8-5v16l-8-5c-7 6-17 5-22-3z"/><circle cx="9" cy="10" r="1.6" class="eye"/></svg><b>' + f + '</b></span></div>';
     });
     h += '<span class="belt-mark">▲ 서빙 칸</span></div>';
     return h;
@@ -1232,7 +1284,7 @@ APP_JS_TEMPLATE = r"""
       var flagText = inv.deliveredWasPriority ? ('우선 x' + PRIORITY_MULTIPLIER + ' 성공') : (isPendingPriority ? ('이번 라운드 우선 x' + PRIORITY_MULTIPLIER) : '');
       return '<div class="invoice' + (delivered ? ' delivered' : '') + (isPriority ? ' is-priority' : '') + '">'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + plateTag(inv.floorIdx) + '</div></div>'
         + '<span class="sticker' + (delivered && !inv.stolen ? '' : ' pending') + '">' + stickerText + '</span>'
         + '</div>';
     }).join("") + '</div>';
@@ -1248,7 +1300,7 @@ APP_JS_TEMPLATE = r"""
         ? ' — <span style="color:var(--danger);font-weight:700;">초밥도둑에게 도난당했어요! (원재료값 ' + fmtWon(-t.penalty) + ')</span>'
         : ' (' + fmtWon(d.priority ? t.reward * PRIORITY_MULTIPLIER : t.reward) + (d.priority ? ' · 우선 x' + PRIORITY_MULTIPLIER : '') + ')';
       return '<div class="delivered-item"><span class="swatch" style="background:' + t.color + '"></span>'
-        + roomCode(d.floorIdx, d.room) + ' ' + (function () { var iv = findInvoiceById(d.invoiceId), sn = iv ? sushiShort(iv.sushi) : ""; return sn ? esc(sn) + ' 초밥 (' + esc(t.name.replace(" 초밥", "")) + ')' : esc(t.name); })() + note
+        + plateTag(d.floorIdx) + ' ' + (function () { var iv = findInvoiceById(d.invoiceId), sn = iv ? sushiShort(iv.sushi) : ""; return sn ? esc(sn) + ' 초밥 (' + esc(t.name.replace(" 초밥", "")) + ')' : esc(t.name); })() + note
         + '</div>';
     }).join('') + '</div>';
   }
@@ -1277,7 +1329,7 @@ APP_JS_TEMPLATE = r"""
       return '<div class="invoice' + (confirmed ? ' delivered' : ' pickable') + (picked ? ' is-priority' : '') + '"'
         + (confirmed ? '' : (' data-action="pick-priority" data-inv="' + (picked ? '' : inv.id) + '"')) + '>'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 팔면 ' + fmtWon(t.reward) + ' / 못 팔면 ' + fmtWon(-t.penalty) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + plateTag(inv.floorIdx) + ' · 팔면 ' + fmtWon(t.reward) + ' / 못 팔면 ' + fmtWon(-t.penalty) + '</div></div>'
         + '<span class="sticker' + (picked ? '' : ' pending') + '">' + (picked ? ('우선 x' + PRIORITY_MULTIPLIER) : '선택') + '</span>'
         + '</div>';
     }).join('') + '</div>';
@@ -1389,7 +1441,7 @@ APP_JS_TEMPLATE = r"""
             + (myChosen ? '' : (' data-action="choose-delivery" data-inv="' + invId + '"'))
             + '>'
             + '<span class="swatch" style="background:' + t.color + '"></span>'
-            + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
+            + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + plateTag(inv.floorIdx) + '</div></div>'
             + '<span class="sticker' + (isChosen ? '' : ' pending') + '">' + (isChosen ? '선택됨' : '선택') + '</span>'
             + '</div>';
         }).join('') + '</div>';
@@ -1405,13 +1457,13 @@ APP_JS_TEMPLATE = r"""
     var voting = st.elevator.state === "voting";
 
     html += '<div class="vote-buttons">';
-    html += '<button class="btn big primary" data-action="vote-up"' + (voting ? '' : ' disabled') + '>↻ 시계 방향으로</button>';
-    html += '<button class="btn big ghost" data-action="vote-down"' + (voting ? '' : ' disabled') + '>↺ 반시계 방향으로</button>';
+    html += '<button class="btn big primary" data-action="vote-up"' + (voting ? '' : ' disabled') + '><span class="vote-arrow">←</span> 시계 방향으로</button>';
+    html += '<button class="btn big ghost" data-action="vote-down"' + (voting ? '' : ' disabled') + '>반시계 방향으로 <span class="vote-arrow">→</span></button>';
     html += '</div>';
     // per-click counts (mine or the opponent's) are never shown -- the real floor position, shown
     // live in the shaft (whichever row carries .current), is the only movement feedback either
     // player gets during voting.
-    html += '<div class="key-hint">' + (voting ? '키보드 ↑ / ↓ 화살표로도 누를 수 있어요' : '이번 라운드 투표가 끝났어요') + '</div>';
+    html += '<div class="key-hint">' + (voting ? '키보드 ← / → 방향키로도 누를 수 있어요' : '이번 라운드 투표가 끝났어요') + '</div>';
 
     if (voting) {
       html += '<div class="time-left-big" id="round-clock">남은 시간 계산 중...</div>';
@@ -1478,7 +1530,7 @@ APP_JS_TEMPLATE = r"""
       var t = TYPES[inv.catIdx];
       var pts = scoreInvoice(inv);
       var label = resultLabel(inv) + (inv.deliveredWasPriority ? ' · 우선' : '');
-      html += '<tr><td>' + esc(t.name) + (sushiShort(inv.sushi) ? ' · ' + esc(sushiShort(inv.sushi)) : '') + '</td><td>' + roomCode(inv.floorIdx, inv.room) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
+      html += '<tr><td>' + esc(t.name) + (sushiShort(inv.sushi) ? ' · ' + esc(sushiShort(inv.sushi)) : '') + '</td><td>' + plateTag(inv.floorIdx) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
     });
     if (!invs.length) html += '<tr><td colspan="4" style="color:var(--muted)">제작한 초밥 없음</td></tr>';
     html += '</tbody></table>';
@@ -1951,11 +2003,11 @@ APP_JS_TEMPLATE = r"""
       }
       return;
     }
-    if (e.code === "ArrowUp" || e.code === "ArrowDown") {
+    if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
       var seat2 = mySeat();
       if (seat2 && state && state.phase === "elevator" && state.elevator.state === "voting") {
         e.preventDefault();
-        send({ type: "vote", seat: seat2, dir: e.code === "ArrowUp" ? "up" : "down" });
+        send({ type: "vote", seat: seat2, dir: e.code === "ArrowLeft" ? "up" : "down" });   // ← = 시계 방향(서버의 up), → = 반시계(down)
       }
     }
   });
@@ -2017,6 +2069,7 @@ APP_JS = (APP_JS_TEMPLATE
           .replace("@@ROOMS_JSON@@", ROOMS_JSON)
           .replace("@@COURIERS_JSON@@", COURIERS_JSON)
           .replace("@@BOX_ART_JSON@@", BOX_ART_JSON)
+          .replace("@@SUSHI_IMG_JSON@@", SUSHI_IMG_JSON)
           .replace("@@HERO_URL@@", HERO_URL)
           .replace("@@ELEVATOR_ROUNDS@@", str(ELEVATOR_ROUNDS))
           .replace("@@SECURE_PHASE_MS@@", str(SECURE_PHASE_MS))

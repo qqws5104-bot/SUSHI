@@ -253,8 +253,8 @@ async function main() {
     const lab = f && f.querySelector("small");
     return lab ? lab.textContent : null;
   });
-  assert(/^주황 \d번$/.test(faceText), `invoice on fixed-floor-2 must be a 주황 order (주황 N번), got ${faceText}`);
-  log(`지정 접시 칸 -> 도마 닦기(6x5) 진짜로 플레이해서 완주 -> 제작, 주문표 목적지 ${faceText} (주황)`);
+  assert(/^연어$/.test(faceText), `fixed-floor-2 face should show the sushi kind (연어), got ${faceText}`);
+  log(`지정 접시 칸 -> 도마 닦기(6x5) 진짜로 플레이해서 완주 -> 제작, 만든 초밥 ${faceText} (주황 접시 칸)`);
 
   // ---- g. 특선 초밥 -> 재료 정리(소코반) (어려움=L3: 상자 3개) ----
   await clickSel(p1, openSel("valuable-1"));
