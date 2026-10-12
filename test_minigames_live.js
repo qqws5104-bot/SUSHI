@@ -88,7 +88,7 @@ async function playOpenGame(page) {
     await playIce(page);
   } else if (kind === "route") {
     const path = JSON.parse(await page.getAttribute("#mg-layer .mg-body", "data-plan")).path;
-    for (const v of path) await page.dispatchEvent(`#mg-layer .eu-hit[data-v="${v}"]`, "pointerdown");
+    for (const ch of path) await page.keyboard.press(KEY[{ U: "up", D: "down", L: "left", R: "right" }[ch]]);
   } else if (kind === "soko") {
     const rows = JSON.parse(await page.getAttribute("#mg-layer .mg-body", "data-plan")).rows, P = skParse(rows);
     const path = skSolve(P, P.player, P.boxes);
@@ -259,7 +259,7 @@ async function main() {
   await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-route")) === 1, { label: "지정 접시 = 도마 닦기" });
   const rtPlan = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert(rtPlan.vertices.length === 7 && rtPlan.edges.length === 13, "지정 접시 도마 닦기는 점 7 / 선 13, got " + JSON.stringify(rtPlan.edges));
+  assert(rtPlan.rows.length === 5 && rtPlan.rows[0].length === 6 && rtPlan.rows.join("").split("#").length - 1 === 3, "지정 접시 도마 닦기는 6x5 / 막힌 칸 3, got " + rtPlan.rows.join("/"));
   await playOpenGame(p1);
   await waitFor(() => isFloorMine(p1, 1), { label: "fixed-floor-2 (주황) secured by really playing the route game" });
   // 제작된 칸의 얼굴에는 주문표 목적지(호수)가 찍힌다 -- 보드에서 주황 행 칸(fixed-floor 행의 2번째)의 .invoice-label을 읽는다.
@@ -269,7 +269,7 @@ async function main() {
     return lab ? lab.textContent : null;
   });
   assert(/^연어$/.test(faceText), `fixed-floor-2 face should show the sushi kind (연어), got ${faceText}`);
-  log(`지정 접시 칸 -> 도마 닦기(점 7·선 13) 진짜로 플레이해서 완주 -> 제작, 만든 초밥 ${faceText} (주황 접시 칸)`);
+  log(`지정 접시 칸 -> 도마 닦기(6x5) 진짜로 플레이해서 완주 -> 제작, 만든 초밥 ${faceText} (주황 접시 칸)`);
 
   // ---- g. 특선 초밥 -> 재료 정리(소코반) (어려움=L3: 상자 3개) ----
   await clickSel(p1, openSel("valuable-1"));

@@ -20,5 +20,5 @@ setsec "40 * 1000"; run test_half_difficulty.js; run test_rail_site.js
 
 echo "######## 디지털 최종 배치 모드 (기본 -- python3 set_mini.py digital)"
 python3 set_mini.py digital >/dev/null
-setsec "40 * 1000"; run test_half_difficulty_digital.js; run test_peek_ui.js; run test_sfx.js
+setsec "40 * 1000"; run test_half_difficulty_digital.js; run test_peek_ui.js; run test_sfx.js; run test_prep_variants.js
 setsec "40 * 1000"; run test_minigames_live.js; run test_rail_site.js

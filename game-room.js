@@ -146,7 +146,7 @@ function freshPeek() {
 }
 function peekChargesFor(mistakes) {
   const m = Number.isFinite(mistakes) ? mistakes : 3;
-  return m <= 0 ? 3 : (m <= 2 ? 2 : 1);
+  return m <= 1 ? 2 : 1; // 최대 2회 (사용자 지정 2026-10-12): 실수 0~1 = 2회, 2+ = 1회
 }
 
 function initialState() {
@@ -666,7 +666,7 @@ class GameRoom {
     this._startGame(); // phase -> "secure", secure 타이머 새로 시작, emit까지 포함
   }
 
-  // 하프타임 엿보기 미니게임 결과 -- 1인 1회만 인정(재도전 불가). 실수 0/1/2+ 에 따라 3/2/1회.
+  // 하프타임 엿보기 미니게임 결과 -- 1인 1회만 인정(재도전 불가). 실수 0~1 = 2회, 2+ = 1회 (최대 2회).
   peekEarned(seat, mistakes) {
     if (this.state.phase !== "halftime") return;
     const pk = this.state.peek[seat];

@@ -149,8 +149,8 @@ async function main() {
 
   await openCell("fixed-floor-3");
   const rt = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.vertices.length === 7 && rt.edges.length === 13, `지정 접시 도마 닦기(어려움): 점 7 / 선 13이어야 함, got ${JSON.stringify(rt.edges)}`);
-  log("후반 지정 접시(도마 닦기, 어려움): 한붓그리기 점 7 / 선 13");
+  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.rows.length === 5 && rt.rows[0].length === 6 && rt.rows.join("").split("#").length - 1 === 3, `지정 접시 도마 닦기(어려움): 6x5 / 막힌 칸 3이어야 함, got ${rt.rows.join("/")}`);
+  log("후반 지정 접시(도마 닦기, 어려움): 6x5, 막힌 칸 3");
   await giveUp();
 
   await openCell("valuable-1");

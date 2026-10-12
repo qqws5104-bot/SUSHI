@@ -1226,6 +1226,56 @@
 .eu-cloth path { stroke: #4aa3d8; stroke-width: 0.8; fill: none; }
 .eu-board.is-doomed { box-shadow: inset 0 0 0 3px rgba(226, 80, 60, 0.6); }
 
+/* 손질 변형 (2026-10-12): 휘젓기 / 굽기 / 뼈 발라내기 + 시작 전 설명 */
+.pr-bowl, .pr-fire, .pr-fillet { position: relative; width: 62%; margin: 0 auto; border: 3px solid #7a5a30; border-radius: 14px; padding: 0.6rem 0.4rem 0.3rem; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18); }
+.pr-bowl { background: #f6efdc; border-radius: 50% 50% 22px 22px / 30% 30% 22px 22px; }
+.pr-whisk { position: absolute; right: 10%; top: -10%; width: 10px; height: 70%; background: #b98a4f; border-radius: 5px; transform-origin: 50% 100%; transform: rotate(18deg); }
+.pr-whisk.is-hit { animation: pr-stir 0.16s ease; }
+@keyframes pr-stir { 0% { transform: rotate(18deg); } 50% { transform: rotate(-22deg); } 100% { transform: rotate(18deg); } }
+.pr-gauge, .pr-prog { width: min(100%, 460px); height: 26px; border-radius: 13px; background: #4b3a28; border: 3px solid #2b1d12; overflow: hidden; }
+.pr-gauge-fill, .pr-prog i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(45deg, #ffd24a 0 8px, #f0b624 8px 16px); }
+.pr-prog { height: 16px; } .pr-prog i { background: repeating-linear-gradient(45deg, #5fd08a 0 8px, #43b872 8px 16px); }
+.pr-fire { background: #3a2b20; } .pr-fire .tm-fish-svg { filter: sepia(0.2); }
+.pr-flame { position: absolute; left: 12%; right: 12%; bottom: -6px; height: 14px; border-radius: 50% 50% 0 0; background: linear-gradient(180deg, #ffb23a, #e2501c); animation: pr-flick 0.35s ease-in-out infinite alternate; }
+@keyframes pr-flick { from { transform: scaleY(0.7); } to { transform: scaleY(1.25); } }
+.pr-heat { position: relative; width: min(100%, 460px); height: 48px; border-radius: 12px; border: 3px solid #2b1d12; background: linear-gradient(90deg, #4a78b8 0%, #6a9a62 40%, #e0b030 70%, #d2402a 100%); }
+.pr-heat.is-miss { animation: mg-shake 0.3s ease; }
+.pr-band { position: absolute; top: -3px; bottom: -3px; border: 3px solid #fff; border-radius: 8px; background: rgba(255, 255, 255, 0.22); box-shadow: 0 0 0 2px #2b1d12; }
+.pr-temp { position: absolute; top: -8px; bottom: -8px; width: 8px; margin-left: -4px; background: #2b1d12; border-radius: 4px; box-shadow: 0 0 0 2px #fff; }
+.pr-fillet { background: #f4e7c8; }
+.pr-lanes { position: absolute; inset: 8% 6%; display: flex; gap: 6%; }
+.pr-lane { flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 2px dashed rgba(43, 29, 18, 0.3); }
+.pr-lane .pr-bone { width: 64%; opacity: 0; transform: translateY(14px) scale(0.6); transition: all 0.12s; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.5)); }
+.pr-lane.is-on { border-color: #e2501c; background: rgba(226, 80, 60, 0.15); }
+.pr-lane.is-on .pr-bone { opacity: 1; transform: none; }
+.pr-pins { display: flex; gap: 10px; justify-content: center; }
+.pr-pin { width: 84px; min-height: 60px; font-size: 1.6rem; font-weight: 800; }
+.mg-intro { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; padding: 1rem 0.5rem; text-align: left; }
+.mg-intro h3 { margin: 0; font-size: 1.35rem; }
+.mg-intro ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; width: min(100%, 460px); }
+.mg-intro li { display: flex; gap: 0.7rem; align-items: baseline; padding: 0.6rem 0.8rem; border-radius: 12px; background: rgba(122, 90, 48, 0.1); border: 2px solid rgba(122, 90, 48, 0.35); }
+.mg-intro li b { flex: none; min-width: 2.6rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: #2b1d12; color: #fff; font-size: 0.75rem; text-align: center; }
+.mg-intro li span { font-weight: 700; font-size: 0.95rem; line-height: 1.4; }
+.mg-intro-go { width: min(100%, 320px); min-height: 60px; font-size: 1.3rem; font-weight: 800; }
+.mg-intro-go small { display: block; font-size: 0.7rem; letter-spacing: 0.08em; opacity: 0.75; }
+
+/* 손님 응대 (엿보기, 2026-10-12) */
+.ps-cust { display: flex; align-items: center; gap: 0.8rem; justify-content: center; }
+.ps-face { width: 76px; height: 76px; flex: none; }
+.ps-bubble { position: relative; min-width: 210px; padding: 0.6rem 0.9rem; background: #fff; border: 3px solid #7a5a30; border-radius: 16px; text-align: left; }
+.ps-bubble::before { content: ""; position: absolute; left: -11px; top: 50%; margin-top: -8px; border: 8px solid transparent; border-right-color: #7a5a30; border-left: 0; }
+.ps-say { display: block; font-size: 0.8rem; font-weight: 800; color: #5a4224; margin-bottom: 0.2rem; }
+.ps-wants { display: flex; gap: 0.7rem; }
+.ps-want { display: flex; flex-direction: column; align-items: center; width: 62px; font-size: 0.8rem; }
+.ps-want svg { width: 38px; height: 46px; } .ps-want b { font-size: 0.82rem; }
+.ps-want.is-got { opacity: 0.35; filter: grayscale(0.7); }
+.ps-timer { width: min(100%, 420px); height: 10px; margin: 0.6rem auto 0; border-radius: 5px; background: rgba(43, 29, 18, 0.15); overflow: hidden; }
+.ps-timer i { display: block; height: 100%; width: 100%; background: #e2a53a; }
+.ps-items { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.ps-item { width: 92px; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px; }
+.ps-item svg { width: 34px; height: 42px; } .ps-item b { font-size: 0.9rem; } .ps-item small { font-size: 0.65rem; opacity: 0.6; }
+.ps-item.is-press { animation: pr-stir 0.16s ease; }
+
 /* mainview.css -- 메인 모니터(?view=main) 전용 스타일. 큰 TV/프로젝터 화면용이라 모든 크기를 vh/vw로 잡는다.
  * 플레이어 화면과 같은 색 토큰(--bg, --gold, --ink ...)을 쓰고, 이 화면은 body.main-view 일 때만 적용된다. */
 body.main-view { overflow: hidden; }
@@ -1398,7 +1448,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     pipe:    { name: "컨베이어 잇기" },
     hanoi:   { name: "초밥 쌓기" },
     prep:    { name: "손질", noLevel: true },      // 2026-10-12: 제작 퍼즐 앞의 액션형(칼질 타이밍) -- 생각 공백 없이 움직이는 시간
-    peek:    { name: "엿보기", noLevel: true },    // 2026-10-12: 전반-후반 사이. 잘할수록 후반에 상대 주문표를 엿볼 수 있는 횟수가 늘어난다
+    peek:    { name: "손님 응대", noLevel: true }, // 2026-10-12: 전반-후반 사이(엿보기 얻기). 손님이 원하는 간장·와사비를 잘 가져다주면 후반에 상대 주문표를 엿볼 수 있다 (최대 2회)
   };
   var LEVEL_NAME = ["쉬움", "보통", "어려움"];
 
@@ -2969,147 +3019,97 @@ body.main-view #app { height: 100vh; min-height: 0; }
     return { hint: function () { return "방향키 하나로 A와 B가 동시에 움직여요. 한쪽이 벽에 막혀도 다른 쪽은 움직여요! A는 A 칸에, B는 B 칸에 동시에 들어가면 끝나요." + (mirror ? " 이번 판은 B가 좌우만 반대로 움직여요." : "") + " Z로 되돌리고 R로 다시 시작해요."; } };
   }
 
-  // ---------- 도마 닦기 (한붓그리기 / 오일러 경로) ----------
-  // 2026-10-12 사용자 요청: 격자 칸 채우기 대신 "집 모양" 같은 점+선 그래프. 얼룩 선을 한 번씩만 전부 닦는다.
-  //   (2026-10-12 사용자 요청으로 점 옆 숫자는 뺐다.) 홀수 점이 2개면 둘 중 하나에서 시작해 다른 하나에서 끝난다.
-  //   판은 실행 중 생성: 격자 위 점들을 고르고, 연결 + 모든 점 차수 2 이상 + 홀수 점 2개(L1은 0개도 허용)가 될 때까지 뽑는다 -- 항상 풀린다.
+  // ---------- 도마 닦기 (격자 한붓그리기: 원래 스타일) ----------
   var ROUTE_CFG = [
-    { V: 5, E: 7, odd: 0 },
-    { V: 6, E: 10, odd: 2 },
-    { V: 7, E: 13, odd: 2 },   // 2026-10-12: 제작 퍼즐 20~30초대. 얼룩 선 13개
+    { W: 4, H: 4, cut: 2 },
+    { W: 5, H: 5, cut: 3 },
+    { W: 6, H: 5, cut: 3 },   // 2026-10-12: 7x6 으로 올렸다가 손질 단계를 앞에 붙이면서 원래 6x5로 복귀 (한붓그리기 그래프판은 '지나간 곳 표시가 안 된다'는 지적으로 폐기)
   ];
-  var ROUTE_GX = 5, ROUTE_GY = 4;   // 점을 놓을 수 있는 격자 (5x4)
-  function routePoint(g) { return [10 + (g % ROUTE_GX) * 20, 12 + ((g / ROUTE_GX) | 0) * 17.3]; }
-  function routeCross(p1, p2, p3, p4) { // 두 선분이 끝점 말고 안쪽에서 만나는가
-    function o(a, b, c) { return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); }
-    var d1 = o(p1, p2, p3), d2 = o(p1, p2, p4), d3 = o(p3, p4, p1), d4 = o(p3, p4, p2);
-    return ((d1 > 1e-6 && d2 < -1e-6) || (d1 < -1e-6 && d2 > 1e-6)) && ((d3 > 1e-6 && d4 < -1e-6) || (d3 < -1e-6 && d4 > 1e-6));
-  }
-  function routeOnSeg(a, b, p) { // 점 p가 선분 ab 위(끝점 제외)에 있는가
-    var cr = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
-    if (Math.abs(cr) > 1e-6) return false;
-    var dot = (p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1]), len = (b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]);
-    return dot > 1e-6 && dot < len - 1e-6;
-  }
-  function eulerTrail(V, edges, start) { // Hierholzer. start 점에서 모든 선을 한 번씩 지나는 점 순서
-    var adj = [], used = [], i; for (i = 0; i < V; i++) adj.push([]);
-    edges.forEach(function (e, k) { adj[e[0]].push([e[1], k]); adj[e[1]].push([e[0], k]); });
-    var stack = [start], out = [];
-    while (stack.length) {
-      var v = stack[stack.length - 1], moved = false;
-      while (adj[v].length) { var pr = adj[v].pop(); if (used[pr[1]]) continue; used[pr[1]] = true; stack.push(pr[0]); moved = true; break; }
-      if (!moved) out.push(stack.pop());
-    }
-    return out.reverse();
-  }
+  // 직사각형 칸 전체를 한 번에 지나는 랜덤 한붓그리기 길(backbite 알고리즘)을 만든 뒤, 길의 앞뒤 몇 칸을 막아 구멍을 낸다.
+  // 남은 칸을 전부 지나는 길이 항상 존재하고(= 항상 풀림), 길만 따라 걷는 외길이 아니라 갈림길이 많다.
   function makeRoutePlan(cfg) {
-    for (var tries = 0; tries < 6000; tries++) {
-      var cells = shuffle(Array.apply(null, { length: ROUTE_GX * ROUTE_GY }).map(function (_, i) { return i; })).slice(0, cfg.V);
-      var pts = cells.map(routePoint), V = cfg.V, i, j;
-      // 선을 놓을 수 있는 쌍: 다른 점을 지나가지 않는 것만
-      var cand = [];
-      for (i = 0; i < V; i++) for (j = i + 1; j < V; j++) {
-        var bad = false; for (var k = 0; k < V && !bad; k++) if (k !== i && k !== j && routeOnSeg(pts[i], pts[j], pts[k])) bad = true;
-        if (!bad) cand.push([i, j]);
-      }
-      if (cand.length < cfg.E) continue;
-      var pick = shuffle(cand).slice(0, cfg.E), deg = [], cnt = 0;
-      for (i = 0; i < V; i++) deg.push(0);
-      pick.forEach(function (e) { deg[e[0]]++; deg[e[1]]++; });
-      if (deg.some(function (d) { return d < 2; })) continue;
-      var odd = deg.filter(function (d) { return d % 2; }).length;
-      if (odd !== cfg.odd) continue;
-      // 연결
-      var seen = {}, q = [0]; seen[0] = 1;
-      while (q.length) { var u = q.pop(); pick.forEach(function (e) { var w = e[0] === u ? e[1] : e[1] === u ? e[0] : -1; if (w >= 0 && !seen[w]) { seen[w] = 1; q.push(w); } }); }
-      if (Object.keys(seen).length !== V) continue;
-      // 선이 서로 지나치는 곳은 너무 많지 않게(집 그림처럼 X 한두 개)
-      for (i = 0; i < pick.length; i++) for (j = i + 1; j < pick.length; j++) {
-        var A = pick[i], B = pick[j]; if (A[0] === B[0] || A[0] === B[1] || A[1] === B[0] || A[1] === B[1]) continue;
-        if (routeCross(pts[A[0]], pts[A[1]], pts[B[0]], pts[B[1]])) cnt++;
-      }
-      if (cnt > 2) continue;
-      var startV = 0; for (i = 0; i < V; i++) if (deg[i] % 2) { startV = i; break; }
-      return { V: V, pts: pts, edges: pick, deg: deg, path: eulerTrail(V, pick, startV) };
+    var W = cfg.W, H = cfg.H, N = W * H, path = [], x, y, i;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) path.push(y * W + (y % 2 ? W - 1 - x : x)); // 뱀 모양에서 시작
+    function nbrs(c) { var cx = c % W, cy = (c / W) | 0, o = []; if (cx > 0) o.push(c - 1); if (cx < W - 1) o.push(c + 1); if (cy > 0) o.push(c - W); if (cy < H - 1) o.push(c + W); return o; }
+    for (i = 0; i < N * 30; i++) {
+      var os = nbrs(path[0]).filter(function (n) { return n !== path[1]; });
+      var n = os[rand(os.length)], j = path.indexOf(n);
+      path = path.slice(0, j).reverse().concat(path.slice(j)); // path[0]과 n(=path[j])이 이웃이므로 앞부분을 뒤집어도 이어진다
+      if (i % 2) path.reverse();
     }
-    // 만에 하나 못 만들었을 때의 대비: 집 모양
-    var pts2 = [[50, 12], [30, 30], [70, 30], [30, 64], [70, 64]], ed2 = [[0, 1], [0, 2], [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]];
-    return { V: 5, pts: pts2, edges: ed2, deg: [2, 4, 4, 3, 3], path: eulerTrail(5, ed2, 3) };
+    var front = rand(cfg.cut + 1), back = cfg.cut - front;
+    var kept = path.slice(front, N - back), cells = [];
+    for (i = 0; i < N; i++) cells.push("#");
+    kept.forEach(function (q) { cells[q] = " "; });
+    cells[kept[0]] = "S";
+    var rows = []; for (y = 0; y < H; y++) rows.push(cells.slice(y * W, (y + 1) * W).join(""));
+    var dirs = ""; for (i = 1; i < kept.length; i++) { var df = kept[i] - kept[i - 1]; dirs += df === 1 ? "R" : df === -1 ? "L" : df === W ? "D" : "U"; }
+    return { rows: rows, solution: dirs };
   }
   function routeGame(body, c) {
-    var plan = makeRoutePlan(ROUTE_CFG[c.level - 1]), V = plan.V, pts = plan.pts, edges = plan.edges, deg = plan.deg, i;
-    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ vertices: pts, edges: edges, path: plan.path }));
-    var cx = 0, cy = 0; pts.forEach(function (p) { cx += p[0] / V; cy += p[1] / V; });
-    var svg = '<svg class="eu-svg" viewBox="0 0 100 76" aria-hidden="false">';
-    edges.forEach(function (e, k) { svg += '<line class="eu-edge" data-e="' + k + '" x1="' + pts[e[0]][0] + '" y1="' + pts[e[0]][1] + '" x2="' + pts[e[1]][0] + '" y2="' + pts[e[1]][1] + '"/>'; });
-    for (i = 0; i < V; i++) svg += '<circle class="eu-dot" data-v="' + i + '" cx="' + pts[i][0] + '" cy="' + pts[i][1] + '" r="2.4"/><circle class="eu-hit" data-v="' + i + '" cx="' + pts[i][0] + '" cy="' + pts[i][1] + '" r="6.5"/>';
-    svg += '<g class="eu-cloth" style="display:none"><rect x="-3.4" y="-2.6" width="6.8" height="5.2" rx="1.2"/><path d="M-3.4 -0.8h6.8M-3.4 0.9h6.8"/></g></svg>';
-    body.innerHTML = '<div class="eu-wrap"><div class="eu-board">' + svg + '</div>'
-      + '<p class="sk-status"><span>닦은 얼룩 <b class="eu-n">0</b> / ' + edges.length + '</span></p>'
-      + '<p class="mg-freeze-note"></p><div class="pk-pad sk-pad">' + arrowPad("data-eu", actBtn("data-eu", "undo", "한 선 되돌리기", "Z · ⌫") + actBtn("data-eu", "restart", "처음부터", "R")) + '</div></div>';
-    var edgeEls = body.querySelectorAll(".eu-edge"), dotEls = body.querySelectorAll(".eu-dot"), cloth = body.querySelector(".eu-cloth"), nEl = body.querySelector(".eu-n"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".eu-board");
-    var cur = -1, sel = 0, used = [], trail = [], doomed = false;
-    function edgeBetween(a, b) { for (var k = 0; k < edges.length; k++) if (!used[k] && ((edges[k][0] === a && edges[k][1] === b) || (edges[k][0] === b && edges[k][1] === a))) return k; return -1; }
-    function feasible() { // 남은 선을 지금 점에서 한 번씩 전부 지나는 길이 아직 가능한가
-      var rem = [], k, d = []; for (k = 0; k < V; k++) d.push(0);
-      for (k = 0; k < edges.length; k++) if (!used[k]) { rem.push(k); d[edges[k][0]]++; d[edges[k][1]]++; }
-      if (!rem.length) return true;
-      var seen = {}, q = [cur]; seen[cur] = 1;
-      while (q.length) { var u = q.pop(); rem.forEach(function (r) { var w = edges[r][0] === u ? edges[r][1] : edges[r][1] === u ? edges[r][0] : -1; if (w >= 0 && !seen[w]) { seen[w] = 1; q.push(w); } }); }
-      for (k = 0; k < rem.length; k++) if (!seen[edges[rem[k]][0]]) return false;
-      var odds = []; for (k = 0; k < V; k++) if (d[k] % 2) odds.push(k);
-      return odds.length === 0 ? d[cur] > 0 : (odds.length === 2 && odds.indexOf(cur) >= 0);
+    var plan = makeRoutePlan(ROUTE_CFG[c.level - 1]), W = plan.rows[0].length, H = plan.rows.length;
+    var open = [], start = 0, i;
+    for (i = 0; i < W * H; i++) { var ch = plan.rows[(i / W) | 0].charAt(i % W); if (ch !== "#") open.push(i); if (ch === "S") start = i; }
+    var isOpen = {}; open.forEach(function (q) { isOpen[q] = 1; });
+    var trail = [start], visited = {}; visited[start] = 1; var doomed = false;
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: plan.rows, path: plan.solution }));
+    var floor = ""; for (i = 0; i < W * H; i++) floor += '<i class="sk-cell ' + (isOpen[i] ? "is-road" : "is-wall") + '"></i>';
+    body.innerHTML = '<div class="sk-wrap"><div class="sk-board rt-board" style="--cols:' + W + ';--rows:' + H + '"><div class="sk-floor">' + floor + '</div><svg class="rt-line" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none"><polyline points="" fill="none"/></svg><span class="sk-man rt-man">' + SK_MAN_SVG + "</span></div></div>"
+      + '<p class="sk-status"><span>닦은 칸 <b class="rt-n">1</b> / ' + open.length + '</span></p><p class="mg-freeze-note"></p>'
+      + '<div class="pk-pad sk-pad">' + arrowPad("data-rt", actBtn("data-rt", "undo", "한 칸 되돌리기", "Z · ⌫") + actBtn("data-rt", "restart", "처음부터", "R")) + "</div>";
+    var cellEls = body.querySelectorAll(".sk-cell"), man = body.querySelector(".rt-man"), line = body.querySelector(".rt-line polyline");
+    var nEl = body.querySelector(".rt-n"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".sk-board");
+    cellEls[start].classList.add("is-start");
+    function reachableAll() { // 남은 칸을 전부 지나는 길이 아직 가능한가 (필요 조건 검사: 연결 + 막다른 칸은 최대 1개)
+      var head = trail[trail.length - 1], seen = {}, q = [head], cnt = 0; seen[head] = 1;
+      var around = function (cur) { var cx = cur % W, cy = (cur / W) | 0, o = [], dd = [[0, -1], [0, 1], [-1, 0], [1, 0]]; dd.forEach(function (d) { var nx = cx + d[0], ny = cy + d[1]; if (nx >= 0 && ny >= 0 && nx < W && ny < H) o.push(ny * W + nx); }); return o; };
+      while (q.length) {
+        var cur = q.pop();
+        around(cur).forEach(function (ni) { if (!isOpen[ni] || visited[ni] || seen[ni]) return; seen[ni] = 1; cnt++; q.push(ni); });
+      }
+      var remain = open.length - trail.length;
+      if (cnt !== remain) return false;
+      var ends = 0;
+      for (var u = 0; u < W * H; u++) {
+        if (!isOpen[u] || visited[u]) continue;
+        var deg = around(u).filter(function (ni) { return isOpen[ni] && (!visited[ni] || ni === head); }).length;
+        if (deg === 0) return false;
+        if (deg === 1) { ends++; if (ends > 1 && remain > 1) return false; }
+      }
+      return true;
     }
     function paint() {
-      edgeEls.forEach(function (e, k) { e.classList.toggle("is-wiped", !!used[k]); });
-      dotEls.forEach(function (d, v) { d.classList.toggle("is-cur", v === cur); d.classList.toggle("is-sel", cur < 0 && v === sel); });
-      if (cur >= 0) { cloth.style.display = ""; cloth.setAttribute("transform", "translate(" + pts[cur][0] + " " + pts[cur][1] + ")"); } else cloth.style.display = "none";
+      placeAt(man, trail[trail.length - 1], W);
+      var inTrail = {}; trail.forEach(function (q) { inTrail[q] = 1; });
+      for (var k = 0; k < W * H; k++) cellEls[k].classList.toggle("is-trail", !!inTrail[k]);
+      line.setAttribute("points", trail.map(function (q) { return (q % W + 0.5) + "," + (((q / W) | 0) + 0.5); }).join(" "));
       nEl.textContent = trail.length;
       boardEl.classList.toggle("is-doomed", doomed);
-      if (c.testHooks) body.setAttribute("data-eu", [cur, trail.length].join(","));
-    }
-    function stepTo(v) {
-      if (cur < 0) { cur = v; sel = v; trail = []; used = []; note.textContent = "여기서 시작! 이어진 얼룩 선을 눌러 닦아 보세요"; paint(); return; }
-      if (v === cur) return;
-      var k = edgeBetween(cur, v);
-      if (k < 0) { restartAnim(boardEl, "is-shake"); note.textContent = "지금 점에 이어진, 아직 안 닦은 선으로만 갈 수 있어요"; return; }
-      used[k] = true; trail.push(k); cur = v;
-      if (trail.length === edges.length) { paint(); note.textContent = "도마를 다 닦았어요!"; c.later(c.finish, 420); return; }
-      var ok = feasible();
-      if (!ok && !doomed) { c.addMistake(); note.textContent = "이 길로는 남은 얼룩을 다 못 닦아요 — Z로 되돌려 보세요"; restartAnim(boardEl, "is-shake"); }
-      else if (ok) note.textContent = "";
-      doomed = !ok; paint();
-    }
-    function nearest(from, dir, cands) { // 화면 방향(위/아래/왼/오)에 가장 가까운 후보(각도 60도 이내)
-      var best = -1, bestScore = 1e9;
-      cands.forEach(function (v) {
-        var vx = pts[v][0] - pts[from][0], vy = pts[v][1] - pts[from][1], len = Math.sqrt(vx * vx + vy * vy); if (!len) return;
-        var cos = (vx * dir[0] + vy * dir[1]) / len; if (cos < 0.5) return;
-        var score = (1 - cos) * 100 + len * 0.05; if (score < bestScore) { bestScore = score; best = v; }
-      });
-      return best;
+      if (c.testHooks) body.setAttribute("data-rt", [trail[trail.length - 1] % W, (trail[trail.length - 1] / W) | 0, trail.length].join(","));
     }
     function act(a) {
       if (c.isFinished()) return;
       if (a === "undo") {
-        if (!trail.length) { if (cur >= 0) { cur = -1; paint(); } return; }
-        var k = trail.pop(); used[k] = false; cur = edges[k][0] === cur ? edges[k][1] : edges[k][0];
-        doomed = trail.length ? !feasible() : false; note.textContent = doomed ? "아직 막다른 길이에요 — 더 되돌려 보세요 (Z)" : ""; paint(); return;
+        if (trail.length < 2) return;
+        var gone = trail.pop(); delete visited[gone];
+        doomed = !reachableAll(); note.textContent = doomed ? "아직 막다른 길이에요 — 더 되돌려 보세요 (Z)" : ""; paint(); return;
       }
-      if (a === "restart") { cur = -1; used = []; trail = []; doomed = false; note.textContent = ""; paint(); return; }
-      if (a === "space" || a === "enter") { if (cur < 0) stepTo(sel); return; }
+      if (a === "restart") { trail = [start]; visited = {}; visited[start] = 1; doomed = false; note.textContent = ""; paint(); return; }
       var d = SOKO_DIRS[a]; if (!d) return;
-      if (cur < 0) { var all = []; for (var v = 0; v < V; v++) if (v !== sel) all.push(v); var nv = nearest(sel, d, all); if (nv >= 0) { sel = nv; paint(); } return; }
-      var outs = [], k2; for (k2 = 0; k2 < edges.length; k2++) if (!used[k2] && (edges[k2][0] === cur || edges[k2][1] === cur)) outs.push(edges[k2][0] === cur ? edges[k2][1] : edges[k2][0]);
-      var tv = nearest(cur, d, outs); if (tv >= 0) stepTo(tv); else restartAnim(boardEl, "is-shake");
+      var head = trail[trail.length - 1], nx = head % W + d[0], ny = ((head / W) | 0) + d[1];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
+      var ni = ny * W + nx;
+      if (!isOpen[ni] || visited[ni]) { restartAnim(man, "is-bump"); return; }
+      trail.push(ni); visited[ni] = 1;
+      if (trail.length === open.length) { paint(); note.textContent = "도마를 다 닦았어요!"; c.later(c.finish, 420); return; }
+      var ok = reachableAll();
+      if (!ok && !doomed) { c.addMistake(); note.textContent = "남은 길로 갈 수 없게 됐어요 — Z로 되돌려 보세요"; restartAnim(boardEl, "is-shake"); }
+      else if (ok) note.textContent = "";
+      doomed = !ok; paint();
     }
-    boardEl.addEventListener("pointerdown", function (e) {
-      var t = e.target; if (!t || !t.getAttribute) return; var v = t.getAttribute("data-v"); if (v === null) return;
-      e.preventDefault(); stepTo(parseInt(v, 10));
-    });
-    bindPad(body, c, "data-eu", act);
+    bindPad(body, c, "data-rt", act);
     paint();
-    return { hint: function () { return "얼룩 선을 한 번씩만 전부 닦으세요. 점을 눌러 시작하고 이어진 점을 눌러 닦아요 (방향키 + Space도 돼요). 막히면 Z로 되돌려요. (점에 이어진 선이 홀수 개인 곳에서 시작하면 풀려요)"; } };
+    return { hint: function () { return "주방 입구(주황 칸)에서 출발해 방향키로 도마의 모든 칸을 한 번씩만 닦으세요. 한 번 닦은 칸은 다시 못 가요. 막히면 Z로 한 칸씩 되돌리세요. 남은 칸을 다 닦을 수 없게 되면 알려줘요."; } };
   }
 
   // ---------- 컨베이어 잇기 (파이프) ----------
@@ -3261,7 +3261,6 @@ body.main-view #app { height: 100vh; min-height: 0; }
   // 막대 위를 오가는 표시가 초록 구간에 있을 때 SPACE(또는 버튼 탭). 생각할 게 없고 손만 움직이는 게임이라
   // "멈춰서 고민하는 공백"이 생기지 않는다. 구간은 매번 위치가 바뀌고 갈수록 좁아지며 표시는 빨라진다.
   //   prep : 도마 위 생선을 pieces*3번 썰기 (비싼 초밥일수록 조각 수가 많아 오래 걸린다)
-  //   peek : 상대 가게 창문 틈에 렌즈 맞추기 5번 -- 실수 0이면 엿보기 3회, 2번 이하면 2회, 그 이상이면 1회
   function timingGame(body, c, cfg) {
     var total = cfg.total, done = 0, lock = 0, zoneW = cfg.zoneW0, zoneX = 0.4, speed = cfg.speed0, pos = 0, dir = 1, last = performance.now(), raf = 0;
     if (c.testHooks) { zoneW = 1; zoneX = 0; }
@@ -3304,7 +3303,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     paintZone(); raf = requestAnimationFrame(frame);
     return { hint: function () { return cfg.hint; } };
   }
-  function prepGame(body, c) {
+  function cutPrep(body, c) {
     var key = c.sushi || "egg", pieces = clamp(parseInt(c.opts.pieces, 10) || 3, 1, 5), total = pieces * 3;
     var cuts = ""; for (var i = 1; i <= pieces; i++) cuts += '<i style="left:' + (i * 100 / (pieces + 1)) + '%"></i>';
     return timingGame(body, c, {
@@ -3315,14 +3314,166 @@ body.main-view #app { height: 100vh; min-height: 0; }
       hint: "칼이 초록 구간에 올 때 SPACE(또는 버튼)로 썰어요. 빗나가면 잠깐 멈춰요. 갈수록 빨라지고 구간이 좁아져요.",
     });
   }
+  // ---- 손질 변형 (2026-10-12, "손질 게임이 다 똑같다"): 초밥 종류마다 다른 손놀림 ----
+  //   계란 = 휘젓기(연타) / 흰살생선 = 칼질(타이밍) / 장어 = 굽기(누르고 있기로 온도 맞추기) / 연어 = 뼈 발라내기(방향 반응)
+  // 테스트 모드(?mgtest=1)에서는 SPACE/방향키 한두 번이면 끝난다 (passPrep이 SPACE만 눌러도 모든 변형이 통과).
+  function holdKeys(c, onDown, onUp) {
+    function kd(e) { if (c.isFinished() || (e.code !== "Space" && e.key !== " ")) return; e.preventDefault(); e.stopPropagation(); if (!e.repeat) onDown(); }
+    function ku(e) { if (e.code !== "Space" && e.key !== " ") return; onUp(); }
+    document.addEventListener("keydown", kd, true); document.addEventListener("keyup", ku, true);
+    c.onCleanup(function () { document.removeEventListener("keydown", kd, true); document.removeEventListener("keyup", ku, true); });
+  }
+  function mashPrep(body, c) {
+    var key = c.sushi || "egg", pieces = clamp(parseInt(c.opts.pieces, 10) || 2, 1, 5);
+    var gain = c.testHooks ? 1 : 0.055, decay = 0.2, fill = 0, last = performance.now(), raf = 0, done = false;
+    body.innerHTML = '<div class="tm-wrap pr-mash"><div class="tm-stage"><div class="pr-bowl">' + sushiSvg(key, "tm-fish-svg") + '<i class="pr-whisk"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 풀어서 섞기</div></div>'
+      + '<div class="pr-gauge"><i class="pr-gauge-fill"></i></div><p class="tm-note">&nbsp;</p>'
+      + '<button type="button" class="mg-key tm-btn" data-pr="hit">휘젓기!<small>SPACE 연타</small></button></div>';
+    var fillEl = body.querySelector(".pr-gauge-fill"), note = body.querySelector(".tm-note"), whisk = body.querySelector(".pr-whisk");
+    function hit() {
+      if (c.isFinished() || done) return;
+      fill = Math.min(1, fill + gain); whisk.classList.remove("is-hit"); void whisk.offsetWidth; whisk.classList.add("is-hit");
+      if (fill >= 1) { done = true; cancelAnimationFrame(raf); fillEl.style.width = "100%"; note.textContent = "잘 섞였어요!"; c.later(c.finish, 250); }
+    }
+    function frame(now) {
+      if (c.isFinished() || done) return;
+      var dt = Math.min(64, now - last) / 1000; last = now; fill = Math.max(0, fill - decay * dt);
+      fillEl.style.width = (fill * 100) + "%"; note.textContent = fill < 0.15 ? "빨리 연타! 멈추면 가라앉아요" : "좋아요, 계속!";
+      if (c.testHooks) body.setAttribute("data-pr", fill.toFixed(2));
+      raf = requestAnimationFrame(frame);
+    }
+    bindPad(body, c, "data-pr", function (a) { if (a === "space" || a === "enter" || a === "hit") hit(); });
+    c.onCleanup(function () { cancelAnimationFrame(raf); });
+    raf = requestAnimationFrame(frame);
+    return { hint: function () { return "SPACE(또는 버튼)를 빠르게 연타해서 계란물 게이지를 가득 채우세요. 멈추면 게이지가 줄어들어요."; } };
+  }
+  function grillPrep(body, c) {
+    var key = c.sushi || "eel", pieces = clamp(parseInt(c.opts.pieces, 10) || 4, 1, 6);
+    var need = c.testHooks ? 0.05 : 0.8 + pieces * 0.6, lo = 0.52, hi = 0.8, temp = 0.15, prog = 0, held = false, last = performance.now(), raf = 0, done = false, burn = 0;
+    body.innerHTML = '<div class="tm-wrap pr-grill"><div class="tm-stage"><div class="pr-fire">' + sushiSvg(key, "tm-fish-svg") + '<i class="pr-flame"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 알맞게 굽기</div></div>'
+      + '<div class="pr-heat"><span class="pr-band" style="left:' + (lo * 100) + '%;width:' + ((hi - lo) * 100) + '%"></span><i class="pr-temp"></i></div>'
+      + '<div class="pr-prog"><i></i></div><p class="tm-note">&nbsp;</p>'
+      + '<button type="button" class="mg-key tm-btn" data-pr="hold">불 세게!<small>SPACE 누르고 있기</small></button></div>';
+    var tempEl = body.querySelector(".pr-temp"), progEl = body.querySelector(".pr-prog i"), note = body.querySelector(".tm-note"), heat = body.querySelector(".pr-heat");
+    function setHeld(v) { held = v; }
+    holdKeys(c, function () { setHeld(true); if (c.testHooks) prog = need; }, function () { setHeld(false); });
+    var btn = body.querySelector(".tm-btn");
+    btn.addEventListener("pointerdown", function (e) { e.preventDefault(); setHeld(true); if (c.testHooks) prog = need; });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { btn.addEventListener(ev, function () { setHeld(false); }); });
+    function frame(now) {
+      if (c.isFinished() || done) return;
+      var dt = Math.min(64, now - last) / 1000; last = now;
+      temp = clamp(temp + (held ? 0.5 : -0.4) * dt, 0, 1);
+      var inBand = temp >= lo && temp <= hi;
+      if (inBand) prog += dt;
+      if (temp >= 0.97 && now > burn) { burn = now + 700; c.addMistake(); temp = 0.3; heat.classList.add("is-miss"); setTimeout(function () { heat.classList.remove("is-miss"); }, 400); note.textContent = "탔어요! 다시 천천히"; }
+      else note.textContent = inBand ? "그대로 유지!" : (temp < lo ? "더 달궈요 (SPACE 누르기)" : "너무 뜨거워요! 살짝 떼세요");
+      tempEl.style.left = (temp * 100) + "%"; progEl.style.width = Math.min(100, prog / need * 100) + "%";
+      if (prog >= need) { done = true; note.textContent = "노릇하게 구워졌어요!"; c.later(c.finish, 250); return; }
+      raf = requestAnimationFrame(frame);
+    }
+    c.onCleanup(function () { cancelAnimationFrame(raf); });
+    raf = requestAnimationFrame(frame);
+    return { hint: function () { return "SPACE(또는 버튼)를 누르고 있으면 온도가 오르고 떼면 내려가요. 온도 표시를 초록 구간에 오래 두면 구워져요. 끝까지 오르면 타서 실수예요."; } };
+  }
+  var PIN_LANES = ["left", "up", "right"], PIN_GLYPH = { left: "←", up: "↑", right: "→" };
+  function pinPrep(body, c) {
+    var key = c.sushi || "salmon", pieces = clamp(parseInt(c.opts.pieces, 10) || 3, 1, 6);
+    var total = c.testHooks ? 3 : pieces * 2 + 2, done = 0, cur = -1, limit = 1700, tmo = 0, locked = false;
+    var lanes = ""; PIN_LANES.forEach(function (l) { lanes += '<div class="pr-lane" data-lane="' + l + '"><svg class="pr-bone" viewBox="0 0 24 40" aria-hidden="true"><path d="M12 2v36M12 8l-7 5M12 8l7 5M12 16l-7 5M12 16l7 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></div>'; });
+    var btns = ""; PIN_LANES.forEach(function (l) { btns += '<button type="button" class="mg-key pr-pin" data-pr="' + l + '">' + PIN_GLYPH[l] + '</button>'; });
+    var pips = ""; for (var i = 0; i < total; i++) pips += '<i class="tm-pip"></i>';
+    body.innerHTML = '<div class="tm-wrap pr-pin-wrap"><div class="tm-stage"><div class="pr-fillet">' + sushiSvg(key, "tm-fish-svg pr-fillet-svg") + '<div class="pr-lanes">' + lanes + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' 뼈 발라내기</div></div>'
+      + '<div class="pr-pins">' + btns + '</div><div class="tm-pips">' + pips + '</div><p class="tm-note">&nbsp;</p></div>';
+    var laneEls = body.querySelectorAll(".pr-lane"), pipEls = body.querySelectorAll(".tm-pip"), note = body.querySelector(".tm-note");
+    function next() {
+      if (c.isFinished()) return;
+      clearTimeout(tmo); locked = false;
+      Array.prototype.forEach.call(laneEls, function (e) { e.classList.remove("is-on"); });
+      var n; do { n = Math.floor(Math.random() * 3); } while (n === cur);
+      cur = n; laneEls[cur].classList.add("is-on");
+      limit = Math.max(1000, 1700 - done * 70);
+      tmo = setTimeout(function () { if (!c.isFinished()) miss("놓쳤어요!"); }, c.testHooks ? 60000 : limit);
+    }
+    function miss(t) { c.addMistake(); note.textContent = t; locked = true; clearTimeout(tmo); c.later(next, 350); }
+    function act(a) {
+      if (c.isFinished() || locked || cur < 0) return;
+      var lane = a === "space" ? (c.testHooks ? PIN_LANES[cur] : null) : a;
+      if (PIN_LANES.indexOf(lane) < 0) return;
+      if (lane === PIN_LANES[cur]) {
+        pipEls[done].classList.add("is-on"); done++; note.textContent = done + " / " + total + " 뽑았어요"; clearTimeout(tmo);
+        laneEls[cur].classList.remove("is-on");
+        if (done >= total) { c.later(c.finish, 250); locked = true; return; }
+        locked = true; c.later(next, 120);
+      } else miss("그 자리가 아니에요!");
+    }
+    bindPad(body, c, "data-pr", act);
+    c.onCleanup(function () { clearTimeout(tmo); });
+    c.later(next, 400);
+    return { hint: function () { return "뼈가 올라오는 자리의 방향키(← ↑ →)를 재빨리 누르세요(버튼 탭도 돼요). 놓치거나 틀리면 실수예요. 갈수록 빨라져요."; } };
+  }
+  var PREP_NAME = { egg: "휘젓기", whitefish: "칼질", eel: "굽기", salmon: "뼈 발라내기" };
+  function prepGame(body, c) {
+    var key = c.sushi || "egg";
+    return (key === "egg" ? mashPrep : key === "eel" ? grillPrep : key === "salmon" ? pinPrep : cutPrep)(body, c);
+  }
+  // ---- 엿보기 = 손님 응대 (2026-10-12, 사용자 지정): 손님이 원하는 간장·와사비·생강·차를 재빨리 가져다준다.
+  // 손님 6명(앞 4명은 1가지, 뒤 2명은 2가지 -- 순서 무관). 틀리거나 늦으면 실수. 실수 0~1 = 엿보기 2회, 2+ = 1회 (최대 2회).
+  var CONDS = [
+    { name: "간장", key: "1", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><rect x="9" y="12" width="14" height="25" rx="4" fill="#3b2418" stroke="#1f120b" stroke-width="2"/><rect x="12" y="4" width="8" height="9" rx="2" fill="#d2402a" stroke="#1f120b" stroke-width="2"/><rect x="11" y="21" width="10" height="8" rx="1.5" fill="#f1e2c0"/></svg>' },
+    { name: "와사비", key: "2", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M6 33c0-10 6-20 20-24 0 12-6 22-20 24z" fill="#5fae3c" stroke="#2c5a18" stroke-width="2"/><ellipse cx="16" cy="29" rx="9" ry="5" fill="#a8d86a" stroke="#2c5a18" stroke-width="2"/></svg>' },
+    { name: "생강", key: "3", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="28" rx="12" ry="6" fill="#f6b9bd" stroke="#b45a66" stroke-width="2"/><ellipse cx="14" cy="22" rx="10" ry="5" fill="#f9cdd0" stroke="#b45a66" stroke-width="2"/><ellipse cx="18" cy="16" rx="9" ry="4.5" fill="#fbdcde" stroke="#b45a66" stroke-width="2"/></svg>' },
+    { name: "차", key: "4", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M6 14h20l-2 20a4 4 0 01-4 3h-8a4 4 0 01-4-3z" fill="#f4efe2" stroke="#7a5a30" stroke-width="2"/><path d="M8 18h16" stroke="#6fa94a" stroke-width="5"/><path d="M12 6c-2 3 2 4 0 7M18 6c-2 3 2 4 0 7" stroke="#b9a37a" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' },
+  ];
+  var PS_ACTS = { left: 0, up: 1, down: 2, right: 3, i0: 0, i1: 1, i2: 2, i3: 3 };
   function peekGame(body, c) {
-    return timingGame(body, c, {
-      skin: "peek", total: 5, zoneW0: 0.20, zoneMin: 0.09, zoneStep: 0.02, speed0: 0.95, speedStep: 0.07, speedMax: 1.9,
-      stageHtml: '<div class="tm-window"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="tm-label">상대 가게 창문 틈에 렌즈를 맞추세요</div>',
-      markHtml: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="rgba(255,255,255,0.35)" stroke="#2b1d12" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="#2b1d12"/></svg>',
-      btn: "엿보기!", okText: function (d, t) { return d + " / " + t + " 성공"; },
-      hint: "렌즈가 밝은 틈에 올 때 SPACE로 엿봐요. 실수가 적을수록 후반에 엿볼 수 있는 횟수가 늘어요 (실수 0 = 3회, 2번 이하 = 2회, 그 이상 = 1회).",
-    });
+    var total = c.testHooks ? 3 : 6, done = 0, want = [], got = {}, tmo = 0, locked = false, timerRaf = 0, endAt = 0, limit = 0;
+    var pips = ""; for (var i = 0; i < total; i++) pips += '<i class="tm-pip"></i>';
+    var btns = ""; CONDS.forEach(function (d, k) { btns += '<button type="button" class="mg-key ps-item" data-ps="i' + k + '" data-item="' + k + '">' + d.svg + '<b>' + d.name + '</b><small>' + d.key + '</small></button>'; });
+    body.innerHTML = '<div class="tm-wrap ps-wrap"><div class="tm-stage"><div class="ps-cust"><svg class="ps-face" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="24" fill="#f6d2a8" stroke="#7a5a30" stroke-width="3"/><path d="M8 24c4-14 40-14 44 0z" fill="#2b1d12"/><circle cx="22" cy="32" r="2.6" fill="#2b1d12"/><circle cx="38" cy="32" r="2.6" fill="#2b1d12"/><path d="M23 42q7 5 14 0" stroke="#2b1d12" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>'
+      + '<div class="ps-bubble"><span class="ps-say">손님이 찾아요!</span><div class="ps-wants"></div></div></div><div class="ps-timer"><i></i></div></div>'
+      + '<div class="ps-items">' + btns + '</div><div class="tm-pips">' + pips + '</div><p class="tm-note">&nbsp;</p></div>';
+    var wantsEl = body.querySelector(".ps-wants"), timerEl = body.querySelector(".ps-timer i"), note = body.querySelector(".tm-note"), pipEls = body.querySelectorAll(".tm-pip"), itemEls = body.querySelectorAll(".ps-item"), say = body.querySelector(".ps-say");
+    function paintWants() {
+      wantsEl.innerHTML = want.map(function (k) { return '<span class="ps-want' + (got[k] ? ' is-got' : '') + '" data-i="' + k + '">' + CONDS[k].svg + '<b>' + CONDS[k].name + '</b></span>'; }).join("");
+      if (c.testHooks) body.setAttribute("data-want", want.filter(function (k) { return !got[k]; }).join(","));
+    }
+    function tickTimer() {
+      if (c.isFinished() || locked || c.testHooks) return;
+      var left = Math.max(0, endAt - performance.now());
+      timerEl.style.width = (left / limit * 100) + "%";
+      if (left <= 0) { miss("늦었어요!"); return; }
+      timerRaf = requestAnimationFrame(tickTimer);
+    }
+    function next() {
+      if (c.isFinished()) return;
+      locked = false; got = {};
+      var n = (!c.testHooks && done >= 4) ? 2 : 1, pool = [0, 1, 2, 3]; want = [];
+      while (want.length < n) want.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      say.textContent = n === 2 ? "두 가지 부탁해요!" : "이거 주세요!";
+      limit = n === 2 ? 4200 : Math.max(2000, 3000 - done * 150); endAt = performance.now() + limit;
+      paintWants(); cancelAnimationFrame(timerRaf); timerRaf = requestAnimationFrame(tickTimer);
+    }
+    function miss(t) { c.addMistake(); note.textContent = t; locked = true; cancelAnimationFrame(timerRaf); c.later(next, 400); }
+    function act(a) {
+      if (c.isFinished() || locked) return;
+      var k;
+      if (a === "space") { if (!c.testHooks) return; k = want.filter(function (x) { return !got[x]; })[0]; } else k = PS_ACTS[a];
+      if (k === undefined || k === null) return;
+      itemEls[k].classList.remove("is-press"); void itemEls[k].offsetWidth; itemEls[k].classList.add("is-press");
+      if (want.indexOf(k) < 0) { miss("그건 아니에요!"); return; }
+      if (got[k]) return;
+      got[k] = true; paintWants();
+      if (want.every(function (x) { return got[x]; })) {
+        locked = true; cancelAnimationFrame(timerRaf); pipEls[done].classList.add("is-on"); done++; note.textContent = "맛있게 드세요! " + done + " / " + total;
+        if (done >= total) { c.later(c.finish, 250); return; }
+        c.later(next, 350);
+      }
+    }
+    bindPad(body, c, "data-ps", act, { "1": "i0", "2": "i1", "3": "i2", "4": "i3" });
+    c.onCleanup(function () { cancelAnimationFrame(timerRaf); });
+    c.later(next, 300);
+    return { hint: function () { return "손님이 말한 것을 재빨리 눌러 가져다주세요 (← 간장 · ↑ 와사비 · ↓ 생강 · → 차, 또는 1~4키/버튼). 두 가지를 부탁하면 둘 다요. 틀리거나 늦으면 실수! 실수 0~1번이면 엿보기 2회, 그 이상이면 1회예요."; } };
   }
 
   var GAMES = { prep: prepGame, peek: peekGame, pack: packGame, inspect: inspectGame, sticker: stickerGame, map: mapGame, soko: sokoGame, ice: iceGame, route: routeGame, twin: twinGame, pipe: pipeGame, hanoi: hanoiGame };
@@ -3330,6 +3481,21 @@ body.main-view #app { height: 100vh; min-height: 0; }
   // ======================================================================
   // 공통 진행: 헤더(제목/시간/실수/포기), 타이머, 완료 배너, 정리
   // ======================================================================
+  // 게임 시작 전 설명 (2026-10-12): 3줄 = 목표 / 조작 / 주의. 처음 만났을 때만 뜨고(클라이언트가 opts.intro로 결정) 4초 뒤 자동 시작,
+  // SPACE/Enter/버튼으로 바로 시작할 수 있다. 시간 기록(ms)은 설명이 끝난 뒤부터 잰다. 테스트 모드에서는 건너뛴다.
+  var INTRO_MS = 4000;
+  var INTRO = {
+    "prep:egg": ["손질 · 휘젓기", "계란물을 저어 게이지를 가득 채워요", "SPACE(또는 버튼)를 빠르게 연타", "멈추면 게이지가 가라앉아요"],
+    "prep:whitefish": ["손질 · 칼질", "흰살생선을 조각 수만큼 썰어요", "칼이 초록 구간에 올 때 SPACE", "빗나가면 잠깐 멈춰요 · 갈수록 빨라져요"],
+    "prep:eel": ["손질 · 굽기", "장어를 노릇하게 구워요", "SPACE를 누르고 있으면 온도 상승, 떼면 하강", "초록 구간에 오래 두기 · 끝까지 오르면 타요"],
+    "prep:salmon": ["손질 · 뼈 발라내기", "연어의 가시를 하나씩 뽑아요", "가시가 뜬 자리의 방향키(← ↑ →)", "늦거나 틀리면 실수예요"],
+    peek: ["손님 응대", "손님이 원하는 간장·와사비·생강·차를 가져다줘요", "← 간장 · ↑ 와사비 · ↓ 생강 · → 차 (1~4키/버튼도 돼요)", "틀리거나 늦으면 실수 · 실수 0~1 = 엿보기 2회, 2+ = 1회"],
+    ice: ["초밥 담기", "도마 위 초밥을 모두 접시 칸에 담아요", "방향키를 누르면 부딪힐 때까지 미끄러져요", "접시 칸에 정확히 멈추기 · Z 되돌리기 · R 처음부터"],
+    map: ["주문 서빙", "주문표의 순서와 번호를 외워 손님에게 서빙해요", "주문표가 먼저 뜬 뒤 지도에서 방향키 이동 + SPACE", "비슷한 번호가 섞여 있어요 · 엉뚱한 자리는 실수"],
+    soko: ["재료 정리", "재료 상자를 밀어 접시 칸에 모두 올려요", "방향키로 걸으며 밀기 (당길 수 없어요)", "구석에 끼면 Z 되돌리기 · R 처음부터"],
+    route: ["도마 닦기", "도마의 모든 칸을 한 번씩만 지나며 닦아요", "방향키로 이동 (지나간 칸은 색이 바뀌고 선이 남아요)", "막다른 길이면 알려줘요 · Z 되돌리기 · R 처음부터"],
+  };
+  function introFor(kind, sushi) { return INTRO[kind === "prep" ? "prep:" + (sushi || "egg") : kind] || null; }
   function start(host, opts) {
     opts = opts || {};
     var kind = GAMES[opts.kind] ? opts.kind : "pack";
@@ -3337,7 +3503,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
 
     var rootEl = el("div", "mg-root mg-kind-" + kind);
     rootEl.innerHTML =
-      '<header class="mg-head"><div class="mg-title"><span class="mg-name">' + KINDS[kind].name + '</span>'
+      '<header class="mg-head"><div class="mg-title"><span class="mg-name">' + (kind === "prep" && PREP_NAME[opts.sushi] ? KINDS[kind].name + ' · ' + PREP_NAME[opts.sushi] : KINDS[kind].name) + '</span>'
       + (KINDS[kind].noLevel ? '' : '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span>')
       + (opts.sushi && SUSHI[opts.sushi] ? '<span class="mg-making" data-sushi="' + opts.sushi + '">' + sushiSvg(opts.sushi) + '<b>' + SUSHI[opts.sushi] + ' 초밥</b> 제작 중</span>' : '') + '</div>'
       + '<div class="mg-stats"><span class="mg-time">0.0초</span><span class="mg-miss">실수 0</span></div>'
@@ -3351,9 +3517,9 @@ body.main-view #app { height: 100vh; min-height: 0; }
     var timeEl = rootEl.querySelector(".mg-time");
     var missEl = rootEl.querySelector(".mg-miss");
 
-    var t0 = performance.now(), mistakes = 0, finished = false, destroyed = false;
+    var t0 = performance.now(), mistakes = 0, finished = false, destroyed = false, started = false;
     var timers = [], cleanups = [];
-    var tick = setInterval(function () { if (!finished) timeEl.textContent = fmtSec(performance.now() - t0); }, 100);
+    var tick = setInterval(function () { if (!finished && started) timeEl.textContent = fmtSec(performance.now() - t0); }, 100);
 
     var ctx = {
       level: level, label: opts.label, sushi: SUSHI[opts.sushi] ? opts.sushi : null, testHooks: !!opts.testHooks, opts: opts,
@@ -3382,8 +3548,27 @@ body.main-view #app { height: 100vh; min-height: 0; }
       },
     };
 
-    var game = GAMES[kind](body, ctx);
-    rootEl.querySelector(".mg-hint").textContent = game.hint();
+    var game = null;
+    function begin() {
+      if (started || destroyed) return;
+      started = true; t0 = performance.now(); body.innerHTML = "";
+      game = GAMES[kind](body, ctx);
+      rootEl.querySelector(".mg-hint").textContent = game.hint();
+    }
+    var intro = opts.intro && !opts.testHooks ? introFor(kind, opts.sushi) : null;
+    if (intro) {
+      var secs = Math.round(INTRO_MS / 1000);
+      body.innerHTML = '<div class="mg-intro"><h3>' + intro[0] + '</h3>'
+        + '<ol><li><b>목표</b><span>' + intro[1] + '</span></li><li><b>조작</b><span>' + intro[2] + '</span></li><li><b>주의</b><span>' + intro[3] + '</span></li></ol>'
+        + '<button type="button" class="mg-key mg-intro-go">시작<small>SPACE · <span class="mg-intro-sec">' + secs + '</span>초 뒤 자동</small></button></div>';
+      var left = secs, goBtn = body.querySelector(".mg-intro-go"), secEl = body.querySelector(".mg-intro-sec");
+      var iv = setInterval(function () { left--; if (secEl) secEl.textContent = Math.max(0, left); if (left <= 0) go(); }, 1000);
+      function go() { clearInterval(iv); document.removeEventListener("keydown", onIntroKey, true); begin(); }
+      function onIntroKey(e) { if (e.code === "Space" || e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); go(); } }
+      document.addEventListener("keydown", onIntroKey, true);
+      goBtn.addEventListener("click", go);
+      cleanups.push(function () { clearInterval(iv); document.removeEventListener("keydown", onIntroKey, true); });
+    } else begin();
     rootEl.querySelector(".mg-giveup").addEventListener("click", function () {
       if (finished || destroyed) return;
       if (opts.onCancel) opts.onCancel();
@@ -3569,6 +3754,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
   var local = { openCellId: null, toast: null, pending: {} };
   // 5초 이상 아무것도 안 하면(평가 G3) 눌러야 할 버튼이 깜빡인다: 마지막 조작 시각. 클릭/키 입력과 게임 종료 때 갱신된다.
   var lastAct = Date.now();
+  var introSeen = {};
   var INTRO_MS = 10000;
   // 방금 완료 신호를 보낸 칸(서버 브로드캐스트가 오기 전) -- 종류 버튼이 같은 칸을 또 골라 중복 완료로 무시되는 걸 막는다.
   function markPending(id) { local.pending[id] = Date.now(); }
@@ -3979,6 +4165,9 @@ body.main-view #app { height: 100vh; min-height: 0; }
       if (mg.ctl) { try { mg.ctl.destroy(); } catch (e) { /* ignore */ } }
       mg.stage = stage;
       var o = { sushi: pickedSushi, testHooks: TEST_HOOKS, onCancel: function () { closeMiniGame(); } };
+      // 게임 설명은 종류(손질은 초밥 종류별)마다 처음 만났을 때 한 번만 보여 준다 (매번 보면 흐름이 끊긴다).
+      var introKey = stage === "prep" ? "prep:" + pickedSushi : t.mini;
+      if (!introSeen[introKey]) { introSeen[introKey] = true; o.intro = true; }
       if (stage === "prep") {
         o.kind = "prep"; o.pieces = t.pieces;
         o.onDone = function (res) { mg.prep = res; beginStage("make"); };
@@ -4022,7 +4211,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     layer.classList.remove("hidden");
     mg = { cellId: null, kind: "peek", ctl: null };
     mg.ctl = MiniGames.start(document.getElementById("mg-host"), {
-      kind: "peek", testHooks: TEST_HOOKS,
+      kind: "peek", testHooks: TEST_HOOKS, intro: !introSeen.peek && (introSeen.peek = true),
       onCancel: function () { closeMiniGame(); },
       onDone: function (res) {
         closeMiniGame();
@@ -4367,13 +4556,13 @@ body.main-view #app { height: 100vh; min-height: 0; }
         + '<div class="chip">' + esc(seatName("2", st)) + '<span class="n">' + fmtWon(h1.scores["2"]) + '</span></div>'
         + '</div>';
     }
-    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '엿보기에 성공하면 상대 주문표를 몰래 볼 수 있어요']);
+    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '손님 응대를 잘하면 상대 주문표를 최대 2번 엿볼 수 있어요']);
     var pkMe = peekInfoFor(seat), pkOther = peekInfoFor(otherSeat);
     html += '<div class="peek-box">';
     if (pkMe.played) {
       html += '<div class="pb-done"><b>엿보기 ' + pkMe.charges + '회 획득</b><span>후반 회전 벨트에서 상대 주문표를 ' + pkMe.charges + '장 몰래 볼 수 있어요</span></div>';
     } else {
-      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">상대 가게 창문 틈에 렌즈를 맞춰요. 실수가 적을수록 후반에 상대 주문표를 더 많이 볼 수 있어요 (1회만 도전).</div>'
+      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">손님이 원하는 간장·와사비를 재빨리 가져다주면, 손님이 후반에 상대 주문표를 귀띔해 줘요 (최대 2회 · 도전은 1번만).</div>'
         + '<button class="btn primary" data-action="start-peek">엿보기 도전</button>';
     }
     html += '<div class="pb-other">' + esc(seatName(otherSeat, st)) + ' · ' + (pkOther.played ? '도전 완료' : '아직 도전 안 함') + '</div></div>';

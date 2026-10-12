@@ -982,6 +982,7 @@ APP_JS_TEMPLATE = r"""
   var local = { openCellId: null, toast: null, pending: {} };
   // 5초 이상 아무것도 안 하면(평가 G3) 눌러야 할 버튼이 깜빡인다: 마지막 조작 시각. 클릭/키 입력과 게임 종료 때 갱신된다.
   var lastAct = Date.now();
+  var introSeen = {};
   var INTRO_MS = 10000;
   // 방금 완료 신호를 보낸 칸(서버 브로드캐스트가 오기 전) -- 종류 버튼이 같은 칸을 또 골라 중복 완료로 무시되는 걸 막는다.
   function markPending(id) { local.pending[id] = Date.now(); }
@@ -1392,6 +1393,9 @@ APP_JS_TEMPLATE = r"""
       if (mg.ctl) { try { mg.ctl.destroy(); } catch (e) { /* ignore */ } }
       mg.stage = stage;
       var o = { sushi: pickedSushi, testHooks: TEST_HOOKS, onCancel: function () { closeMiniGame(); } };
+      // 게임 설명은 종류(손질은 초밥 종류별)마다 처음 만났을 때 한 번만 보여 준다 (매번 보면 흐름이 끊긴다).
+      var introKey = stage === "prep" ? "prep:" + pickedSushi : t.mini;
+      if (!introSeen[introKey]) { introSeen[introKey] = true; o.intro = true; }
       if (stage === "prep") {
         o.kind = "prep"; o.pieces = t.pieces;
         o.onDone = function (res) { mg.prep = res; beginStage("make"); };
@@ -1435,7 +1439,7 @@ APP_JS_TEMPLATE = r"""
     layer.classList.remove("hidden");
     mg = { cellId: null, kind: "peek", ctl: null };
     mg.ctl = MiniGames.start(document.getElementById("mg-host"), {
-      kind: "peek", testHooks: TEST_HOOKS,
+      kind: "peek", testHooks: TEST_HOOKS, intro: !introSeen.peek && (introSeen.peek = true),
       onCancel: function () { closeMiniGame(); },
       onDone: function (res) {
         closeMiniGame();
@@ -1780,13 +1784,13 @@ APP_JS_TEMPLATE = r"""
         + '<div class="chip">' + esc(seatName("2", st)) + '<span class="n">' + fmtWon(h1.scores["2"]) + '</span></div>'
         + '</div>';
     }
-    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '엿보기에 성공하면 상대 주문표를 몰래 볼 수 있어요']);
+    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '손님 응대를 잘하면 상대 주문표를 최대 2번 엿볼 수 있어요']);
     var pkMe = peekInfoFor(seat), pkOther = peekInfoFor(otherSeat);
     html += '<div class="peek-box">';
     if (pkMe.played) {
       html += '<div class="pb-done"><b>엿보기 ' + pkMe.charges + '회 획득</b><span>후반 회전 벨트에서 상대 주문표를 ' + pkMe.charges + '장 몰래 볼 수 있어요</span></div>';
     } else {
-      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">상대 가게 창문 틈에 렌즈를 맞춰요. 실수가 적을수록 후반에 상대 주문표를 더 많이 볼 수 있어요 (1회만 도전).</div>'
+      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">손님이 원하는 간장·와사비를 재빨리 가져다주면, 손님이 후반에 상대 주문표를 귀띔해 줘요 (최대 2회 · 도전은 1번만).</div>'
         + '<button class="btn primary" data-action="start-peek">엿보기 도전</button>';
     }
     html += '<div class="pb-other">' + esc(seatName(otherSeat, st)) + ' · ' + (pkOther.played ? '도전 완료' : '아직 도전 안 함') + '</div></div>';

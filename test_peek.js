@@ -5,7 +5,7 @@ const { GameRoom, peekChargesFor } = require("./game-room.js");
 const { ELEVATOR_ROUNDS } = require("./game-data.js");
 function log(...a) { console.log("[test-peek]", ...a); }
 
-assert.strictEqual(peekChargesFor(0), 3); assert.strictEqual(peekChargesFor(1), 2); assert.strictEqual(peekChargesFor(2), 2);
+assert.strictEqual(peekChargesFor(0), 2); assert.strictEqual(peekChargesFor(1), 2); assert.strictEqual(peekChargesFor(2), 1);
 assert.strictEqual(peekChargesFor(3), 1); assert.strictEqual(peekChargesFor(9), 1); assert.strictEqual(peekChargesFor(NaN), 1);
 
 const room = new GameRoom("TEST", () => {});
@@ -25,11 +25,11 @@ assert.strictEqual(st.phase, "halftime");
 
 // 하프타임: 1인 1회, 횟수 결정
 room.peekEarned("1", 0);
-assert.strictEqual(st.peek["1"].charges, 3); assert.strictEqual(st.peek["1"].played, true);
-room.peekEarned("1", 5); assert.strictEqual(st.peek["1"].charges, 3, "재도전 불가");
+assert.strictEqual(st.peek["1"].charges, 2, "최대 2회"); assert.strictEqual(st.peek["1"].played, true);
+room.peekEarned("1", 5); assert.strictEqual(st.peek["1"].charges, 2, "재도전 불가");
 room.peekEarned("2", 4); assert.strictEqual(st.peek["2"].charges, 1);
 room.halftimeReady("1"); room.halftimeReady("2");
-assert.strictEqual(st.half, 2); assert.strictEqual(st.peek["1"].charges, 3, "후반 시작해도 유지");
+assert.strictEqual(st.half, 2); assert.strictEqual(st.peek["1"].charges, 2, "후반 시작해도 유지");
 
 // 후반 제작: 1번은 3장, 2번은 1장
 take("1", "normal-1", "egg"); take("1", "normal-2", "egg"); take("1", "normal-3", "egg");
@@ -63,5 +63,5 @@ assert.deepStrictEqual(room2.usePeek("1"), { ok: false, code: "nothing" }, "이�
 // 다시 시작하면 초기화
 st.phase = "end"; room.restartReady("1"); room.restartReady("2");
 assert.deepStrictEqual(st.peek["1"], { charges: 0, played: false, used: 0, seen: [] });
-log("OK: 3/2/1회 계산, 1인 1회, 후반 전용, 중복 없음, 서빙된 주문표 제외, 재시작 초기화");
+log("OK: 2/1회 계산(최대 2회), 1인 1회, 후반 전용, 중복 없음, 서빙된 주문표 제외, 재시작 초기화");
 process.exit(0);
