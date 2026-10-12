@@ -360,8 +360,12 @@ HEAD_HTML = """<!doctype html>
   .rail-box .cat-left { font-family:var(--font-display); font-size:0.7rem; color:#16233f; font-weight:700; }
   .rail-box .cat-left b { font-size:0.9rem; }
   .rail-box .pips { display:flex; gap:4px; background:rgba(255,252,244,0.9); padding:3px 7px; border-radius:999px; }
-  .rail-box .pip { width:10px; height:10px; border-radius:50%; background:var(--c); border:1.5px solid rgba(22,35,63,0.55); }
-  .rail-box .pip.gone { background:transparent; border-style:dashed; opacity:0.45; }
+  .rail-box .pip { width:22px; height:13px; display:inline-block; }
+  .rail-box .pip svg { width:100%; height:100%; display:block; overflow:visible; fill:var(--c); stroke:rgba(22,35,63,0.7); stroke-width:1.4; stroke-linejoin:round; }
+  .rail-box .pip svg .eye { fill:rgba(22,35,63,0.8); stroke:none; }
+  .rail-box .pip.gone { opacity:0.45; }
+  .rail-box .pip.gone svg { fill:transparent; stroke-dasharray:2.4 2; }
+  .rail-box .pip.gone svg .eye { fill:transparent; }
   .rail-box .stamp { position:absolute; z-index:3; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-8deg); background:var(--danger); color:#fff;
     font-family:var(--font-display); font-weight:800; padding:0.15rem 0.8rem; border-radius:6px; white-space:nowrap; }
   .board-row.is-empty .rail-box { filter:grayscale(1); opacity:0.7; }
@@ -647,7 +651,9 @@ HEAD_HTML = """<!doctype html>
   .room-share strong { color:var(--ink); background:var(--pop-yellow); padding:0 0.5rem; border-radius:8px; border:2px solid var(--ink); }
   .ready-chip { border:2px solid var(--ink); background:#fff; color:var(--ink); box-shadow:0 2px 0 var(--ink); }
   .ready-chip.is-ready { background:#b9f0c6; color:var(--ink); border-color:var(--ink); }
-  .space-hint { border:var(--pop-line) solid var(--ink); border-radius:14px; background:var(--pop-yellow); color:var(--ink); box-shadow:0 4px 0 var(--ink); font-family:var(--font-pop); font-size:1.4rem; letter-spacing:0.06em; }
+  .space-hint { border:var(--pop-line) solid var(--ink); border-radius:14px; background:var(--pop-yellow); color:var(--ink); box-shadow:0 4px 0 var(--ink); font-family:var(--font-pop); width:fit-content; min-width:min(240px,86%); max-width:92%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:0.35rem; padding:0.8rem 1.6rem; word-break:keep-all; letter-spacing:0.02em; }
+  .space-hint .sh-key { font-family:var(--font-display); font-size:0.78rem; letter-spacing:0.18em; background:var(--ink); color:var(--pop-yellow); border-radius:6px; padding:0.12rem 0.7rem; }
+  .space-hint .sh-label { font-size:1.45rem; line-height:1.2; white-space:nowrap; }
   .winner-banner { font-weight:400; font-size:2rem; color:var(--ink); background:var(--pop-yellow); border:var(--pop-line) solid var(--ink); border-radius:18px; box-shadow:0 5px 0 var(--ink); max-width:420px; margin:0 auto 1.2rem; padding:0.6rem 1rem; }
   .halftime-box h2 { font-weight:400; }
   .halftime-scores .chip, .round-result { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:0 3px 0 var(--ink); background:#fff; }
@@ -669,7 +675,7 @@ HEAD_HTML = """<!doctype html>
   .rail-box .rb-name { border:2px solid var(--ink); border-radius:999px; font-weight:400; font-size:0.9rem; box-shadow:0 2px 0 var(--ink); }
   .rail-box .rb-game, .rail-box .cat-left { color:var(--ink); }
   .rail-box .pips { border:2px solid var(--ink); }
-  .rail-box .pip { border:2px solid var(--ink); }
+  .rail-box .pip svg { stroke:var(--ink); stroke-width:1.8; }
   .rail-box .stamp { border:var(--pop-line) solid var(--ink); border-radius:10px; font-weight:400; box-shadow:0 3px 0 var(--ink); }
   .rail-btn { border:var(--pop-line) solid var(--ink); border-bottom-width:var(--pop-line); box-shadow:0 4px 0 var(--ink); background:var(--c); color:var(--ink); border-radius:14px; }
   .rail-btn .rbp { color:var(--ink); opacity:0.75; }
@@ -770,6 +776,12 @@ APP_JS_TEMPLATE = r"""
   // catIdx로 인덱싱하는 종류별 보드-칸 배경 일러스트 (위 BOX_ART_DIR 참고). CELLS[].src(칸마다 다른
   // 퍼즐 이미지, 오버레이 전용)와는 별개 -- 이건 보드 위 21칸 자체의 배경으로 쓴다.
   var BOX_ART = @@BOX_ART_JSON@@;
+  // 남은 개수 표시용 물고기(단순 타원 몸통 + 꼬리). 색/테두리는 CSS가 입힌다.
+  var FISH_PIP = '<svg viewBox="0 0 26 14" aria-hidden="true"><path d="M2 7c0-3.4 3.6-5.6 8-5.6 3.2 0 5.8 1.2 7.2 3.2L24 1.6v10.8l-6.8-3.2C15.8 11.2 13.2 12.6 10 12.6 5.6 12.6 2 10.4 2 7z"/><circle class="eye" cx="6.2" cy="5.6" r="1.1"/></svg>';
+  // 스페이스바 안내 버튼: 키캡 + 라벨 두 줄로 나눠, 좁아도 글자가 어색하게 끊기지 않게 한다.
+  function spaceHint(label) {
+    return '<div class="space-hint"><span class="sh-key">SPACE</span><span class="sh-label">' + label + '</span></div>';
+  }
   var SUSHI_IMG = @@SUSHI_IMG_JSON@@;   // 초밥 키 -> 일러스트(data URI, 투명 컷아웃)
   // 보드 한 줄(종류)의 배경 일러스트: 그 종류의 초밥 컷아웃. 없으면 예전 상자 그림.
   function railArt(catIdx) {
@@ -1052,7 +1064,7 @@ APP_JS_TEMPLATE = r"""
       + '<span class="ready-chip' + (mine ? ' is-ready' : '') + '">나 · ' + (seat ? seatName(seat, st) : "-") + (mine ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
       + '<span class="ready-chip' + (other ? ' is-ready' : '') + '">' + (otherSeat ? seatName(otherSeat, st) : "-") + (other ? ' · 준비 완료' : ' · 대기 중') + '</span>'
       + '</div>'
-      + '<div class="space-hint">Space</div>'
+      + spaceHint('준비')
       + '</div></div></main>';
   }
 
@@ -1137,7 +1149,7 @@ APP_JS_TEMPLATE = r"""
       mine += '</div>';
       // --- 가운데 레일 위 상자 ---
       var pips = '';
-      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '"></span>';
+      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '">' + FISH_PIP + '</span>';
       var mid = '<div class="rail-mid"><div class="rail-box" style="background:' + t.color + ';--c:' + t.color + '">'
         + '<span class="cell-art" style="background-image:url(\'' + railArt(catIdx) + '\')"></span>'
         + '<span class="rb-name"><span class="cat-icon">' + CAT_ICONS[catIdx] + '</span>' + esc(t.name) + '</span>'
@@ -1378,7 +1390,7 @@ APP_JS_TEMPLATE = r"""
         + '<span class="ready-chip' + (myReady0 ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady0 ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
         + '<span class="ready-chip' + (otherReady0 ? ' is-ready' : '') + '">' + seatName(otherSeat0, st) + (otherReady0 ? ' · 준비 완료' : ' · 대기 중') + '</span>'
         + '</div>'
-        + '<div class="space-hint">Space · 회전 벨트 이동 시작</div>';
+        + spaceHint('회전 벨트 시작');
       html += '</div>';
 
       html += '</div></div></main>';
@@ -1488,12 +1500,12 @@ APP_JS_TEMPLATE = r"""
       var otherSeat = seat === "1" ? "2" : "1";
       var myReady = !!st.elevator.readyNext[seat];
       var otherReady = !!st.elevator.readyNext[otherSeat];
-      var nextLabel = st.elevator.round >= ELEVATOR_ROUNDS ? "최종 결과 보기" : "다음 라운드로";
+      var nextLabel = st.elevator.round >= ELEVATOR_ROUNDS ? "최종 결과 보기" : "다음 라운드";
       html += '<div class="ready-row">'
         + '<span class="ready-chip' + (myReady ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
         + '<span class="ready-chip' + (otherReady ? ' is-ready' : '') + '">' + seatName(otherSeat, st) + (otherReady ? ' · 준비 완료' : ' · 대기 중') + '</span>'
         + '</div>'
-        + '<div class="space-hint">Space · ' + nextLabel + '</div>';
+        + spaceHint(nextLabel);
     }
     html += '</div>';
 
@@ -1521,7 +1533,7 @@ APP_JS_TEMPLATE = r"""
       + '<span class="ready-chip' + (myReady ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
       + '<span class="ready-chip' + (otherReady ? ' is-ready' : '') + '">' + seatName(otherSeat, st) + (otherReady ? ' · 준비 완료' : ' · 대기 중') + '</span>'
       + '</div>'
-      + '<div class="space-hint">Space · 후반 시작</div>';
+      + spaceHint('후반 시작');
     html += '</div></div></main>';
     return html;
   }
@@ -1703,7 +1715,7 @@ APP_JS_TEMPLATE = r"""
     html += '<div class="rail-head">' + railSideHead(st, "1") + '<span>레일</span>' + railSideHead(st, "2") + '</div>';
     TYPES.forEach(function (t, catIdx) {
       var left = boardLeft(st, catIdx), pips = '';
-      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '"></span>';
+      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '">' + FISH_PIP + '</span>';
       var mid = '<div class="rail-mid"><div class="rail-box" style="background:' + t.color + ';--c:' + t.color + '">'
         + '<span class="cell-art" style="background-image:url(\'' + railArt(catIdx) + '\')"></span>'
         + '<span class="rb-name"><span class="cat-icon">' + CAT_ICONS[catIdx] + '</span>' + esc(t.name) + '</span>'
@@ -1802,7 +1814,7 @@ APP_JS_TEMPLATE = r"""
       var endsAt = st.secureEndsAt || nowMs();
       var cats = TYPES.map(function (t, catIdx) {
         var left = boardLeft(st, catIdx), pips = '';
-        for (var i = 0; i < t.count; i++) pips += '<span class="mv-pip' + (i < left ? '' : ' is-gone') + '"></span>';
+        for (var i = 0; i < t.count; i++) pips += '<span class="mv-pip' + (i < left ? '' : ' is-gone') + '">' + FISH_PIP + '</span>';
         return '<div class="mv-cat' + (left === 0 ? ' is-empty' : (left <= 2 ? ' is-few' : '')) + '" style="--c:' + t.color + '">'
           + '<div class="mv-cat-head"><span class="mv-cat-icon">' + CAT_ICONS[catIdx] + '</span><span class="mv-cat-name">' + esc(t.name) + '</span></div>'
           + '<div class="mv-cat-game">' + esc(MINI_NAME[t.mini] || "우봉고") + '</div>'
