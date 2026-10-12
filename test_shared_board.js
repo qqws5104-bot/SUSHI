@@ -8,7 +8,7 @@ function log(...a) { console.log("[test-shared-board]", ...a); }
 
 function newRoom() {
   const room = new GameRoom("T", () => {});
-  room.pickCourier("haru", "A"); room.pickCourier("pado", "B");
+  room.joinTeam("A"); room.joinTeam("B");
   room.setReady("1"); room.setReady("2"); // -> secure
   assert.strictEqual(room.state.phase, "secure");
   return room;

@@ -126,24 +126,20 @@ async function main() {
   await p2.goto(roomUrl);
 
   // ---- seat picker present on both ----
-  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "p1 seat picker" });
-  await waitFor(() => countSel(p2, ".seat-pick").then((n) => n > 0), { label: "p2 seat picker" });
+  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "p1 seat picker" });
+  await waitFor(() => countSel(p2, ".splash").then((n) => n > 0), { label: "p2 seat picker" });
   log("seat picker rendered on both pages");
 
   // 2026-08-27: "플레이어 1/2" 버튼 대신 가상 셰프 5종 아이콘 픽커로 바뀌었다 -- 좌석 번호는
   // 서버가 정해서 돌려주므로(pick-courier) 테스트에서 미리 못 정한다. 대신 두 플레이어가 서로 다른
   // 셰프를 고르는 것, 그리고 한쪽이 고른 건 다른 쪽에서 잠기는 것(사용자가 명시적으로 확인해달라고
   // 한 요구사항)을 검증한다.
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await waitFor(async () => (await bodyText(p1)).includes("내 좌석 · " + COURIER_NAME.haru), { label: "p1 picked haru courier" });
-  // p1이 이미 고른 셰프는 p2 화면에서 disabled여야 한다 (상태 브로드캐스트가 p2에게도 반영된 뒤).
-  await waitFor(async () => (await p2.evaluate(() =>
-    document.querySelector('[data-action="pick-courier"][data-courier="haru"]').disabled
-  )), { label: "haru courier locked on p2's screen once p1 took it" });
-  log("confirmed: courier taken by p1 is locked out on p2's picker");
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
-  await waitFor(async () => (await bodyText(p2)).includes("내 좌석 · " + COURIER_NAME.pado), { label: "p2 picked pado courier" });
-  log("p1 -> " + COURIER_NAME.haru + ", p2 -> " + COURIER_NAME.pado + " confirmed (서로 다른 셰프, 좌석 번호는 서버가 자동 배정)");
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes("내 팀 · " + COURIER_NAME.king), { label: "p1 picked haru courier" });
+  // 2026-10-12: 가게 고르기가 없어졌다 -- 입장 버튼 하나, 먼저 들어온 쪽이 초밥왕(좌석 1), 다음이 스시헌터(좌석 2).
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes("내 팀 · " + COURIER_NAME.hunter), { label: "p2 picked pado courier" });
+  log("p1 -> " + COURIER_NAME.king + ", p2 -> " + COURIER_NAME.hunter + " confirmed (팀은 입장 순서대로 서버가 자동 배정)");
 
   // ---- lobby: press space on both, verify auto-start into secure phase ----
   await pressSpace(p1);
@@ -482,7 +478,7 @@ async function main() {
   if (scoreTableCountP2 !== 4) throw new Error(`end screen: expected 4 rendered score-tables on p2's view too, found ${scoreTableCountP2}`);
   log("confirmed: both halves' full itemized results are shown on the final results screen");
 
-  // 총점 칩 라벨이 이제 "플레이어 N"이 아니라 그 좌석이 고른 셰프 이름이라(예: "하루스시 총점"),
+  // 총점 칩 라벨이 이제 "플레이어 N"이 아니라 그 좌석이 고른 셰프 이름이라(예: "초밥왕 총점"),
   // 좌석 번호 -> 셰프 이름 매핑을 courierPick(전체 상태에 이미 들어있음)에서 만들어 파싱한다.
   // 반환값은 예전처럼 좌석 번호("1"/"2")로 키를 유지 -- 아래 rawScores/halfHistory 비교가 전부
   // 좌석 번호 기준이라 그대로 맞춰줘야 한다.
@@ -552,7 +548,7 @@ async function main() {
   }, { label: "both players enter a fresh secure phase once BOTH click restart", timeout: 5000 });
   log("confirmed: restart button needs both players' clicks, then re-enters secure phase directly (no lobby/seat-repick)");
 
-  if (!(await bodyText(p1)).includes(COURIER_NAME.haru)) {
+  if (!(await bodyText(p1)).includes(COURIER_NAME.king)) {
     throw new Error("courier pick should survive a restart, but p1's courier name is missing from the new secure-phase screen");
   }
   log("confirmed: seat/courier assignment survives restart");

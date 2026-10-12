@@ -187,29 +187,25 @@ class GameRoom {
       if (owners[s] === clientId && s !== seat) { owners[s] = null; this.state.courierPick[s] = null; }
     });
     owners[seat] = clientId;
+    this.state.courierPick[seat] = this.teamKeyForSeat(seat); // 재접속으로 좌석을 되찾아도 팀이 항상 따라온다
     this.emit();
     return { ok: true };
   }
 
-  // 2026-08-27 신설: 좌석 선택 화면이 "플레이어 1/2" 버튼 대신 가상 셰프 5종 아이콘을 보여주고,
-  // 클라이언트는 자기가 몇 번 좌석이 될지 미리 알 수 없으므로(먼저 온 사람이 "1", 나중 온 사람이
-  // "2") 좌석 번호 없이 courierKey만 보내면 서버가 정한다. 이미 이 clientId가 어느 좌석을 갖고
-  // 있으면(마음 바꿔 다른 아이콘 다시 고르는 경우) 그 좌석을 그대로 재사용하고, 없으면 비어 있는
-  // 좌석("1" 우선) 하나를 새로 배정한다. courierKey는 반대쪽 좌석이 이미 고른 것과 겹칠 수 없다.
-  pickCourier(courierKey, clientId) {
+  // 2026-10-12: 팀은 좌석이 정한다 -- 좌석 "1"은 항상 초밥왕, 좌석 "2"는 항상 스시헌터 (가게 고르기 없음).
+  // 입장 버튼을 누른 클라이언트는 자기가 몇 번 좌석이 될지 미리 모르므로 좌석 번호 없이 보내고, 서버가
+  // 비어 있는 좌석("1" 우선)을 배정한다. 이미 좌석을 갖고 있으면 그 좌석을 그대로 돌려준다(중복 입장 무시).
+  teamKeyForSeat(seat) { return COURIERS[Number(seat) - 1].key; }
+  joinTeam(clientId) {
     this.touch();
-    if (!COURIERS.some((c) => c.key === courierKey)) return { ok: false, code: "bad_courier" };
     const owners = this.state.seatOwners;
-    const picks = this.state.courierPick;
     let seat = ["1", "2"].find((s) => owners[s] === clientId) || null;
     if (!seat) {
       seat = owners["1"] === null ? "1" : (owners["2"] === null ? "2" : null);
       if (!seat) return { ok: false, code: "room_full" };
     }
-    const otherSeat = seat === "1" ? "2" : "1";
-    if (picks[otherSeat] === courierKey) return { ok: false, code: "courier_taken" };
     owners[seat] = clientId;
-    picks[seat] = courierKey;
+    this.state.courierPick[seat] = this.teamKeyForSeat(seat);
     this.emit();
     return { ok: true, seat };
   }

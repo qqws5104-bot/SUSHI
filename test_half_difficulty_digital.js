@@ -66,12 +66,12 @@ async function main() {
 
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
-  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
+  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker" });
 
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.haru), { label: "p1 picks haru" });
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
-  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.pado), { label: "p2 picks pado" });
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.king), { label: "p1 picks haru" });
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.hunter), { label: "p2 picks pado" });
 
   await pressSpace(p1); await pressSpace(p2);
   await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "전반 secure phase" });

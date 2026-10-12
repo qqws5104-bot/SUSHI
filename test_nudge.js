@@ -33,12 +33,13 @@ async function main() {
   const p2 = await ctx2.newPage();
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
-  await waitFor(async () => (await p1.locator(".seat-pick").count()) > 0, { label: "seat picker" });
+  await waitFor(async () => (await p1.locator(".splash").count()) > 0, { label: "seat picker" });
   // 2026-08-27: "플레이어 1/2" 버튼 대신 가상 셰프 아이콘 픽커로 바뀌었다 -- 좌석 번호가 아니라
   // 셰프 key로 고른다 (game-data.js의 COURIERS 참고).
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
-  await waitFor(async () => (await bodyText(p1)).includes("내 좌석 · 하루스시"), { label: "p1 seat" });
+  await clickSel(p1, '[data-action="join-team"]');
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes("내 팀 · 초밥왕"), { label: "p1 seat" });
+  await waitFor(async () => (await bodyText(p2)).includes("내 팀 · 스시헌터"), { label: "p2 seat" });
   await pressSpace(p1);
   await pressSpace(p2);
   await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "secure phase" });

@@ -16,10 +16,10 @@ async function waitFor(fn, { timeout = 20000, label = "" } = {}) { const t = Dat
   const c1 = await br.newContext({ viewport: { width: 1280, height: 800 } }), c2 = await br.newContext({ viewport: { width: 1280, height: 800 } }), c3 = await br.newContext({ viewport: { width: 1600, height: 900 } });
   const p1 = await c1.newPage(), p2 = await c2.newPage(), pm = await c3.newPage();
   await p1.goto(url); await p2.goto(url); await pm.goto(url + "&view=main");
-  await waitFor(async () => (await p1.locator(".seat-pick").count()) > 0, { label: "pick" });
+  await waitFor(async () => (await p1.locator(".splash").count()) > 0, { label: "pick" });
   await p1.screenshot({ path: OUT + "/1_pick.png" });
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
+  await clickSel(p1, '[data-action="join-team"]');
+  await clickSel(p2, '[data-action="join-team"]');
   await sleep(500); await p1.screenshot({ path: OUT + "/2_lobby.png" });
   await pressSpace(p1); await pressSpace(p2);
   await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "secure" });

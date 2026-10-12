@@ -14,8 +14,8 @@ function log(...args) { console.log("[test-restart]", ...args); }
 const room = new GameRoom("TEST", () => {});
 
 // ---- 좌석/셰프 선택 ----
-room.pickCourier("haru", "clientA"); // seat 1
-room.pickCourier("pado", "clientB");  // seat 2
+room.joinTeam("clientA"); // seat 1
+room.joinTeam("clientB");  // seat 2
 room.setReady("1");
 room.setReady("2");
 room._endSecurePhase(); // skip 전반 secure 타이머
@@ -52,8 +52,8 @@ log("confirmed: both-clicks triggers an immediate restart into a fresh secure ph
 // 좌석/셰프는 그대로 유지 (재선택 화면으로 안 돌아감)
 assert.strictEqual(room.state.seatOwners["1"], "clientA", "seat 1 owner must be preserved across restart");
 assert.strictEqual(room.state.seatOwners["2"], "clientB", "seat 2 owner must be preserved across restart");
-assert.strictEqual(room.state.courierPick["1"], "haru", "seat 1's courier pick must be preserved across restart");
-assert.strictEqual(room.state.courierPick["2"], "pado", "seat 2's courier pick must be preserved across restart");
+assert.strictEqual(room.state.courierPick["1"], "king", "seat 1's courier pick must be preserved across restart");
+assert.strictEqual(room.state.courierPick["2"], "hunter", "seat 2's courier pick must be preserved across restart");
 log("confirmed: seatOwners/courierPick survive the restart (no re-pick screen needed)");
 
 // 보드/주문표는 완전히 새로 -- 이전 하프에서 제작했던 주문표가 하나도 남아있으면 안 됨

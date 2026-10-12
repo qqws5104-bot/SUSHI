@@ -13,8 +13,8 @@ assert.strictEqual(THIEF_PER_HALF, 2, "후반 도둑 1인당 2회");
 
 function newRoomInHalf2() {
   const room = new GameRoom("TEST", () => {});
-  room.pickCourier("haru", "clientA");
-  room.pickCourier("pado", "clientB");
+  room.joinTeam("clientA");
+  room.joinTeam("clientB");
   room.setReady("1"); room.setReady("2");
   room._endSecurePhase();
   const el = room.state.elevator;

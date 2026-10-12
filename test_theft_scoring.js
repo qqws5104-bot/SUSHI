@@ -30,9 +30,9 @@ let lastState = null;
 const room = new GameRoom("TEST", (state) => { lastState = state; });
 
 // ---- 좌석/셰프 선택 ----
-let r = room.pickCourier("haru", "clientA");
+let r = room.joinTeam("clientA");
 assert(r.ok && r.seat === "1", "seat 1 should be haru/clientA");
-r = room.pickCourier("pado", "clientB");
+r = room.joinTeam("clientB");
 assert(r.ok && r.seat === "2", "seat 2 should be pado/clientB");
 
 // ---- 로비 -> 전반 secure (실제 타이머는 기다리지 않고 바로 끝냄, 이 테스트는 전반 결과 자체엔

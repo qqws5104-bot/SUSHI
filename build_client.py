@@ -190,6 +190,11 @@ def box_art_data_uri(key):
 # catIdx로 바로 인덱싱해서 쓰는 배열 (TYPES 순서와 항상 같이 감) -- renderBoard가 BOX_ART[catIdx]로 참조.
 BOX_ART = [box_art_data_uri(t["key"]) for t in TYPES]
 
+# 2026-10-12: 입장·결과 화면에 쓰는 대표 이미지 (사용자 제공 컨셉 이미지, art/hero.webp -- 좌: 초밥왕, 우: 스시헌터).
+HERO_PATH = os.path.join(os.path.dirname(__file__), "art", "hero.webp")
+with open(HERO_PATH, "rb") as _f:
+    HERO_URL = "data:image/webp;base64," + base64.b64encode(_f.read()).decode("ascii")
+
 TYPES_JSON = json.dumps(TYPES, ensure_ascii=False)
 COURIERS_JSON = json.dumps(COURIERS, ensure_ascii=False)
 CELLS_1_JSON = json.dumps(CELLS_1, ensure_ascii=False)
@@ -205,7 +210,7 @@ HEAD_HTML = """<!doctype html>
 <title>초밥 서빙 게임 — 라이브</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Oswald:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   /* 2026-08-27 전면 리스킨: 어두운 남색 테마 -> 사용자가 준 "초밥 요금표" 참고 포스터(크림/베이지
      바탕 + 주황 포인트)에 맞춘 따뜻한 톤. 게임 전체(로비/보드/회전 벨트/하프타임/종료 화면 전부)에
@@ -580,6 +585,119 @@ HEAD_HTML = """<!doctype html>
   .cat-game { margin-top:0.15rem; font-size:0.68rem; font-weight:600; color:var(--muted); letter-spacing:0.02em; }
   .toast { position:fixed; left:50%; bottom:1.4rem; transform:translateX(-50%); background:var(--panel); border:1px solid var(--panel-line);
     padding:0.6rem 1.1rem; border-radius:999px; font-size:0.85rem; z-index:80; box-shadow:0 10px 30px rgba(0,0,0,0.4); }
+  /* ================= 2026-10-12 POP 테마 =================
+     초밥왕(빨강/원목) vs 스시헌터(남색) 콘셉트 이미지 기준. 입장·로비·결과 화면은 그림(hero.webp)을 쓰고,
+     플레이 화면은 그림 없이 코드로만: 굵은 먹색 외곽선 + 딱딱한 오프셋 그림자 + 둥근 버튼 + Jua 제목체.
+     body[data-team]이 king/hunter면 포인트색(--gold)이 팀색으로 바뀐다(톤 토큰만 바꾸므로 기존 컴포넌트가 따라온다). */
+  :root { --pop-line:3px; --pop-shadow:0 4px 0 var(--ink); --pop-yellow:#ffc52e; --pop-cream:#fff6dc;
+    --font-pop:'Jua','Noto Sans KR',sans-serif; --team:#e2691a; }
+  body[data-team="king"] { --gold:#d9382e; --gold-ink:#fff; --team:#d9382e; --sky:#1f4fa8; }
+  body[data-team="hunter"] { --gold:#1f4fa8; --gold-ink:#fff; --team:#1f4fa8; --sky:#d9382e; }
+  html, body { background:var(--pop-cream); }
+  body { background-image:radial-gradient(rgba(43,29,18,0.09) 1.6px, transparent 1.8px); background-size:22px 22px; }
+  h1,h2,h3,h4,.btn,.eyebrow,.timer-num,.time-left-big,.rail-btn .rbt,.floor-btn,.rb-name,.my-chip,.ready-chip,.seat-badge,.room-chip,.round-pill,.winner-banner { font-family:var(--font-pop); }
+  h1,h2,h3 { letter-spacing:0.01em; font-weight:400; }
+
+  .topbar { background:#fff; border-bottom:var(--pop-line) solid var(--ink); box-shadow:0 4px 0 var(--team); }
+  .topbar .eyebrow { color:var(--team); }
+  .topbar h1 { font-weight:400; font-size:clamp(1.2rem,2.3vw,1.7rem); }
+  .seat-badge { background:var(--team); color:#fff; border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink); font-size:0.9rem; }
+  .room-chip { background:#fff; color:var(--ink); border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink); }
+
+  .card { border:var(--pop-line) solid var(--ink); border-radius:20px; box-shadow:0 6px 0 var(--ink); background:#fff; }
+  .btn { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:var(--pop-shadow); font-weight:400; font-size:1.02rem; padding:0.65rem 1.3rem; transition:transform .08s ease, box-shadow .08s ease, filter .12s ease; }
+  .btn:active:not(:disabled) { transform:translateY(3px); box-shadow:0 1px 0 var(--ink); }
+  .btn.primary { background:var(--team); color:#fff; }
+  .btn.ghost { background:#fff; color:var(--ink); border:var(--pop-line) solid var(--ink); }
+  .btn.danger { background:#e5483a; } .btn.ok { background:#2fa65a; }
+  .btn:disabled { box-shadow:0 2px 0 var(--ink); }
+  .btn.big { font-size:1.5rem; padding:1rem 1.2rem; border-radius:18px; }
+
+  /* --- 시작 화면: 콘셉트 이미지가 화면 전체. 입장 패널만 그 위에 얹는다 --- */
+  :root { --hero:url(@@HERO_URL@@); }
+  .splash { flex:1; min-height:100vh; display:flex; align-items:flex-end; justify-content:center; padding:1rem 1rem clamp(1rem,4vh,2.4rem);
+    background:#9bd3f5 var(--hero) center 28% / cover no-repeat; }
+  .splash-panel { width:min(620px,100%); padding:1rem 1.2rem 1.1rem; background:rgba(255,255,255,0.94); border:var(--pop-line) solid var(--ink); border-radius:22px; box-shadow:0 6px 0 var(--ink); text-align:center; }
+  .splash-panel .team-row { margin:0 0 0.9rem; }
+  .splash-panel .room-share { margin-top:0.9rem; padding-top:0.7rem; font-size:0.8rem; }
+  .lobby-box { max-width:720px; width:100%; }
+  .lobby-box h2 { font-size:clamp(1.7rem,4vw,2.4rem); margin:0 0 0.4rem; }
+  .rule-note { background:var(--pop-yellow); border:2px solid var(--ink); border-radius:14px; padding:0.55rem 0.9rem; color:var(--ink) !important; font-weight:700; box-shadow:0 3px 0 var(--ink); }
+  .lobby-box-deco { display:none; }
+  .team-row { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:0.6rem; margin:0 0 1.2rem; }
+  .team-card { --team:#999; display:flex; flex-direction:column; align-items:center; gap:0.15rem; padding:0.7rem 0.5rem; border:var(--pop-line) solid var(--ink); border-radius:16px;
+    background:color-mix(in srgb, var(--team) 12%, #fff); box-shadow:0 4px 0 var(--ink); }
+  .team-card .team-icon { width:36px; height:36px; color:var(--team); } .team-card .team-icon svg { width:100%; height:100%; display:block; }
+  .team-card .team-name { font-family:var(--font-pop); font-weight:400; font-size:1.35rem; color:var(--team); }
+  .team-card .team-state { font-size:0.8rem; font-weight:700; color:var(--muted); }
+  .team-card.is-in .team-state { color:var(--ink); }
+  .team-card.is-mine { background:var(--team); } .team-card.is-mine .team-icon, .team-card.is-mine .team-name, .team-card.is-mine .team-state { color:#fff; }
+  .vs-badge { display:inline-flex; align-items:center; justify-content:center; width:3.2rem; height:3.2rem; border-radius:50%; background:var(--pop-yellow); border:var(--pop-line) solid var(--ink);
+    box-shadow:0 3px 0 var(--ink); font-family:var(--font-pop); font-size:1.3rem; transform:rotate(-8deg); }
+  .join-btn { background:var(--pop-yellow) !important; color:var(--ink) !important; }
+  .room-share { border-top:2px dashed rgba(43,29,18,0.3); }
+  .room-share strong { color:var(--ink); background:var(--pop-yellow); padding:0 0.5rem; border-radius:8px; border:2px solid var(--ink); }
+  .ready-chip { border:2px solid var(--ink); background:#fff; color:var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .ready-chip.is-ready { background:#b9f0c6; color:var(--ink); border-color:var(--ink); }
+  .space-hint { border:var(--pop-line) solid var(--ink); border-radius:14px; background:var(--pop-yellow); color:var(--ink); box-shadow:0 4px 0 var(--ink); font-family:var(--font-pop); font-size:1.4rem; letter-spacing:0.06em; }
+  .winner-banner { font-weight:400; font-size:2rem; color:var(--ink); background:var(--pop-yellow); border:var(--pop-line) solid var(--ink); border-radius:18px; box-shadow:0 5px 0 var(--ink); max-width:420px; margin:0 auto 1.2rem; padding:0.6rem 1rem; }
+  .halftime-box h2 { font-weight:400; }
+  .halftime-scores .chip, .round-result { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:0 3px 0 var(--ink); background:#fff; }
+  .round-result { background:#e4f8e8; }
+  .score-table th, .score-table td { border-bottom:2px solid rgba(43,29,18,0.15); }
+
+  /* --- 타이머 / 사이드 --- */
+  .timer-bar, .rv-bar, .mv-bar { background:#fff; border:2px solid var(--ink); }
+  .timer-bar > i, .rv-bar > i { background:var(--team); }
+  .timer-num, .time-left-big { color:var(--team); }
+  .side-timer { border:var(--pop-line) solid var(--ink); border-radius:18px; box-shadow:0 5px 0 var(--ink); background:#fff; }
+  .round-pill { background:var(--pop-yellow); color:var(--ink); border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .toast { border:var(--pop-line) solid var(--ink); box-shadow:0 4px 0 var(--ink); border-radius:16px; font-weight:700; }
+  .overlay { background:rgba(43,29,18,0.9); }
+
+  /* --- 제작 보드(레일) --- */
+  .rail-mid { box-shadow:inset 0 0 0 3px var(--ink); }
+  .rail-box { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:0 3px 0 var(--ink); }
+  .rail-box .rb-name { border:2px solid var(--ink); border-radius:999px; font-weight:400; font-size:0.9rem; box-shadow:0 2px 0 var(--ink); }
+  .rail-box .rb-game, .rail-box .cat-left { color:var(--ink); }
+  .rail-box .pips { border:2px solid var(--ink); }
+  .rail-box .pip { border:2px solid var(--ink); }
+  .rail-box .stamp { border:var(--pop-line) solid var(--ink); border-radius:10px; font-weight:400; box-shadow:0 3px 0 var(--ink); }
+  .rail-btn { border:var(--pop-line) solid var(--ink); border-bottom-width:var(--pop-line); box-shadow:0 4px 0 var(--ink); background:var(--c); color:var(--ink); border-radius:14px; }
+  .rail-btn .rbp { color:var(--ink); opacity:0.75; }
+  .rail-btn:hover:not(:disabled) { background:var(--c); filter:brightness(1.08); }
+  .rail-btn:active:not(:disabled) { transform:translateY(3px); box-shadow:0 1px 0 var(--ink); border-bottom-width:var(--pop-line); }
+  .rail-btn .rbt { font-weight:400; }
+  .floor-btn { border:2px solid var(--ink); border-bottom-width:2px; box-shadow:0 3px 0 var(--ink); background:var(--c); color:var(--ink); font-weight:400; border-radius:10px; }
+  .floor-btn:hover:not(.is-gone) { background:var(--c); filter:brightness(1.08); }
+  .floor-btn:active:not(.is-gone) { transform:translateY(2px); box-shadow:0 1px 0 var(--ink); }
+  .floor-btn.is-gone { box-shadow:none; background:transparent; }
+  .my-chip { border:2px solid var(--ink); border-radius:999px; font-weight:400; background:#fff; }
+  .rv { background:var(--pop-cream); }
+  .rv-chip.phase { background:var(--pop-yellow); border:2px solid var(--ink); color:var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .rv-chip.room { background:#fff; border:2px solid var(--ink); color:var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .rv-side { border:var(--pop-line) solid var(--ink); box-shadow:0 3px 0 var(--ink); background:#fff; }
+  .rv-side.is-busy { background:var(--c); }
+  .rw-row { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:0 3px 0 var(--ink); background:#fff; }
+
+  /* --- 회전 벨트 --- */
+  .shaft { background:#ffe9b0; border:var(--pop-line) solid var(--ink); border-radius:20px; box-shadow:0 5px 0 var(--ink); }
+  .belt-track { border:3cqw solid #3b4049; box-shadow:0 0 0 0.9cqw var(--ink); }
+  .floor-stop .car { border:1cqw solid var(--ink); opacity:0.92; font-family:var(--font-pop); font-weight:400; font-size:7.5cqw; box-shadow:0 1cqw 0 var(--ink); }
+  .floor-stop.current .car { box-shadow:0 1.6cqw 0 var(--ink), 0 0 0 1.4cqw var(--pop-yellow); }
+  .belt-mark { font-family:var(--font-pop); font-weight:400; top:106cqw; }
+  .invoice { border:2px solid var(--ink); border-radius:12px; background:#fff; box-shadow:0 3px 0 var(--ink); }
+  .invoice .swatch { border:2px solid var(--ink); }
+  .invoice .sticker { border:2px solid var(--ink); font-weight:400; font-family:var(--font-pop); }
+  .invoice .sticker.pending { border-style:dashed; }
+  .invoice.is-priority { background:#fff0b8; border-color:var(--ink); }
+  .invoice .priority-flag { background:var(--pop-yellow); color:var(--ink); border:2px solid var(--ink); font-family:var(--font-pop); font-weight:400; }
+  .invoice.pickable:hover { background:#fff6dc; }
+  .priority-window, .choice-box, .thief-window { border:var(--pop-line) solid var(--ink); border-radius:16px; box-shadow:0 4px 0 var(--ink); background:#fff3c4; }
+  .thief-window { background:#ffd9d3; }
+  .priority-window h4, .choice-box h4 { color:var(--team); font-weight:400; font-size:1.1rem; } .thief-window h4 { color:var(--danger); font-weight:400; font-size:1.1rem; }
+  .choice-list .invoice.chosen { background:#c9f1d2; }
+  .player-col.me h3 { color:var(--team); }
 </style>
 </head><body>
 <div id="app"></div>
@@ -607,11 +725,8 @@ APP_JS_TEMPLATE = r"""
   // 참치당/여우초밥/청해스시). 프라이팬+계란(하루스시), 다이아몬드 직인+바코드선(파도초밥),
   // 방패+상자(참치당), 지그재그 화살표(여우초밥), 우편함(청해스시).
   var COURIER_ICONS = [
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path><path d="M5 15c1-4 5-6 7-6s6 2 7 6"></path><path d="M12 9V5"></path></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9c2.5-3 5-3 7.5 0s5 3 7.5 0 3-2 5-1"></path><path d="M2 14c2.5-3 5-3 7.5 0s5 3 7.5 0 3-2 5-1"></path><path d="M2 19c2.5-3 5-3 7.5 0s5 3 7.5 0 3-2 5-1"></path></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c3-5 9-6 13-3l5-3v12l-5-3c-4 3-10 2-13-3z"></path><circle cx="8" cy="11" r="1" fill="currentColor"></circle></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l5 3h6l5-3v8a8 8 0 0 1-16 0z"></path><circle cx="9" cy="12" r="1" fill="currentColor"></circle><circle cx="15" cy="12" r="1" fill="currentColor"></circle><path d="M11 16h2"></path></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="4"></circle><path d="M3 18h18"></path><path d="M5 21h14"></path><path d="M12 2v2M4.5 5.5L6 7M19.5 5.5L18 7"></path></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4 3 4-6 4 6 4-3-1.5 7h-13z"></path><path d="M5.5 19h13"></path></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12c3-5 9-6 13-3l5-3v12l-5-3c-4 3-10 2-13-3z"></path><circle cx="8" cy="11" r="1" fill="currentColor"></circle></svg>',
   ];
   // catIdx로 인덱싱하는 종류별 보드-칸 배경 일러스트 (위 BOX_ART_DIR 참고). CELLS[].src(칸마다 다른
   // 퍼즐 이미지, 오버레이 전용)와는 별개 -- 이건 보드 위 21칸 자체의 배경으로 쓴다.
@@ -758,11 +873,7 @@ APP_JS_TEMPLATE = r"""
   function handleWsError(msg) {
     if (msg.code === "seat_taken") {
       try { sessionStorage.removeItem("bp-seat"); } catch (e) {}
-      showToast(seatName(msg.seat, state) + "는 이미 다른 사람이 선택했어요. 다시 골라주세요.");
-      render();
-    }
-    else if (msg.code === "courier_taken") {
-      showToast("바로 직전에 상대방이 그 셰프를 먼저 골랐어요. 다른 곳을 골라주세요.");
+      showToast(seatName(msg.seat, state) + " 자리는 이미 다른 사람이 앉았어요.");
       render();
     }
     else if (msg.code === "room_full") {
@@ -841,36 +952,27 @@ APP_JS_TEMPLATE = r"""
       + deco('top:56%;right:-5%;width:92px;height:92px;color:var(--danger);opacity:0.12;transform:rotate(-9deg);');
   }
 
+  // 2026-10-12: 가게 고르기를 없애고 팀을 입장 순서로 고정했다 -- 먼저 들어온 사람이 초밥왕, 다음 사람이 스시헌터.
+  function teamCard(i) {
+    var c = COURIERS[i], sn = String(i + 1);
+    var owner = state && state.seatOwners && state.seatOwners[sn];
+    var mine = owner && owner === CLIENT_ID;
+    return '<div class="team-card team-' + c.key + (owner ? ' is-in' : '') + (mine ? ' is-mine' : '') + '" style="--team:' + c.color + '">'
+      + '<span class="team-icon">' + COURIER_ICONS[i] + '</span>'
+      + '<b class="team-name">' + esc(c.name) + '</b>'
+      + '<span class="team-state">' + (mine ? '내 자리' : (owner ? '입장 완료' : '대기 중')) + '</span></div>';
+  }
   function renderSeatPicker() {
-    var picks = (state && state.courierPick) || { "1": null, "2": null };
-    var myKey = null;
-    ["1", "2"].forEach(function (s) { if (state && state.seatOwners[s] === CLIENT_ID) myKey = picks[s]; });
-    var takenKeys = {};
-    ["1", "2"].forEach(function (s) {
-      if (picks[s] && state.seatOwners[s] !== CLIENT_ID) takenKeys[picks[s]] = true;
-    });
     var roomFull = state && state.seatOwners["1"] && state.seatOwners["2"]
       && state.seatOwners["1"] !== CLIENT_ID && state.seatOwners["2"] !== CLIENT_ID;
-    function courierBtn(c, i) {
-      var taken = !!takenKeys[c.key];
-      var mine = myKey === c.key;
-      var disabled = taken || (roomFull && !mine);
-      return '<button class="courier-btn' + (taken ? ' taken' : '') + (mine ? ' mine' : '') + '"'
-        + ' style="--courier-color:' + c.color + '" data-action="pick-courier" data-courier="' + c.key + '"'
-        + (disabled ? ' disabled' : '') + '>'
-        + '<span class="courier-icon">' + COURIER_ICONS[i] + '</span>'
-        + '<span class="courier-name">' + esc(c.name) + '</span>'
-        + (taken ? '<span class="taken-note">이미 선택됨</span>' : (mine ? '<span class="taken-note">내 선택</span>' : ''))
-        + '</button>';
-    }
-    return '<div class="center-screen"><div class="picker-scene">'
-      + renderLobbyBoxes()
-      + '<div class="seat-pick card">'
-      + '<h2>어느 셰프 직원인가요?</h2>'
-      + '<p>이 기기에서 플레이할 가상 셰프를 하나 골라주세요. 상대방이 먼저 고른 곳은 고를 수 없어요.</p>'
-      + '<div class="courier-options">' + COURIERS.map(courierBtn).join('') + '</div>'
-      + '<div class="room-share">이 방 코드: <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
-      + '</div></div></div>';
+    var nextTeam = state && !state.seatOwners["1"] ? COURIERS[0] : COURIERS[1];
+    // 2026-10-12: 게임 시작 화면 = 콘셉트 이미지가 화면 전체(배경). 그림 위에 입장 패널만 얹는다 (카드 안에 일러스트를 끼우는 구조가 아님).
+    return '<div class="splash"><div class="splash-panel">'
+      + '<div class="team-row">' + teamCard(0) + '<span class="vs-badge">VS</span>' + teamCard(1) + '</div>'
+      + '<button class="btn primary big join-btn" data-action="join-team"' + (roomFull ? ' disabled' : '') + '>'
+      + (roomFull ? '방이 가득 찼어요' : ('입장하기 · ' + esc(nextTeam.name) + '로 시작')) + '</button>'
+      + '<div class="room-share">먼저 들어온 사람이 초밥왕, 다음 사람이 스시헌터 · 방 코드 <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
+      + '</div></div>';
   }
 
   function renderTopbar(st, seat) {
@@ -880,7 +982,7 @@ APP_JS_TEMPLATE = r"""
     }
     return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live</span><h1>초밥 서빙 게임 — ' + phaseLabel + '</h1></div>'
       + '<div class="right"><span class="room-chip">방 ' + esc(ROOM) + '</span>'
-      + '<span class="seat-badge">' + (seat ? ("내 좌석 · " + seatName(seat, st)) : "셰프 미선택") + '</span></div></div>';
+      + '<span class="seat-badge">' + (seat ? ("내 팀 · " + seatName(seat, st)) : "입장 전") + '</span></div></div>';
   }
 
   function renderLobby(st, seat) {
@@ -888,9 +990,10 @@ APP_JS_TEMPLATE = r"""
     var mine = seat ? !!st.ready[seat] : false;
     var other = otherSeat ? !!st.ready[otherSeat] : false;
     return '<main class="stage"><div class="center-screen"><div class="lobby-box card">'
-      + '<h2>초밥 서빙 게임</h2>'
-      + '<p>두 사람 모두 이 페이지를 열고 좌석을 선택한 뒤, 각자 자기 키보드의 <strong>스페이스바</strong>를 누르면 준비 완료예요.<br>'
-      + '둘 다 준비되면 자동으로 시작하고, 최대 3분 동안(초밥이 다 떨어지면 일찍 끝나요) 초밥 제작 미니게임을 진행한 뒤 자동으로 회전 벨트 라운드(총 ' + ELEVATOR_ROUNDS + '라운드)로 넘어가요.</p>'
+      + '<h2>' + esc(seatName("1", st)) + ' VS ' + esc(seatName("2", st)) + '</h2>'
+      + '<p class="rule-note">초밥 이름이 곧 판매가예요. 만든 초밥을 라운드 안에 못 팔면(서빙 못 함 · 도둑에게 뺏김) <b>원재료값</b>만큼 점수가 깎여요.</p>'
+      + '<p>두 사람 모두 입장했으면 각자 자기 키보드의 <strong>스페이스바</strong>를 눌러 준비하세요.<br>'
+      + '둘 다 준비되면 자동으로 시작하고, 최대 3분 동안(초밥이 다 떨어지면 일찍 끝나요) 초밥을 만든 뒤 회전 벨트 라운드(총 ' + ELEVATOR_ROUNDS + '라운드)로 넘어가요. 전반·후반 두 번 하고 점수를 합산해요.</p>'
       + '<div class="ready-row">'
       + '<span class="ready-chip' + (mine ? ' is-ready' : '') + '">나 · ' + (seat ? seatName(seat, st) : "-") + (mine ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
       + '<span class="ready-chip' + (other ? ' is-ready' : '') + '">' + (otherSeat ? seatName(otherSeat, st) : "-") + (other ? ' · 준비 완료' : ' · 대기 중') + '</span>'
@@ -971,7 +1074,7 @@ APP_JS_TEMPLATE = r"""
       } else {
         mine += '<button class="rail-btn" data-action="open-type" data-cat="' + catIdx + '"' + (left === 0 ? ' disabled' : '') + '>'
           + '<span class="rbt">' + (left === 0 ? '소진' : esc(MINI_NAME[t.mini] || '우봉고') + ' 시작') + '</span>'
-          + '<span class="rbp">성공 ' + fmtWon(t.reward) + ' · 실패 ' + fmtWon(-t.penalty) + '</span></button>';
+          + '<span class="rbp">팔면 ' + fmtWon(t.reward) + ' · 못 팔면 ' + fmtWon(-t.penalty) + '</span></button>';
         mine += '<div class="my-chips">' + myCells.map(function (c) {
           var inv = invFor(c);
           return '<span class="my-chip">' + (inv ? esc(chipText(inv)) : '제작') + '</span>';
@@ -1142,7 +1245,7 @@ APP_JS_TEMPLATE = r"""
     return '<div class="delivered-callout">' + delivered.map(function (d) {
       var t = TYPES[d.catIdx];
       var note = d.stolen
-        ? ' — <span style="color:var(--danger);font-weight:700;">초밥도둑에게 도난당했어요! (' + fmtWon(-t.penalty) + ')</span>'
+        ? ' — <span style="color:var(--danger);font-weight:700;">초밥도둑에게 도난당했어요! (원재료값 ' + fmtWon(-t.penalty) + ')</span>'
         : ' (' + fmtWon(d.priority ? t.reward * PRIORITY_MULTIPLIER : t.reward) + (d.priority ? ' · 우선 x' + PRIORITY_MULTIPLIER : '') + ')';
       return '<div class="delivered-item"><span class="swatch" style="background:' + t.color + '"></span>'
         + roomCode(d.floorIdx, d.room) + ' ' + (function () { var iv = findInvoiceById(d.invoiceId), sn = iv ? sushiShort(iv.sushi) : ""; return sn ? esc(sn) + ' 초밥 (' + esc(t.name.replace(" 초밥", "")) + ')' : esc(t.name); })() + note
@@ -1174,7 +1277,7 @@ APP_JS_TEMPLATE = r"""
       return '<div class="invoice' + (confirmed ? ' delivered' : ' pickable') + (picked ? ' is-priority' : '') + '"'
         + (confirmed ? '' : (' data-action="pick-priority" data-inv="' + (picked ? '' : inv.id) + '"')) + '>'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 성공 시 ' + fmtWon(t.reward) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 팔면 ' + fmtWon(t.reward) + ' / 못 팔면 ' + fmtWon(-t.penalty) + '</div></div>'
         + '<span class="sticker' + (picked ? '' : ' pending') + '">' + (picked ? ('우선 x' + PRIORITY_MULTIPLIER) : '선택') + '</span>'
         + '</div>';
     }).join('') + '</div>';
@@ -1410,7 +1513,7 @@ APP_JS_TEMPLATE = r"""
     var s1 = st.scores ? st.scores["1"] : 0, s2 = st.scores ? st.scores["2"] : 0;
     var winner = s1 === s2 ? "무승부" : (s1 > s2 ? (seatName("1", st) + " 승리") : (seatName("2", st) + " 승리"));
     var html = '<main class="stage">';
-    html += '<div class="winner-banner">' + winner + '</div>';
+    html += '<div class="winner-banner">' + esc(winner) + '</div>';
     html += renderRestartGate(st, seat);
     // Game's over -- unlike the elevator phase (where per-round delivery info stays private so
     // players can't read each other's moves mid-game), the ending screen reveals both players'
@@ -1447,14 +1550,14 @@ APP_JS_TEMPLATE = r"""
     if (!state) return renderTopbarShell() + renderLoading();
     var seat = mySeat();
     var body = renderTopbar(state, seat);
-    if (!seat) { body += renderSeatPicker(); return body; }
+    if (!seat) return renderSeatPicker();
     if (state.phase === "lobby") {
       // 방어적 체크 (2026-08-28 버그 수정): 이 좌석이 서버에 등록돼 있어도(seat truthy) courierPick이
       // 비어 있으면(재접속 유예 로직으로도 못 막은 예외적 타이밍, 혹은 방이 스윕돼 새로 만들어진 뒤
       // sessionStorage만 남아있던 경우 등) 절대 "스페이스바 대기" 화면을 보여주지 않는다 -- 셰프를
       // 안 골랐는데 대기 화면만 뜨면 사용자가 다시 고를 방법이 없다("한번씩 대기 시간에 셰프 선택이
       // 안 떠" 버그 리포트). 내 셰프가 실제로 정해져 있을 때만 대기 화면, 아니면 선택 화면.
-      body += (state.courierPick && state.courierPick[seat]) ? renderLobby(state, seat) : renderSeatPicker();
+      body += renderLobby(state, seat);
     }
     else if (state.phase === "secure") {
       // 우봉고 오버레이를 열어둔 사이 그 칸(또는 그 종류)이 상대에게 다 넘어갔으면 오버레이를 닫는다 (공유 보드).
@@ -1514,7 +1617,7 @@ APP_JS_TEMPLATE = r"""
       var off2 = !here || busy || left === 0;
       html += '<button class="rail-btn' + (busy ? ' is-busy' : '') + '" data-action="rail-press" data-side="' + side + '" data-cat="' + catIdx + '"' + (off2 ? ' disabled' : '') + '>'
         + '<span class="rbt">' + (left === 0 ? '소진' : (busy ? '게임 중...' : esc(MINI_NAME[t.mini] || '우봉고') + ' 시작')) + '</span>'
-        + '<span class="rbp">성공 ' + fmtWon(t.reward) + ' · 실패 ' + fmtWon(-t.penalty) + '</span></button>';
+        + '<span class="rbp">팔면 ' + fmtWon(t.reward) + ' · 못 팔면 ' + fmtWon(-t.penalty) + '</span></button>';
     }
     return html + '</div>';
   }
@@ -1598,10 +1701,12 @@ APP_JS_TEMPLATE = r"""
     var key = st.courierPick && st.courierPick[seatNo];
     var c = key ? courierByKey(key) : null;
     var idx = c ? COURIERS.indexOf(c) : -1;
+    var team = c || COURIERS[Number(seatNo) - 1];   // 아직 입장 전이어도 이 자리의 팀(초밥왕/스시헌터)은 정해져 있다
+    var tIdx = COURIERS.indexOf(team);
     var ready = !!(readyMap && readyMap[seatNo]);
     return '<div class="mv-seat' + (c ? ' is-on' : '') + (ready ? ' is-ready' : '') + '"' + (c ? ' style="--c:' + c.color + '"' : '') + '>'
-      + (c ? '<span class="mv-seat-icon">' + COURIER_ICONS[idx] + '</span>' + esc(c.name) : '<span style="color:var(--muted)">플레이어 ' + seatNo + '</span>')
-      + '<small>' + (!c ? '셰프 선택 대기' : (readyMap ? (ready ? readyWord + ' 완료' : '대기 중') : '입장 완료')) + '</small></div>';
+      + (c ? '<span class="mv-seat-icon">' + COURIER_ICONS[idx] + '</span>' + esc(c.name) : '<span class="mv-seat-icon" style="color:var(--muted)">' + COURIER_ICONS[tIdx] + '</span><span style="color:var(--muted)">' + esc(team.name) + '</span>')
+      + '<small>' + (!c ? '입장 대기' : (readyMap ? (ready ? readyWord + ' 완료' : '대기 중') : '입장 완료')) + '</small></div>';
   }
   function mvTime(endsAt, totalMs, opts) {
     // 큰 시계 한 덩어리. 값은 mainTick()이 채운다 (초기 문자열만 같은 규칙으로 미리 넣어 깜빡임을 막는다).
@@ -1629,10 +1734,10 @@ APP_JS_TEMPLATE = r"""
     if (st.phase === "lobby") {
       var joinUrl = location.origin + "/?room=" + ROOM;
       html = head("대기 중") + '<div class="mv-body"><div class="mv-center">'
-        + '<h2>참가자를 기다리고 있어요</h2>'
+        + '<div class="mv-panel"><h2>참가자를 기다리고 있어요</h2>'
         + '<div class="mv-seats">' + mvSeatCard(st, "1", st.ready, "준비") + mvSeatCard(st, "2", st.ready, "준비") + '</div>'
         + '<div class="mv-join">각자 기기에서 이 주소로 들어오세요<b>' + esc(joinUrl) + '</b></div>'
-        + '<div class="mv-join mv-join-rail">레일 화면(공용)은 이 주소로<b>' + esc(location.origin + "/rail?room=" + ROOM) + '</b></div>'
+        + '<div class="mv-join mv-join-rail">레일 화면(공용)은 이 주소로<b>' + esc(location.origin + "/rail?room=" + ROOM) + '</b></div></div>'
         + '</div></div>';
     }
     else if (st.phase === "secure") {
@@ -1695,7 +1800,7 @@ APP_JS_TEMPLATE = r"""
         + '</div></div>';
     }
     if (st.phase !== "elevator") mvPrevFloor = null; // 다음에 회전 벨트가 시작되면 제자리에서 시작
-    return '<div class="mv">' + html + '</div>';
+    return '<div class="mv' + (st.phase === "lobby" ? ' mv-splash' : '') + '">' + html + '</div>';
   }
   // 그린 직후: 회전 벨트 칸을 새 접시로 옮긴다 (이전 접시에서 출발한 모습으로 그려 두었다가 다음 프레임에 이동 -> CSS transition)
   function mainAfterRender() {
@@ -1734,6 +1839,9 @@ APP_JS_TEMPLATE = r"""
   }
 
   function render() {
+    // 팀 컬러 테마: 내 좌석이 정해져 있으면 body[data-team]이 king/hunter가 된다 (CSS가 색을 바꾼다). 관전/메인 모니터는 중립.
+    var tm = (!MAIN && !RAIL && mySeat()) ? COURIERS[Number(mySeat()) - 1] : null;
+    if (tm) document.body.setAttribute("data-team", tm.key); else document.body.removeAttribute("data-team");
     document.getElementById("app").innerHTML = renderBody();
     if (MAIN) mainAfterRender();
     if (RAIL) railTick();
@@ -1745,11 +1853,11 @@ APP_JS_TEMPLATE = r"""
     if (!t) return;
     var action = t.getAttribute("data-action");
 
-    if (action === "pick-courier") {
-      // 좌석 번호는 서버가 정해서 돌려주므로(먼저 온 사람이 "1") 여기선 낙관적으로 세팅하지 않는다 --
+    if (action === "join-team") {
+      // 좌석 번호는 서버가 정해서 돌려주므로(먼저 온 사람이 "1" = 초밥왕) 여기선 낙관적으로 세팅하지 않는다 --
       // 다음 "state" 브로드캐스트에서 내 clientId가 어느 좌석의 주인이 됐는지 보고 그때 확정한다
       // (connectWS의 onmessage 참고). 여기선 그냥 요청만 보낸다.
-      send({ type: "pick-courier", courier: t.getAttribute("data-courier") });
+      send({ type: "join-team" });
       return;
     }
     if (action === "open-cell") { openCell(t.getAttribute("data-cell")); return; }
@@ -1909,6 +2017,7 @@ APP_JS = (APP_JS_TEMPLATE
           .replace("@@ROOMS_JSON@@", ROOMS_JSON)
           .replace("@@COURIERS_JSON@@", COURIERS_JSON)
           .replace("@@BOX_ART_JSON@@", BOX_ART_JSON)
+          .replace("@@HERO_URL@@", HERO_URL)
           .replace("@@ELEVATOR_ROUNDS@@", str(ELEVATOR_ROUNDS))
           .replace("@@SECURE_PHASE_MS@@", str(SECURE_PHASE_MS))
           .replace("@@PRIORITY_MULTIPLIER@@", str(PRIORITY_MULTIPLIER))
@@ -1927,7 +2036,7 @@ assert "</style" not in MAINVIEW_CSS
 assert "</script" not in MINIGAMES_JS and "</style" not in MINIGAMES_CSS
 
 full_html = (
-    HEAD_HTML.replace("</style>\n</head>", MINIGAMES_CSS + "\n" + MAINVIEW_CSS + "\n</style>\n</head>", 1)
+    HEAD_HTML.replace("@@HERO_URL@@", HERO_URL).replace("</style>\n</head>", MINIGAMES_CSS + "\n" + MAINVIEW_CSS + "\n</style>\n</head>", 1)
     + '<script>' + MINIGAMES_JS + "</script>\n"
     + '<script>' + APP_JS + "</script>\n"
     + "</body></html>\n"

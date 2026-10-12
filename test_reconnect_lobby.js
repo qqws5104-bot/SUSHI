@@ -7,7 +7,7 @@
 //
 // 이 테스트는 실제 WS 연결을 끊었다가(context.setOffline) 클라이언트의 자동 재접속 지연(1.2초)보다
 // 조금 더 길게, 하지만 서버의 유예 시간(SEAT_RELEASE_GRACE_MS, 5초)보다는 짧게 끊어둔 뒤 다시
-// 연결해서, 재접속 후에도 "내 좌석 · <셰프 이름>"이 그대로 남아 있는지 확인한다.
+// 연결해서, 재접속 후에도 "내 팀 · <셰프 이름>"이 그대로 남아 있는지 확인한다.
 "use strict";
 const { chromium } = require("playwright");
 const { COURIERS } = require("./game-data.js");
@@ -69,13 +69,13 @@ async function main() {
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
 
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await waitFor(async () => (await bodyText(p1)).includes("내 좌석 · " + COURIER_NAME.haru),
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes("내 팀 · " + COURIER_NAME.king),
     { label: "p1 picked haru courier" });
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
-  await waitFor(async () => (await bodyText(p2)).includes("내 좌석 · " + COURIER_NAME.pado),
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes("내 팀 · " + COURIER_NAME.hunter),
     { label: "p2 picked pado courier" });
-  log("p1 -> " + COURIER_NAME.haru + ", p2 -> " + COURIER_NAME.pado + " (둘 다 로비, 아직 스페이스바 안 누름)");
+  log("p1 -> " + COURIER_NAME.king + ", p2 -> " + COURIER_NAME.hunter + " (둘 다 로비, 아직 스페이스바 안 누름)");
 
   // ---- p1의 WS만 실제로 강제 종료 (routeWebSocket으로 가로챈 실제 연결을 close) ----
   // 클라이언트는 이 close를 감지하고 1.2초 뒤 자동으로 재접속한다(connectWS의 ws.onclose 참고).
@@ -86,13 +86,13 @@ async function main() {
   log("waited past the 1.2s auto-reconnect delay, checking p1's state");
 
   // 재접속 후: 서버가 courierPick을 지우지 않았어야 하므로, 좌석 선택 화면(셰프 아이콘 5개)이
-  // 아니라 "내 좌석 · 하루스시" 로비 화면이 그대로 유지돼야 한다.
+  // 아니라 "내 팀 · 초밥왕" 로비 화면이 그대로 유지돼야 한다.
   await waitFor(async () => {
     const t = await bodyText(p1);
-    return t.includes("내 좌석 · " + COURIER_NAME.haru);
+    return t.includes("내 팀 · " + COURIER_NAME.king);
   }, { label: "p1 still shows its courier after reconnect", timeout: 8000 });
 
-  const seatPickerVisibleAfterReconnect = await p1.evaluate(() => document.querySelectorAll(".seat-pick").length > 0);
+  const seatPickerVisibleAfterReconnect = await p1.evaluate(() => document.querySelectorAll(".splash").length > 0);
   if (seatPickerVisibleAfterReconnect) {
     throw new Error("REGRESSION: p1 fell back to the courier picker after a brief reconnect -- seat/courierPick was wiped");
   }

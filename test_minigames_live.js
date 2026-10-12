@@ -184,11 +184,11 @@ async function main() {
     p.on("console", (m) => { if (m.type() === "error" && !/fonts\.g|ERR_|Failed to load resource|favicon/.test(m.text())) errors.push(label + " console: " + m.text()); });
   }
   await p1.goto(roomUrl); await p2.goto(roomUrl);
-  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.haru), { label: "p1 courier" });
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
-  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.pado), { label: "p2 courier" });
+  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker" });
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.king), { label: "p1 courier" });
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.hunter), { label: "p2 courier" });
   await pressSpace(p1); await pressSpace(p2);
   await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "secure phase" });
   log("제작 단계 진입");

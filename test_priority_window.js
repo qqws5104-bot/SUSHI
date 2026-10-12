@@ -17,8 +17,8 @@ assert.strictEqual(PRIORITY_PICK_MS, 10000, "우선 초밥 지정 시간은 10�
 
 function newRoom() {
   const room = new GameRoom("TEST", () => {});
-  room.pickCourier("haru", "clientA");
-  room.pickCourier("pado", "clientB");
+  room.joinTeam("clientA");
+  room.joinTeam("clientB");
   room.setReady("1"); room.setReady("2");
   return room;
 }

@@ -16,7 +16,7 @@ TYPES.forEach((t) => {
 log("종류별 초밥 2종, 서로 겹치지 않음:", TYPES.map((t) => t.key + "=" + t.sushi.join("/")).join(" "));
 
 const room = new GameRoom("TEST", () => {});
-room.pickCourier("haru", "clientA"); room.pickCourier("pado", "clientB");
+room.joinTeam("clientA"); room.joinTeam("clientB");
 room.setReady("1"); room.setReady("2");
 const inv = (seat) => room.state.players[seat].invoices;
 
@@ -36,7 +36,7 @@ log("유효 키 유지 / 타 종류 키·이상한 값·없음은 서버가 목�
 const got = new Set();
 for (let i = 0; i < 200; i++) {
   const r = new GameRoom("T" + i, () => {});
-  r.pickCourier("haru", "a"); r.pickCourier("pado", "b"); r.setReady("1"); r.setReady("2");
+  r.joinTeam("a"); r.joinTeam("b"); r.setReady("1"); r.setReady("2");
   r.secureCell("1", "fragile-1", null);
   got.add(r.state.players["1"].invoices[0].sushi);
 }

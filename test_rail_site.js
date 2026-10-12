@@ -51,10 +51,10 @@ async function main() {
   const room = new URL(p1.url()).searchParams.get("room");
   const roomUrl = BASE + "/?room=" + room + "&mgtest=1";
   await p1.goto(roomUrl); await p2.goto(roomUrl);
-  await waitFor(() => count(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
-  await click(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await waitFor(async () => (await p1.evaluate(() => document.body.innerText)).includes("하루스시"), { label: "p1 courier" });
-  await click(p2, '[data-action="pick-courier"][data-courier="pado"]');
+  await waitFor(() => count(p1, ".splash").then((n) => n > 0), { label: "seat picker" });
+  await click(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await p1.evaluate(() => document.body.innerText)).includes("초밥왕"), { label: "p1 courier" });
+  await click(p2, '[data-action="join-team"]');
   await sleep(300);
   await space(p1); await space(p2);
   await waitFor(() => count(p1, '[data-action="open-type"]').then((n) => n > 0), { label: "secure phase (fallback board)" });

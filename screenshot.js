@@ -33,7 +33,7 @@ async function main() {
 
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
-  await waitFor(async () => (await p1.locator(".seat-pick").count()) > 0, { label: "seat picker" });
+  await waitFor(async () => (await p1.locator(".splash").count()) > 0, { label: "seat picker" });
   await p1.screenshot({ path: path.join(OUT, "1_seat_picker.png") });
 
   await clickSel(p1, '[data-action="pick-seat"][data-seat="1"]');

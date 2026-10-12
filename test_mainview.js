@@ -55,12 +55,12 @@ async function main() {
   const p1 = await mk("p1", { width: 1100, height: 900 }), p2 = await mk("p2", { width: 1100, height: 900 });
   const roomUrl = BASE + "/?room=" + room + "&mgtest=1";
   await p1.goto(roomUrl); await p2.goto(roomUrl);
-  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker p1" });
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await waitFor(async () => (await bodyText(p1)).includes("하루스시"), { label: "p1 courier" });
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
-  await waitFor(async () => (await bodyText(p2)).includes("파도초밥"), { label: "p2 courier" });
-  await waitFor(async () => { const t = await bodyText(main); return t.includes("하루스시") && t.includes("파도초밥"); }, { label: "main shows both couriers" });
+  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker p1" });
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes("초밥왕"), { label: "p1 courier" });
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes("스시헌터"), { label: "p2 courier" });
+  await waitFor(async () => { const t = await bodyText(main); return t.includes("초밥왕") && t.includes("스시헌터"); }, { label: "main shows both couriers" });
   // 메인에서 키를 눌러도 아무 일도 없어야 한다 (좌석이 없으니 준비 완료가 되면 안 됨)
   await pressSpace(main); await sleep(300);
   assert(!(await bodyText(main)).includes("준비 완료"), "Space on the main monitor must not ready anyone");

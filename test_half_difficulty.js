@@ -65,18 +65,18 @@ async function main() {
 
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
-  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
+  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker" });
 
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="haru"]');
-  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.haru), { label: "p1 picks haru" });
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="pado"]');
-  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.pado), { label: "p2 picks pado" });
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.king), { label: "p1 picks haru" });
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.hunter), { label: "p2 picks pado" });
 
   await pressSpace(p1); await pressSpace(p2);
   await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "전반 secure phase" });
   log("전반 secure phase 진입 -- 아무것도 제작하지 않음(전반 결과는 이 테스트와 무관)");
   const PIECES = { normal: 2, fragile: 3, valuable: 4, "fixed-floor": 3 };
-  const NAME = { normal: "일반 초밥", fragile: "중급 초밥", valuable: "특선 초밥", "fixed-floor": "지정 초밥" };
+  const NAME = { normal: "1천원 초밥", fragile: "2천원 초밥", valuable: "5천원 초밥", "fixed-floor": "3천원 초밥" };
   const CAT = { normal: 0, fragile: 1, valuable: 2 };
   const openOverlay = async (id) => {
     const kind = id.replace(/-\d+$/, "");

@@ -32,14 +32,18 @@
 //   일반 6->4, 중급 6->4, 특선 초밥 6->3 (지정 접시는 접시가 6개라 6 그대로) = 24 -> 17칸. 한 하프에 한 사람이 서빙할 수 있는 건
 //   라운드 7번 x 1장 이하(실제론 3~5장)라서, 24칸은 두 사람이 다 가져도 남는 공급이었다. 비싼 종류일수록 적게 둔다.
 //   (이전엔 2026-10-06 사용자 요청으로 전 종류 6칸 통일이었다.)
+// 2026-10-12 가격제 (사용자 요청): 종류 이름이 곧 판매가다 -- 1천원(일반 4칸) / 2천원(중급 4칸) / 3천원(지정, 접시 고정 6칸) / 5천원(특선 3칸).
+//   reward = 판매가(서빙 성공 시 +). penalty = 원재료값(만들었는데 라운드 안에 못 팔거나 초밥도둑에게 뺏기면 -).
+//   원재료값은 가격대별로 따로 정한 잠정값 (500/1,000/2,000/3,500 -- 비쌀수록 판매가 대비 비율이 큼). 바꾸려면 여기 penalty만 고치면 된다.
+//   (내부 key/순서는 그대로라 보드 표시 순서는 1천 · 2천 · 5천 · 3천이다.)
 const TYPES = [
-  { key: "normal", sushi: ["egg", "tofu"], name: "일반 초밥", count: 4, pieces: 2, reward: 2500, penalty: 1000,
+  { key: "normal", sushi: ["egg", "tofu"], name: "1천원 초밥", count: 4, pieces: 2, reward: 1000, penalty: 500,
     color: "#C9A576", ink: "#16233F", mini: "ice", miniLevel: 2 },
-  { key: "fragile", sushi: ["salmon", "ikura"], name: "중급 초밥", count: 4, pieces: 3, reward: 5000, penalty: 2500,
+  { key: "fragile", sushi: ["salmon", "ikura"], name: "2천원 초밥", count: 4, pieces: 3, reward: 2000, penalty: 1000,
     color: "#C7E29A", ink: "#16233F", mini: "map", miniLevel: 3 },
-  { key: "valuable", sushi: ["eel", "tuna"], name: "특선 초밥", count: 3, pieces: 4, reward: 10000, penalty: 5000,
+  { key: "valuable", sushi: ["eel", "tuna"], name: "5천원 초밥", count: 3, pieces: 4, reward: 5000, penalty: 3500,
     color: "#F0B84A", ink: "#16233F", mini: "soko", miniLevel: 3 },
-  { key: "fixed-floor", sushi: ["shrimp", "octopus"], name: "지정 초밥", count: 6, pieces: 3, fixedFloor: true, reward: 3000, penalty: 2500,
+  { key: "fixed-floor", sushi: ["shrimp", "octopus"], name: "3천원 초밥", count: 6, pieces: 3, fixedFloor: true, reward: 3000, penalty: 2000,
     color: "#6DBBFD", ink: "#16233F", mini: "route", miniLevel: 3 },
 ];
 
@@ -52,12 +56,12 @@ const TYPES = [
 // 동일해 위 상표권 원칙(완전 창작 가상 브랜드)에 어긋난다고 판단, 확인 결과 말장난("한짐 가득
 // 싣습니다")은 살리되 이름만 "한짐초밥"로 바꿔서 실제 브랜드명과 겹치지 않게 했다. 나머지 4개는
 // 실제 브랜드와 무관한 창작명이라 그대로 사용.
+// 2026-10-12: 가게 고르기를 없애고 팀을 좌석에 고정했다 -- 먼저 들어온 사람(좌석 "1")이 초밥왕, 다음 사람(좌석 "2")이 스시헌터.
+// 배열 순서 = 좌석 번호 순서다 (COURIERS[0] = 좌석 "1"). 아이콘(SVG)은 build_client.py의 COURIER_ICONS에 같은 순서로 있다.
+// (build_client.py가 이 리터럴을 정규식+JSON으로 읽으므로 배열 안에는 주석을 넣지 않는다.)
 const COURIERS = [
-  { key: "haru", name: "하루스시", color: "#D9552E" },
-  { key: "pado", name: "파도초밥", color: "#7A2333" },
-  { key: "chamchi", name: "참치당", color: "#1E4C86" },
-  { key: "yeou", name: "여우초밥", color: "#2F9E6E" },
-  { key: "cheonghae", name: "청해스시", color: "#C23B3B" },
+  { key: "king", name: "초밥왕", color: "#D9382E" },
+  { key: "hunter", name: "스시헌터", color: "#1F4FA8" },
 ];
 
 const FLOORS = ["빨강", "주황", "노랑", "초록", "파랑", "보라"]; // 순환 벨트 위의 접시 6장 (색 이름)

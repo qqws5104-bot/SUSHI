@@ -76,3 +76,36 @@ body.main-view #app { height: 100vh; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .belt-ring, .mv-bar > i { transition: none; } .mv-time.is-low { animation: none; } }
 .mv-join-rail { margin-top: 1.2vh; font-size: 2.4vh; }
 .mv-join-rail b { font-size: 3.2vh; }
+
+/* ---------- 2026-10-12 POP 테마 (메인 모니터) ---------- */
+.mv { background: var(--pop-cream); }
+.mv-head h1, .mv-center h2, .mv-winner, .mv-label, .mv-time, .mv-left, .mv-round, .mv-floor-big, .mv-state, .mv-chip, .mv-cat-name { font-family: var(--font-pop); font-weight: 400; }
+.mv-eyebrow { color: var(--gold); }
+.mv-chip.phase { background: var(--pop-yellow); border: 0.4vh solid var(--ink); color: var(--ink); box-shadow: 0 0.5vh 0 var(--ink); }
+.mv-chip.room { background: #fff; border: 0.4vh solid var(--ink); color: var(--ink); box-shadow: 0 0.5vh 0 var(--ink); }
+.mv-splash { background: #9bd3f5 var(--hero) center 28% / cover no-repeat; }
+.mv-splash .mv-head { display: none; }
+.mv-splash .mv-body { justify-content: flex-end; }
+.mv-splash .mv-center { flex: 0 0 auto; }
+.mv-panel { width: min(74vw, 1180px); padding: 1.6vh 2vw 2vh; background: rgba(255, 255, 255, 0.94); border: 0.5vh solid var(--ink); border-radius: 2.6vh; box-shadow: 0 1vh 0 var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1.2vh; }
+.mv-panel h2 { font-size: 4vh; }
+.mv-panel .mv-seats { margin-top: 0; gap: 2vw; }
+.mv-panel .mv-seat { min-width: 18vw; padding: 1.2vh 1.2vw; font-size: 3.2vh; flex-direction: row; gap: 1.2vw; }
+.mv-panel .mv-seat .mv-seat-icon { width: 5vh; height: 5vh; }
+.mv-panel .mv-join { margin-top: 0; font-size: 2.2vh; }
+.mv-panel .mv-join b { font-size: 3.2vh; margin-top: 0.4vh; }
+.mv-panel .mv-join-rail { font-size: 1.9vh; }
+.mv-panel .mv-join-rail b { font-size: 2.4vh; }
+.mv-seat, .mv-score { border: 0.5vh solid var(--ink); border-radius: 2.4vh; background: #fff; box-shadow: 0 1vh 0 var(--ink); }
+.mv-seat.is-on { background: color-mix(in srgb, var(--c, var(--gold)) 14%, #fff); }
+.mv-seat.is-ready { background: #b9f0c6; }
+.mv-join b { background: var(--pop-yellow); border: 0.4vh solid var(--ink); border-radius: 1.4vh; padding: 0.2vh 1.2vw; display: inline-block; }
+.mv-bar { background: #fff; border: 0.4vh solid var(--ink); }
+.mv-bar > i { background: var(--gold); }
+.mv-cat { border: 0.6vh solid var(--ink); border-radius: 2.6vh; box-shadow: 0 1vh 0 var(--ink); }
+.mv-pip { border-color: var(--ink); }
+.mv-round { background: var(--ink); color: var(--pop-yellow); }
+.mv-shaft { background: #ffe9b0; border: 0.6vh solid var(--ink); box-shadow: 0 1vh 0 var(--ink); }
+.mv-floor-big { color: var(--ink); text-shadow: 0.5vh 0.5vh 0 var(--pop-yellow); }
+.mv-winner { color: var(--ink); background: var(--pop-yellow); border: 0.6vh solid var(--ink); border-radius: 2.4vh; padding: 0.6vh 3vw; box-shadow: 0 1vh 0 var(--ink); font-size: 7vh; }
+.mv-score b { color: var(--gold); }
