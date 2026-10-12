@@ -119,7 +119,7 @@ async function main() {
   await openCell("normal-1");
   const iceRows = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan")).rows;
   const iceLen = iceSolve(iceRows).length;
-  assert_(await countSel(p1, "#mg-layer .mg-kind-ice") === 1 && iceLen >= 6 && iceLen <= 9, `일반 초밥 초밥 담기은 보통(L2, 최적 6~9번 미끄러짐)이어야 함, got ${iceLen}`);
+  assert_(await countSel(p1, "#mg-layer .mg-kind-ice") === 1 && iceLen >= 14 && iceLen <= 17, `일반 초밥 초밥 담기은 보통(L2, 최적 14~17번 미끄러짐)이어야 함, got ${iceLen}`);
   log(`후반 일반 초밥(초밥 담기, 보통): 최적 ${iceLen}번 미끄러짐`);
   await giveUp();
 
@@ -128,16 +128,16 @@ async function main() {
     const b = document.querySelector("#mg-layer .mg-body");
     return b ? { grid: b.dataset.grid, targets: b.dataset.targets.split(";").length, blocked: b.dataset.blocked.split(";").filter(Boolean).length } : null;
   });
-  assert_(mapInfo && mapInfo.grid === "7,5" && mapInfo.targets === 4 && mapInfo.blocked === 6, `중급 주문 서빙(어려움): 7x5 지도 / 목표 4개 / 공사장 6칸이어야 함, got ${JSON.stringify(mapInfo)}`);
+  assert_(mapInfo && mapInfo.grid === "9,6" && mapInfo.targets === 4 && mapInfo.blocked === 10, `중급 주문 서빙(어려움): 9x6 지도 / 목표 4개 / 공사장 10칸이어야 함, got ${JSON.stringify(mapInfo)}`);
   assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 1 && (await countSel(p1, "#mg-layer .mg-parcel")) === 4, "주문 서빙은 주문표 초밥 4개가 먼저 뜨고 지도는 가려져 있어야 함");
   await p1.waitForTimeout(3100); // 주문표 단계(2.5초)가 끝나면 지도가 뜬다
   assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 0, "주문표 단계가 끝나면 지도가 떠야 함");
-  log("후반 중급(주문 서빙, 어려움): 7x5 지도, 주문표 4장, 공사장 6칸, 주문표 -> 지도 순서");
+  log("후반 중급(주문 서빙, 어려움): 9x6 지도, 주문표 4장, 공사장 10칸, 주문표 -> 지도 순서");
   await giveUp();
 
   await openCell("fixed-floor-3");
   const rt = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.rows.length === 5 && rt.rows[0].length === 6 && rt.rows.join("").split("#").length - 1 === 3, `지정 접시 도마 닦기(어려움): 6x5 / 막힌 칸 3이어야 함, got ${rt.rows.join("/")}`);
+  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.rows.length === 6 && rt.rows[0].length === 7 && rt.rows.join("").split("#").length - 1 === 3, `지정 접시 도마 닦기(어려움): 7x6 / 막힌 칸 3이어야 함, got ${rt.rows.join("/")}`);
   log("후반 지정 접시(도마 닦기, 어려움): 6x5, 막힌 칸 3");
   await giveUp();
 

@@ -625,12 +625,43 @@ HEAD_HTML = """<!doctype html>
   .btn:disabled { box-shadow:0 2px 0 var(--ink); }
   .btn.big { font-size:1.5rem; padding:1rem 1.2rem; border-radius:18px; }
 
-  /* --- 시작 화면: 콘셉트 이미지가 화면 전체. 입장 패널만 그 위에 얹는다 --- */
-  :root { --hero:url(@@HERO_URL@@); }
-  .splash { flex:1; min-height:100vh; display:flex; align-items:flex-end; justify-content:center; padding:1rem 1rem clamp(1rem,4vh,2.4rem);
-    background:#9bd3f5 var(--hero) center 28% / cover no-repeat; }
+  /* --- 시작 화면: 코드로 그린 평면 일러스트(왼쪽 초밥왕 가게 / 오른쪽 스시헌터 가게 / 아래 회전 레일). 입장 패널은 그 위에 얹는다 --- */
+  .splash { position:relative; flex:1; min-height:100vh; display:flex; align-items:flex-end; justify-content:center; padding:1rem 1rem clamp(7rem,19vh,10rem); background:#f3e7c9; overflow:hidden; }
+  .splash > .splash-panel { position:relative; z-index:2; }
+  .splash-art { position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .sa-half { position:absolute; top:0; bottom:0; }
+  .sa-king { left:0; width:100%; clip-path:polygon(0 0, 55% 0, 45% 100%, 0 100%); --c:#d93a2b; --cd:#a82a1f; background:var(--c); }
+  .sa-hunter { left:0; width:100%; clip-path:polygon(55% 0, 100% 0, 100% 100%, 45% 100%); --c:#1f3f87; --cd:#162d63; background:var(--c); }
+  .sa-half::before { content:""; position:absolute; inset:0; opacity:0.16;
+    background:radial-gradient(circle at 50% 100%, transparent 0 38%, #fff 39% 42%, transparent 43% 55%, #fff 56% 59%, transparent 60%) 0 0 / 56px 28px; }
+  .sa-half::after { content:""; position:absolute; left:0; right:0; top:0; height:7%; background:var(--cd); box-shadow:0 4px 0 rgba(0,0,0,0.18); }
+  .sa-sign { position:absolute; top:23%; display:flex; align-items:center; gap:0.6rem; padding:0.35rem 1.4rem 0.45rem; background:#fff6dc; border:var(--pop-line) solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); color:var(--c); font-family:var(--font-pop); font-size:clamp(1.9rem,5.2vw,4.2rem); line-height:1.1; white-space:nowrap; }
+  .sa-sign svg { width:1.05em; height:1.05em; fill:currentColor; flex:none; }
+  .sa-king .sa-sign { left:5%; transform:rotate(-3deg); }
+  .sa-hunter .sa-sign { right:5%; transform:rotate(3deg); }
+  .sa-noren { position:absolute; top:7%; display:flex; gap:0.5%; }
+  .sa-king .sa-noren { left:3%; width:44%; }
+  .sa-hunter .sa-noren { right:3%; width:44%; }
+  .sa-noren i { flex:1; height:clamp(3rem,13vh,7.5rem); background:#fff6dc; border:var(--pop-line) solid var(--ink); border-top:0; border-radius:0 0 8px 8px;
+    clip-path:polygon(0 0,100% 0,100% 100%,50% 88%,0 100%); position:relative; }
+  .sa-noren i::after { content:""; position:absolute; left:50%; top:34%; width:46%; aspect-ratio:1; transform:translateX(-50%); border-radius:50%; background:var(--c); }
+  .sa-lamp { position:absolute; top:7%; width:clamp(2.2rem,5.4vw,4.2rem); }
+  .sa-lamp::before { content:""; display:block; width:3px; height:clamp(1.2rem,5vh,3rem); margin:0 auto; background:var(--ink); }
+  .sa-lamp b { display:block; aspect-ratio:0.8; border:var(--pop-line) solid var(--ink); border-radius:46%; background:linear-gradient(90deg, rgba(0,0,0,0.12), transparent 30%, rgba(255,255,255,0.35) 55%, transparent 80%), #fff6dc; box-shadow:inset 0 0.45em 0 -0.2em var(--c), inset 0 -0.45em 0 -0.2em var(--c); }
+  .sa-vs { position:absolute; left:50%; top:30%; transform:translate(-50%,-50%) rotate(-8deg); width:clamp(4.2rem,11vw,8rem); aspect-ratio:1; border-radius:50%; background:var(--pop-yellow); border:var(--pop-line) solid var(--ink); box-shadow:0 6px 0 var(--ink);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-pop); font-size:clamp(1.8rem,5vw,3.6rem); color:var(--ink); }
+  .sa-belt { position:absolute; left:0; right:0; bottom:0; height:clamp(6rem,17vh,9rem); background:#2b1d12; border-top:var(--pop-line) solid var(--ink); overflow:hidden; }
+  .sa-belt::before { content:""; position:absolute; left:0; right:0; top:0; height:0.9rem; background:repeating-linear-gradient(90deg, #4a3523 0 18px, #3a2a1b 18px 36px); }
+  .sa-track { position:absolute; left:0; top:50%; display:flex; gap:clamp(1.4rem,4vw,3rem); transform:translateY(-38%); animation:sa-run 26s linear infinite; width:max-content; }
+  .sa-plate { flex:none; width:clamp(4.4rem,10vh,6.4rem); aspect-ratio:1; border-radius:50%; background:#fff6dc; border:var(--pop-line) solid var(--ink); box-shadow:0 4px 0 rgba(0,0,0,0.35), inset 0 0 0 0.45rem var(--pc); display:flex; align-items:center; justify-content:center; }
+  .sa-plate svg { width:68%; height:auto; display:block; }
+  @keyframes sa-run { to { transform:translate(-50%,-38%); } }
+  @media (prefers-reduced-motion:reduce) { .sa-track { animation:none; } }
+  @media (max-width:640px) { .sa-sign { font-size:1.6rem; padding:0.25rem 0.8rem 0.35rem; } .sa-lamp { display:none; } }
   .splash-panel { width:min(620px,100%); padding:1rem 1.2rem 1.1rem; background:rgba(255,255,255,0.94); border:var(--pop-line) solid var(--ink); border-radius:22px; box-shadow:0 6px 0 var(--ink); text-align:center; }
   .splash-panel .team-row { margin:0 0 0.9rem; }
+  .screen-links { margin-top:0.55rem; display:flex; flex-wrap:wrap; gap:0.4rem 0.6rem; justify-content:center; align-items:center; font-size:0.78rem; color:var(--muted); }
+  .screen-links a { color:var(--ink); background:#fff; border:2px solid var(--ink); border-radius:999px; padding:0.1rem 0.7rem; text-decoration:none; font-family:var(--font-pop); box-shadow:0 2px 0 var(--ink); }
   .splash-panel .room-share { margin-top:0.9rem; padding-top:0.7rem; font-size:0.8rem; }
   .lobby-box { max-width:720px; width:100%; }
   .lobby-box h2 { font-size:clamp(1.7rem,4vw,2.4rem); margin:0 0 0.4rem; }
@@ -732,8 +763,14 @@ HEAD_HTML = """<!doctype html>
   .floor-stop .car .car-fish { width:8.5cqw; height:auto; fill:rgba(255,255,255,0.92); stroke:rgba(0,0,0,0.25); stroke-width:1; }
   .floor-stop .car .car-fish .eye { fill:rgba(0,0,0,0.45); stroke:none; }
   .floor-stop .car b { font-weight:400; font-size:6.4cqw; line-height:1; }
-  .rail-box .cell-art { inset:0; opacity:1; filter:drop-shadow(0 3px 0 rgba(0,0,0,0.22)); background-size:auto 88%; background-position:97% 50%; }
-  .rail-box { padding-right:38%; box-sizing:border-box; }
+  /* 가독성: 글자는 왼쪽 칸, 초밥 그림은 오른쪽 칸 안에만 (겹치지 않게). 점은 작게 + 줄바꿈 */
+  .rail-box { padding:0.35rem 46% 0.35rem 0.4rem; box-sizing:border-box; }
+  .rail-box .cell-art { inset:8% 3% 8% auto; width:42%; opacity:1; filter:drop-shadow(0 3px 0 rgba(0,0,0,0.25)); background-size:contain; background-position:center; }
+  .rail-box::after { content:""; position:absolute; top:0; bottom:0; right:0; width:46%; z-index:0; background:rgba(255,255,255,0.28); }
+  .rail-box .rb-name { font-size:0.82rem; padding:0.12rem 0.55rem; white-space:nowrap; }
+  .rail-box .rb-game { font-size:0.7rem; }
+  .rail-box .pips { flex-wrap:wrap; justify-content:center; gap:2px; padding:3px 5px; max-width:100%; box-sizing:border-box; }
+  .rail-box .pip { width:14px; height:9px; }
   .rail-box::before { background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(0,0,0,0.05)); }
   .rail-box .cat-left { background:rgba(255,255,255,0.9); border:2px solid var(--ink); border-radius:999px; padding:0 0.55rem; color:var(--ink); }
   .rail-box .rb-game { background:rgba(255,255,255,0.9); border:2px solid var(--ink); }
@@ -1028,16 +1065,32 @@ APP_JS_TEMPLATE = r"""
       + '<b class="team-name">' + esc(c.name) + '</b>'
       + '<span class="team-state">' + (mine ? '내 자리' : (owner ? '입장 완료' : '대기 중')) + '</span></div>';
   }
+  // 시작 화면 배경 일러스트(코드로 그림). 사진 같은 질감 없이 평면 도형 + 팀 색 + 회전 레일만으로 구성한다.
+  var CROWN_SVG = '<svg viewBox="0 0 24 20" aria-hidden="true"><path d="M2 5l5.5 5L12 2l4.5 8L22 5l-2 13H4z"/></svg>';
+  var FISH_SVG = '<svg viewBox="0 0 26 14" aria-hidden="true"><path d="M2 7c0-3.4 3.6-5.6 8-5.6 3.2 0 5.8 1.2 7.2 3.2L24 1.6v10.8l-6.8-3.2C15.8 11.2 13.2 12.6 10 12.6 5.6 12.6 2 10.4 2 7z"/></svg>';
+  function splashArt() {
+    var keys = ["egg", "salmon", "whitefish", "eel"], cols = ["#d93a2b", "#1f3f87", "#f2b233", "#2f9e6a"], plates = "", i;
+    for (i = 0; i < 16; i++) {
+      var k = keys[i % 4];
+      plates += '<span class="sa-plate" style="--pc:' + cols[(i * 3) % 4] + '">' + (window.MiniGames && MiniGames.SUSHI[k] ? MiniGames.sushiSvg(k, "sa-sushi") : '') + '</span>';
+    }
+    return '<div class="splash-art" aria-hidden="true">'
+      + '<div class="sa-half sa-king"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign">' + CROWN_SVG + '초밥왕</div></div>'
+      + '<div class="sa-half sa-hunter"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign">스시헌터' + FISH_SVG + '</div></div>'
+      + '<div class="sa-vs">VS</div>'
+      + '<div class="sa-belt"><div class="sa-track">' + plates + plates + '</div></div></div>';
+  }
   function renderSeatPicker() {
     var roomFull = state && state.seatOwners["1"] && state.seatOwners["2"]
       && state.seatOwners["1"] !== CLIENT_ID && state.seatOwners["2"] !== CLIENT_ID;
     var nextTeam = state && !state.seatOwners["1"] ? COURIERS[0] : COURIERS[1];
     // 2026-10-12: 게임 시작 화면 = 콘셉트 이미지가 화면 전체(배경). 그림 위에 입장 패널만 얹는다 (카드 안에 일러스트를 끼우는 구조가 아님).
-    return '<div class="splash"><div class="splash-panel">'
+    return '<div class="splash">' + splashArt() + '<div class="splash-panel">'
       + '<div class="team-row">' + teamCard(0) + '<span class="vs-badge">VS</span>' + teamCard(1) + '</div>'
       + '<button class="btn primary big join-btn" data-action="join-team"' + (roomFull ? ' disabled' : '') + '>'
       + (roomFull ? '방이 가득 찼어요' : ('입장하기 · ' + esc(nextTeam.name) + '로 시작')) + '</button>'
       + '<div class="room-share">먼저 들어온 사람이 초밥왕, 다음 사람이 스시헌터 · 방 코드 <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
+      + '<div class="screen-links">초밥 확보(레일)·관전(메인)은 다른 화면에서: <a href="/rail?room=' + encodeURIComponent(ROOM) + '" target="_blank" rel="noopener">레일 화면 열기</a><a href="/?room=' + encodeURIComponent(ROOM) + '&view=main" target="_blank" rel="noopener">메인 화면 열기</a></div>'
       + '</div></div>';
   }
 
@@ -1213,7 +1266,7 @@ APP_JS_TEMPLATE = r"""
         // 지정 초밥은 칸이 곧 서빙 접시라 주문표에 그 접시를 그대로 찍는다 (호수는 제작 순간 서버가 정하므로 표기 안 함).
         label: t.fixedFloor ? FLOORS[meta.num] : null,
         testHooks: TEST_HOOKS,
-        onDone: function () { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id) }); },
+        onDone: function (res) { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id), mini: res && res.ms ? { kind: res.kind, level: res.level, ms: res.ms, mistakes: res.mistakes } : undefined }); },
         onCancel: function () { closeMiniGame(); },
       }),
     };
@@ -1870,7 +1923,7 @@ APP_JS_TEMPLATE = r"""
         + '</div></div>';
     }
     if (st.phase !== "elevator") mvPrevFloor = null; // 다음에 회전 벨트가 시작되면 제자리에서 시작
-    return '<div class="mv' + (st.phase === "lobby" ? ' mv-splash' : '') + '">' + html + '</div>';
+    return '<div class="mv' + (st.phase === "lobby" ? ' mv-splash' : '') + '">' + (st.phase === "lobby" ? splashArt() : '') + html + '</div>';
   }
   // 그린 직후: 회전 벨트 칸을 새 접시로 옮긴다 (이전 접시에서 출발한 모습으로 그려 두었다가 다음 프레임에 이동 -> CSS transition)
   function mainAfterRender() {

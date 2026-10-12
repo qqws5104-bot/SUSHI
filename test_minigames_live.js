@@ -235,16 +235,16 @@ async function main() {
   await clickSel(p1, openSel("fragile-1"));
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-map")) === 1, { label: "중급 = 주문 서빙" });
   const fMap = await p1.evaluate(() => { const b = document.querySelector("#mg-layer .mg-body"); return { grid: b.dataset.grid, targets: b.dataset.targets.split(";").length }; });
-  assert(fMap.grid === "7,5" && fMap.targets === 4, "중급 주문 서빙은 어려움(7x5 / 주문표 4), got " + JSON.stringify(fMap));
+  assert(fMap.grid === "9,6" && fMap.targets === 4, "중급 주문 서빙은 어려움(9x6 / 주문표 4), got " + JSON.stringify(fMap));
   await playOpenGame(p1);
   await waitFor(async () => (await myCount(p1, 1)) === 1, { label: "fragile box secured" });
   log("중급 초밥 칸 -> 주문 서빙(7x5, 주문표 4장) 완주 -> fragile-1 제작");
 
-  // ---- f. 지정 접시 -> 도마 닦기 (어려움=L3: 6x5 / 막힌 칸 3, 칸이 곧 서빙 접시) ----
+  // ---- f. 지정 접시 -> 도마 닦기 (어려움=L3: 7x6 / 막힌 칸 3, 칸이 곧 서빙 접시) ----
   await clickSel(p1, openSel("fixed-floor-2"));
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-route")) === 1, { label: "지정 접시 = 도마 닦기" });
   const rtPlan = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert(rtPlan.rows.length === 5 && rtPlan.rows[0].length === 6 && rtPlan.rows.join("").split("#").length - 1 === 3, "지정 접시 도마 닦기는 6x5 / 막힌 칸 3, got " + rtPlan.rows.join("/"));
+  assert(rtPlan.rows.length === 6 && rtPlan.rows[0].length === 7 && rtPlan.rows.join("").split("#").length - 1 === 3, "지정 접시 도마 닦기는 7x6 / 막힌 칸 3, got " + rtPlan.rows.join("/"));
   await playOpenGame(p1);
   await waitFor(() => isFloorMine(p1, 1), { label: "fixed-floor-2 (주황) secured by really playing the route game" });
   // 제작된 칸의 얼굴에는 주문표 목적지(호수)가 찍힌다 -- 보드에서 주황 행 칸(fixed-floor 행의 2번째)의 .invoice-label을 읽는다.
@@ -254,7 +254,7 @@ async function main() {
     return lab ? lab.textContent : null;
   });
   assert(/^연어$/.test(faceText), `fixed-floor-2 face should show the sushi kind (연어), got ${faceText}`);
-  log(`지정 접시 칸 -> 도마 닦기(6x5) 진짜로 플레이해서 완주 -> 제작, 만든 초밥 ${faceText} (주황 접시 칸)`);
+  log(`지정 접시 칸 -> 도마 닦기(7x6) 진짜로 플레이해서 완주 -> 제작, 만든 초밥 ${faceText} (주황 접시 칸)`);
 
   // ---- g. 특선 초밥 -> 재료 정리(소코반) (어려움=L3: 상자 3개) ----
   await clickSel(p1, openSel("valuable-1"));

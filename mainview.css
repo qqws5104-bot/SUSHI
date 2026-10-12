@@ -87,9 +87,10 @@ body.main-view #app { height: 100vh; min-height: 0; }
 .mv-eyebrow { color: var(--gold); }
 .mv-chip.phase { background: var(--pop-yellow); border: 0.4vh solid var(--ink); color: var(--ink); box-shadow: 0 0.5vh 0 var(--ink); }
 .mv-chip.room { background: #fff; border: 0.4vh solid var(--ink); color: var(--ink); box-shadow: 0 0.5vh 0 var(--ink); }
-.mv-splash { background: #9bd3f5 var(--hero) center 28% / cover no-repeat; }
+.mv-splash { position: relative; background: #f3e7c9; overflow: hidden; }
+.mv-splash > .mv-body { position: relative; z-index: 2; }
 .mv-splash .mv-head { display: none; }
-.mv-splash .mv-body { justify-content: flex-end; }
+.mv-splash .mv-body { justify-content: flex-end; padding-bottom: 19vh; }
 .mv-splash .mv-center { flex: 0 0 auto; }
 .mv-panel { width: min(74vw, 1180px); padding: 1.6vh 2vw 2vh; background: rgba(255, 255, 255, 0.94); border: 0.5vh solid var(--ink); border-radius: 2.6vh; box-shadow: 0 1vh 0 var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1.2vh; }
 .mv-panel h2 { font-size: 4vh; }

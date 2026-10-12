@@ -68,8 +68,20 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 
 // ---- http server: redirect bare "/" to a fresh room, serve the client for "/?room=CODE" ----
+const MINI_STATS = {}; // "ice L2" -> [{ms, mistakes}]
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://" + req.headers.host);
+  // 2026-10-12: 미니게임 실제 걸린 시간 집계(메모리, 재시작하면 초기화). 난이도 튜닝용 -- 종류·난이도별 판 수/중앙값/평균/실수.
+  if (url.pathname === "/mini-stats") {
+    const out = {};
+    for (const [k, a] of Object.entries(MINI_STATS)) {
+      const ms = a.map((x) => x.ms).sort((p, q) => p - q), n = ms.length;
+      out[k] = { n, medianSec: +(ms[(n - 1) >> 1] / 1000).toFixed(1), meanSec: +(ms.reduce((p, q) => p + q, 0) / n / 1000).toFixed(1), minSec: +(ms[0] / 1000).toFixed(1), maxSec: +(ms[n - 1] / 1000).toFixed(1), meanMistakes: +(a.reduce((p, q) => p + q.mistakes, 0) / n).toFixed(2) };
+    }
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify(out, null, 2));
+    return;
+  }
   if (url.pathname === "/health") {
     res.writeHead(200, { "content-type": "text/plain" });
     res.end("ok");
@@ -185,6 +197,12 @@ wss.on("connection", (ws, req) => {
         break;
       case "secure-cell": {
         if (!conn.seat || typeof msg.cellId !== "string") return;
+        if (msg.mini && typeof msg.mini.kind === "string" && Number.isFinite(msg.mini.ms) && msg.mini.ms > 0 && msg.mini.ms < 3600000) {
+          const k = msg.mini.kind.slice(0, 12) + " L" + (msg.mini.level | 0), a = (MINI_STATS[k] = MINI_STATS[k] || []);
+          a.push({ ms: msg.mini.ms, mistakes: Number.isFinite(msg.mini.mistakes) ? msg.mini.mistakes : 0 });
+          if (a.length > 500) a.shift();
+          console.log("[mini] " + k + " " + (msg.mini.ms / 1000).toFixed(1) + "s 실수 " + (msg.mini.mistakes | 0));
+        }
         const wasBusy = entry.busy[conn.seat];
         entry.busy[conn.seat] = false; // 끝냈으니 레일 화면에서 다시 누를 수 있다 (room.secureCell의 브로드캐스트에 같이 실려 간다)
         entry.room.secureCell(conn.seat, msg.cellId, typeof msg.sushi === "string" ? msg.sushi : null);
