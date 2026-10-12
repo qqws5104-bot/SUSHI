@@ -726,12 +726,13 @@ HEAD_HTML = """<!doctype html>
   .floor-stop .car .car-fish { width:8.5cqw; height:auto; fill:rgba(255,255,255,0.92); stroke:rgba(0,0,0,0.25); stroke-width:1; }
   .floor-stop .car .car-fish .eye { fill:rgba(0,0,0,0.45); stroke:none; }
   .floor-stop .car b { font-weight:400; font-size:6.4cqw; line-height:1; }
-  .rail-box .cell-art { inset:0; opacity:1; filter:none; background-size:cover; }
+  .rail-box .cell-art { inset:0; opacity:1; filter:drop-shadow(0 3px 0 rgba(0,0,0,0.22)); background-size:auto 88%; background-position:97% 50%; }
+  .rail-box { padding-right:38%; box-sizing:border-box; }
   .rail-box::before { background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(0,0,0,0.05)); }
   .rail-box .cat-left { background:rgba(255,255,255,0.9); border:2px solid var(--ink); border-radius:999px; padding:0 0.55rem; color:var(--ink); }
   .rail-box .rb-game { background:rgba(255,255,255,0.9); border:2px solid var(--ink); }
   .inv-sushi { width:3.1rem; }
-  .inv-sushi-img { width:100%; height:auto; display:block; border-radius:8px; border:2px solid var(--ink); }
+  .inv-sushi-img { width:100%; height:auto; display:block; filter:drop-shadow(0 2px 0 rgba(0,0,0,0.25)); }
   /* 접시 색 표시 (번호는 안 쓴다): 색 동그라미 + "초록 접시" */
   .invoice .t .inv-type { white-space:nowrap; }
   .plate-tag { display:inline-flex; align-items:center; gap:0.35em; font-weight:700; }
@@ -769,7 +770,12 @@ APP_JS_TEMPLATE = r"""
   // catIdx로 인덱싱하는 종류별 보드-칸 배경 일러스트 (위 BOX_ART_DIR 참고). CELLS[].src(칸마다 다른
   // 퍼즐 이미지, 오버레이 전용)와는 별개 -- 이건 보드 위 21칸 자체의 배경으로 쓴다.
   var BOX_ART = @@BOX_ART_JSON@@;
-  var SUSHI_IMG = @@SUSHI_IMG_JSON@@;   // 초밥 키 -> 일러스트(data URI)
+  var SUSHI_IMG = @@SUSHI_IMG_JSON@@;   // 초밥 키 -> 일러스트(data URI, 투명 컷아웃)
+  // 보드 한 줄(종류)의 배경 일러스트: 그 종류의 초밥 컷아웃. 없으면 예전 상자 그림.
+  function railArt(catIdx) {
+    var k = TYPES[catIdx] && TYPES[catIdx].sushi && TYPES[catIdx].sushi[0];
+    return (k && SUSHI_IMG[k]) || BOX_ART[catIdx];
+  }
   // 2026-08-27 리스킨: board-label 카드용 평평한 라인 아이콘 (TYPES 순서와 동일 -- 트럭/깨진 유리잔/
   // 보석/체크마크 건물). box_art/의 3D 상자 일러스트와는 다른, 손으로 그린 별도의 단순한 SVG -- 그
   // 일러스트는 라벨 카드 안에 아이콘 크기로 넣기엔 스타일이 안 맞아서(입체 상자 그림 vs 평면 라인
@@ -1133,7 +1139,7 @@ APP_JS_TEMPLATE = r"""
       var pips = '';
       for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '"></span>';
       var mid = '<div class="rail-mid"><div class="rail-box" style="background:' + t.color + ';--c:' + t.color + '">'
-        + '<span class="cell-art" style="background-image:url(\'' + BOX_ART[catIdx] + '\')"></span>'
+        + '<span class="cell-art" style="background-image:url(\'' + railArt(catIdx) + '\')"></span>'
         + '<span class="rb-name"><span class="cat-icon">' + CAT_ICONS[catIdx] + '</span>' + esc(t.name) + '</span>'
         + '<span class="rb-game">' + esc(MINI_NAME[t.mini] || '우봉고') + '</span>'
         + '<span class="pips">' + pips + '</span>'
@@ -1699,7 +1705,7 @@ APP_JS_TEMPLATE = r"""
       var left = boardLeft(st, catIdx), pips = '';
       for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '"></span>';
       var mid = '<div class="rail-mid"><div class="rail-box" style="background:' + t.color + ';--c:' + t.color + '">'
-        + '<span class="cell-art" style="background-image:url(\'' + BOX_ART[catIdx] + '\')"></span>'
+        + '<span class="cell-art" style="background-image:url(\'' + railArt(catIdx) + '\')"></span>'
         + '<span class="rb-name"><span class="cat-icon">' + CAT_ICONS[catIdx] + '</span>' + esc(t.name) + '</span>'
         + '<span class="rb-game">' + esc(MINI_NAME[t.mini] || '우봉고') + '</span>'
         + '<span class="pips">' + pips + '</span>'
