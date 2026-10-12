@@ -12,7 +12,7 @@ echo "######## 실물 우봉고 모드 (예비 -- python3 set_mini.py ubongo)"
 python3 build_minigame_proto.py >/dev/null
 python3 set_mini.py ubongo >/dev/null
 setsec "3 * 60 * 1000"
-for t in test_priority_window.js test_sushi_kind.js test_thief_limit.js test_shared_board.js test_theft_scoring.js test_restart.js test_minigames.js test_minigames_extra.js; do run $t; done
+for t in test_peek.js test_gate_auto.js test_priority_window.js test_sushi_kind.js test_thief_limit.js test_shared_board.js test_theft_scoring.js test_restart.js test_minigames.js test_minigames_extra.js; do run $t; done
 setsec "10 * 1000"
 for t in test_hosted.js test_theft_e2e.js test_nudge.js; do run $t; done
 setsec "20 * 1000"; run test_mainview.js
@@ -20,5 +20,5 @@ setsec "40 * 1000"; run test_half_difficulty.js; run test_rail_site.js
 
 echo "######## 디지털 최종 배치 모드 (기본 -- python3 set_mini.py digital)"
 python3 set_mini.py digital >/dev/null
-setsec "10 * 1000"; run test_half_difficulty_digital.js
+setsec "40 * 1000"; run test_half_difficulty_digital.js; run test_peek_ui.js; run test_sfx.js
 setsec "40 * 1000"; run test_minigames_live.js; run test_rail_site.js

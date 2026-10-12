@@ -28,6 +28,8 @@
     twin:    { name: "쌍둥이 서빙" },
     pipe:    { name: "컨베이어 잇기" },
     hanoi:   { name: "초밥 쌓기" },
+    prep:    { name: "손질", noLevel: true },      // 2026-10-12: 제작 퍼즐 앞의 액션형(칼질 타이밍) -- 생각 공백 없이 움직이는 시간
+    peek:    { name: "엿보기", noLevel: true },    // 2026-10-12: 전반-후반 사이. 잘할수록 후반에 상대 주문표를 엿볼 수 있는 횟수가 늘어난다
   };
   var LEVEL_NAME = ["쉬움", "보통", "어려움"];
 
@@ -715,7 +717,7 @@
     { cols: 5, rows: 4, houses: 8,  targets: 2, flashMs: 4500, similar: 0, blocks: 0 },
     // 2026-10-07 난이도 업: 외울 개수(3/4)와 주문표 다시 보기 20초는 사용자 지정값이라 그대로 두고, 팝업 시간을 줄이고 미끼/공사장을 늘렸다.
     { cols: 6, rows: 4, houses: 11, targets: 3, flashMs: 3000, similar: 4, blocks: 2 },
-    { cols: 9, rows: 6, houses: 20, targets: 4, flashMs: 2200, similar: 8, blocks: 10 },   // 2026-10-12: 7x5 -> 9x6 (외울 개수 4는 그대로, 걷는 거리/미끼를 늘림)
+    { cols: 7, rows: 5, houses: 14, targets: 4, flashMs: 2500, similar: 6, blocks: 6 },   // 2026-10-12: 손질 단계가 앞에 붙어 원래 7x5로 되돌림
   ];
   var MAP_REPLAY_AFTER_MS = 20000; // 게임 시작 후 이 시간이 지나야 "주문표 다시 보기"가 열린다
   var MAP_POP_STAGGER_MS = 150;    // 초밥 팝업이 하나씩 뜨는 간격(순서 단서)
@@ -984,7 +986,7 @@
      ["#######","#..   #","### $ #","#   $@#","#   # #","#######"],
      ["#######","##  . #","# @$  #","# $#  #","## .  #","#######"],
      ["#######","#  .  #","#   $@#","# $## #","#  . ##","#######"]],
-    // 레벨 3 (32판 · 최적 44~53번 -- 2026-10-12 "30초 이상" 요청으로 쉬운 판을 빼고, 어려운 판을 상하좌우 뒤집기/돌리기 8방향으로 늘림)
+    // 레벨 3 (104판 · 최적 38~44번 -- 2026-10-12 손질 단계가 앞에 붙어 제작 퍼즐은 20~30초대로 완화: 원래 판에서 44번 이하만 남기고 8방향 변형)
     [["########","#   $@.#","# # $###","# # $  #","#    ..#","########"],
      ["########","#.@$   #","###$ # #","#  $ # #","#..    #","########"],
      ["########","#    ..#","# # $  #","# # $###","#   $@.#","########"],
@@ -993,30 +995,102 @@
      ["######","#    #","# ## #","#    #","# $$$#","#. #@#","#. #.#","######"],
      ["######","#.# .#","#@# .#","#$$$ #","#    #","# ## #","#    #","######"],
      ["######","#. #.#","#. #@#","# $$$#","#    #","# ## #","#    #","######"],
-     ["########","#    #.#","# $ $#.#","##  .$@#","#   #  #","########"],
-     ["########","#.#    #","#.#$ $ #","#@$.  ##","#  #   #","########"],
-     ["########","#   #  #","##  .$@#","# $ $#.#","#    #.#","########"],
-     ["########","#  #   #","#@$.  ##","#.#$ $ #","#.#    #","########"],
-     ["######","#  # #","# $  #","#    #","# $.##","###$ #","#..@ #","######"],
-     ["######","# #  #","#  $ #","#    #","##.$ #","# $###","# @..#","######"],
-     ["######","#..@ #","###$ #","# $.##","#    #","# $  #","#  # #","######"],
-     ["######","# @..#","# $###","##.$ #","#    #","#  $ #","# #  #","######"],
-     ["########","#  #   #","#  #$$.#","#    $@#","#  .##.#","########"],
-     ["########","#   #  #","#.$$#  #","#@$    #","#.##.  #","########"],
-     ["########","#  .##.#","#    $@#","#  #$$.#","#  #   #","########"],
-     ["########","#.##.  #","#@$    #","#.$$#  #","#   #  #","########"],
-     ["######","#    #","#    #","### .#","# $ ##","# $$##","# .@.#","######"],
-     ["######","#    #","#    #","#. ###","## $ #","##$$ #","#.@. #","######"],
-     ["######","# .@.#","# $$##","# $ ##","### .#","#    #","#    #","######"],
-     ["######","#.@. #","##$$ #","## $ #","#. ###","#    #","#    #","######"],
-     ["########","#. . # #","#    $@#","# #$#$ #","#  .  ##","########"],
-     ["########","# # . .#","#@$    #","# $#$# #","##  .  #","########"],
-     ["########","#  .  ##","# #$#$ #","#    $@#","#. . # #","########"],
-     ["########","##  .  #","# $#$# #","#@$    #","# # . .#","########"],
-     ["######","#.   #","#  # #","#. $.#","#  # #","##$$ #","# @ ##","######"],
-     ["######","#   .#","# #  #","#.$ .#","# #  #","# $$##","## @ #","######"],
-     ["######","# @ ##","##$$ #","#  # #","#. $.#","#  # #","#.   #","######"],
-     ["######","## @ #","# $$##","# #  #","#.$ .#","# #  #","#   .#","######"]]
+     ["########","#   #  #","##  #$ #","#  . $@#","# $ .#.#","########"],
+     ["########","#  #   #","# $#  ##","#@$ .  #","#.#. $ #","########"],
+     ["########","# $ .#.#","#  . $@#","##  #$ #","#   #  #","########"],
+     ["########","#.#. $ #","#@$ .  #","# $#  ##","#  #   #","########"],
+     ["######","# #  #","#   $#","#  . #","### .#","# $$##","#  @.#","######"],
+     ["######","#  # #","#$   #","# .  #","#. ###","##$$ #","#.@  #","######"],
+     ["######","#  @.#","# $$##","### .#","#  . #","#   $#","# #  #","######"],
+     ["######","#.@  #","##$$ #","#. ###","# .  #","#$   #","#  # #","######"],
+     ["########","#  #   #","#+$ .  #","#.#$$  #","#    # #","########"],
+     ["########","#   #  #","#  . $+#","#  $$#.#","# #    #","########"],
+     ["########","#    # #","#.#$$  #","#+$ .  #","#  #   #","########"],
+     ["########","# #    #","#  $$#.#","#  . $+#","#   #  #","########"],
+     ["######","# +. #","# $# #","## $ #","# .$ #","#   ##","#    #","######"],
+     ["######","# .+ #","# #$ #","# $ ##","# $. #","##   #","#    #","######"],
+     ["######","#    #","#   ##","# .$ #","## $ #","# $# #","# +. #","######"],
+     ["######","#    #","##   #","# $. #","# $ ##","# #$ #","# .+ #","######"],
+     ["########","##    .#","# $##  #","#@$  $ #","#.#   .#","########"],
+     ["########","#.    ##","#  ##$ #","# $  $@#","#.   #.#","########"],
+     ["########","#.#   .#","#@$  $ #","# $##  #","##    .#","########"],
+     ["########","#.   #.#","# $  $@#","#  ##$ #","#.    ##","########"],
+     ["######","## @.#","# $$##","# #  #","# #  #","#  $ #","#.  .#","######"],
+     ["######","#.@ ##","##$$ #","#  # #","#  # #","# $  #","#.  .#","######"],
+     ["######","#.  .#","#  $ #","# #  #","# #  #","# $$##","## @.#","######"],
+     ["######","#.  .#","# $  #","#  # #","#  # #","##$$ #","#.@ ##","######"],
+     ["########","#   . ##","# # #$ #","# $ $+ #","#    #.#","########"],
+     ["########","## .   #","# $# # #","# +$ $ #","#.#    #","########"],
+     ["########","#    #.#","# $ $+ #","# # #$ #","#   . ##","########"],
+     ["########","#.#    #","# +$ $ #","# $# # #","## .   #","########"],
+     ["######","#    #","# #$ #","#    #","#.#$ #","# $+##","##  .#","######"],
+     ["######","#    #","# $# #","#    #","# $#.#","##+$ #","#.  ##","######"],
+     ["######","##  .#","# $+##","#.#$ #","#    #","# #$ #","#    #","######"],
+     ["######","#.  ##","##+$ #","# $#.#","#    #","# $# #","#    #","######"],
+     ["########","#.  .  #","# $ #$ #","###@$  #","#.   # #","########"],
+     ["########","#  .  .#","# $# $ #","#  $@###","# #   .#","########"],
+     ["########","#.   # #","###@$  #","# $ #$ #","#.  .  #","########"],
+     ["########","# #   .#","#  $@###","# $# $ #","#  .  .#","########"],
+     ["######","#. #.#","# $# #","#  @ #","#.#$ #","# $ ##","#    #","######"],
+     ["######","#.# .#","# #$ #","# @  #","# $#.#","## $ #","#    #","######"],
+     ["######","#    #","# $ ##","#.#$ #","#  @ #","# $# #","#. #.#","######"],
+     ["######","#    #","## $ #","# $#.#","# @  #","# #$ #","#.# .#","######"],
+     ["########","##     #","# $  $@#","# $ # .#","#   #..#","########"],
+     ["########","#     ##","#@$  $ #","#. # $ #","#..#   #","########"],
+     ["########","#   #..#","# $ # .#","# $  $@#","##     #","########"],
+     ["########","#..#   #","#. # $ #","#@$  $ #","#     ##","########"],
+     ["######","##   #","# $$ #","#    #","#  ###","# $ .#","# @..#","######"],
+     ["######","#   ##","# $$ #","#    #","###  #","#. $ #","#..@ #","######"],
+     ["######","# @..#","# $ .#","#  ###","#    #","# $$ #","##   #","######"],
+     ["######","#..@ #","#. $ #","###  #","#    #","# $$ #","#   ##","######"],
+     ["########","#     ##","# # #$ #","# $  $@#","# .. #.#","########"],
+     ["########","##     #","# $# # #","#@$  $ #","#.# .. #","########"],
+     ["########","# .. #.#","# $  $@#","# # #$ #","#     ##","########"],
+     ["########","#.# .. #","#@$  $ #","# $# # #","##     #","########"],
+     ["######","#    #","# #$.#","#   .#","# #  #","# $$##","## @.#","######"],
+     ["######","#    #","#.$# #","#.   #","#  # #","##$$ #","#.@ ##","######"],
+     ["######","## @.#","# $$##","# #  #","#   .#","# #$.#","#    #","######"],
+     ["######","#.@ ##","##$$ #","#  # #","#.   #","#.$# #","#    #","######"],
+     ["########","#    # #","# $$## #","#    $@#","# . .. #","########"],
+     ["########","# #    #","# ##$$ #","#@$    #","# .. . #","########"],
+     ["########","# . .. #","#    $@#","# $$## #","#    # #","########"],
+     ["########","# .. . #","#@$    #","# ##$$ #","# #    #","########"],
+     ["######","#    #","# $ .#","# $  #","# # .#","###$.#","#  @ #","######"],
+     ["######","#    #","#. $ #","#  $ #","#. # #","#.$###","# @  #","######"],
+     ["######","#  @ #","###$.#","# # .#","# $  #","# $ .#","#    #","######"],
+     ["######","# @  #","#.$###","#. # #","#  $ #","#. $ #","#    #","######"],
+     ["########","# ##   #","#@$   .#","# $$#. #","#   # .#","########"],
+     ["########","#   ## #","#.   $@#","# .#$$ #","#. #   #","########"],
+     ["########","#   # .#","# $$#. #","#@$   .#","# ##   #","########"],
+     ["########","#. #   #","# .#$$ #","#.   $@#","#   ## #","########"],
+     ["######","# @  #","##$$ #","## $ #","#  ###","#  . #","# . .#","######"],
+     ["######","#  @ #","# $$##","# $ ##","###  #","# .  #","#. . #","######"],
+     ["######","# . .#","#  . #","#  ###","## $ #","##$$ #","# @  #","######"],
+     ["######","#. . #","# .  #","###  #","# $ ##","# $$##","#  @ #","######"],
+     ["########","# . .###","# $. $@#","# #  $ #","# #    #","########"],
+     ["########","###. . #","#@$ .$ #","# $  # #","#    # #","########"],
+     ["########","# #    #","# #  $ #","# $. $@#","# . .###","########"],
+     ["########","#    # #","# $  # #","#@$ .$ #","###. . #","########"],
+     ["######","#    #","#.$###","# .  #","#.   #","##$$ #","##@  #","######"],
+     ["######","#    #","###$.#","#  . #","#   .#","# $$##","#  @##","######"],
+     ["######","##@  #","##$$ #","#.   #","# .  #","#.$###","#    #","######"],
+     ["######","#  @##","# $$##","#   .#","#  . #","###$.#","#    #","######"],
+     ["########","#    . #","#@$  $ #","### #$ #","#  .# .#","########"],
+     ["########","# .    #","# $  $@#","# $# ###","#. #.  #","########"],
+     ["########","#  .# .#","### #$ #","#@$  $ #","#    . #","########"],
+     ["########","#. #.  #","# $# ###","# $  $@#","# .    #","########"],
+     ["######","# @# #","# $# #","#   .#","#  ###","#.$$ #","#   .#","######"],
+     ["######","# #@ #","# #$ #","#.   #","###  #","# $$.#","#.   #","######"],
+     ["######","#   .#","#.$$ #","#  ###","#   .#","# $# #","# @# #","######"],
+     ["######","#.   #","# $$.#","###  #","#.   #","# #$ #","# #@ #","######"],
+     ["########","#     .#","# $#$ ##","##   $@#","#.. #  #","########"],
+     ["########","#.     #","## $#$ #","#@$   ##","#  # ..#","########"],
+     ["########","#.. #  #","##   $@#","# $#$ ##","#     .#","########"],
+     ["########","#  # ..#","#@$   ##","## $#$ #","#.     #","########"],
+     ["######","#  #.#","# $ .#","# #  #","# $ ##","#  $ #","#.#@ #","######"],
+     ["######","#.#  #","#. $ #","#  # #","## $ #","# $  #","# @#.#","######"],
+     ["######","#.#@ #","#  $ #","# $ ##","# #  #","# $ .#","#  #.#","######"],
+     ["######","# @#.#","# $  #","## $ #","#  # #","#. $ #","#.#  #","######"]]
   ]/*END_SOKO_POOL*/;
   var SOKO_STEP_MS = 85;  // 방향키를 꾹 누를 때 한 칸씩 가는 최소 간격
   var SOKO_DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -1219,37 +1293,37 @@
      ["S    #", "      ", " # #  ", "  #G #", "  #   "],
      ["S   G ", "      ", "  #   ", "#  #  ", "#  #  "],
      ["   #  ", " #  #S", "      ", " #G # ", "  #   "]],
-    // 레벨 2 (30판 · 8x8 · 초밥 2개 · 최적 14~17번 미끄러짐 -- gen_ice_pool.js로 생성, 2026-10-12 "전반적으로 쉬움, 30초 이상" 요청)
-    [["     #  ", "   # #  ", " #      ", "# #  G# ", "##  # ##", " #   #  ", " #   P  ", " ###P S "],
-      ["   G #  ", " ##     ", "#  # S #", "#  P    ", "#  P   #", "###     ", " #      ", "   #  # "],
-      ["     ## ", " P#    #", "# S  # #", "     # #", "#       ", "### #   ", " #      ", "   GP#  "],
-      ["S#      ", "    #   ", " # # G #", "     #  ", "  #     ", "      # ", "     #  ", "  P #  P"],
-      ["#  S    ", " ##     ", "#G    ##", " # #    ", "# #     ", "    # # ", "  P     ", "    P###"],
-      ["  G#    ", " #      ", "#  # # #", "   #S   ", "  # #  #", "P#   #  ", "   P    ", "    #   "],
-      ["  #P  ##", "#       ", "   #    ", "     ## ", "    #  S", "## P   #", " G#     ", "        "],
-      ["    #   ", " ##     ", " # #    ", "P#P  # G", " #     #", "#   #   ", "  # #   ", "  ## S  "],
-      ["# S  #  ", "    #PP ", "        ", "       #", " ##   ##", "   #    ", "  G     ", "  #     "],
-      ["   #  # ", "     #  ", "   #    ", "#P# #   ", "S  #    ", "#     # ", "    #   ", " P   G  "],
-      [" G# # P ", "#   #   ", "P  #   #", "     #  ", " ##    #", " S      ", "   # ## ", " ##     "],
-      ["#  #  # ", "    P # ", "#  #    ", "       #", "#       ", " # #  # ", "S  #   G", "   #P#  "],
-      ["#       ", "#       ", "  #     ", "  PP #  ", "#  ##   ", "   #    ", "   ##  S", "  G  # #"],
-      ["        ", "        ", "  #S# ##", "   #   #", "   #   #", "#    #G ", "     ##P", " P    # "],
-      ["#   #   ", "  #  P# ", "   # ## ", "      # ", "    ##  ", "  # #  #", "S       ", "   P# G "],
-      ["  #     ", "P P   # ", " ###    ", "      ##", "   # #  ", "  #  G# ", "# S     ", "# #     "],
-      ["#  #   G", "  ##  # ", " #      ", "#       ", "   S##  ", "       #", " #  #P  ", "P    #  "],
-      [" S   #  ", " # #    ", "  ###   ", "  # # P#", "#  #    ", "  #G#   ", "    #   ", "P   #   "],
-      ["   #   #", "        ", "G   SP  ", "  #   P#", "        ", "       #", "       #", "##   #  "],
-      ["        ", "  G#    ", "##   #  ", "#  #P   ", "#  ##  #", "  ## #  ", "#      S", "P   #   "],
-      ["        ", "P    # #", "        ", "   #    ", "#    #  ", "###S   G", " P      ", "      # "],
-      ["        ", "   #  # ", "##      ", "S# #    ", "      G#", "   # # P", "     # P", "  ##  # "],
-      [" ##    P", " G    P ", "      # ", "   # #  ", "  #  #  ", "#    # #", "        ", "      S#"],
-      [" #  #   ", " # #   #", "#       ", " #   P# ", "    G# #", "    #   ", "       S", "#   P   "],
-      ["  ##    ", "   #    ", "    # # ", "P# P  # ", " # #   G", "   ##   ", "#S  #   ", "##   #  "],
-      ["  P #   ", "# #    #", "##    P#", "G     ##", "   #  # ", "# #     ", "   S #  ", "   #    "],
-      ["  #  #  ", "   #    ", "#  #    ", "  G#    ", "    # # ", "P#  #S  ", "#P      ", "   #  # "],
-      [" #     #", " # ###P ", "  # #   ", "#P#G  # ", "     #  ", "        ", "  S     ", "  #     "],
-      ["  ## # S", "    ## #", " ##  #  ", " #  #  P", " P  ### ", "###    G", "     #  ", "#   # ##"],
-      ["P   # S#", "  ##  # ", " ##   # ", "     # #", "P  #G   ", "#       ", "        ", " #  #   "]],
+    // 레벨 2 (30판 · 8x8 · 초밥 2개 · 최적 10~13번 미끄러짐 -- gen_ice_pool.js로 생성. 손질 단계가 앞에 붙어 14~17번 판에서 완화)
+    [["  #   # ", "  #  P  ", "      ##", "   #   S", "      # ", "  #     ", "  ##    ", "G # # #P"],
+      ["    ##  ", "   #P   ", "  S     ", "     P  ", "       #", " #  #   ", "   #  # ", "G      #"],
+      ["   #    ", "  P##  #", "        ", "  #  ## ", "##GP    ", "    #   ", "S  ###  ", "  ## ###"],
+      ["     #S#", " G# P   ", "#     # ", " #      ", "        ", "P #  #  ", "  ##    ", "        "],
+      ["  P  #  ", "## # #  ", "##G #   ", "# P # # ", "    ### ", "  #    #", "  ##    ", "  #S    "],
+      ["    ##  ", "##     #", "P  #    ", "   # #  ", "   S # #", " #  P   ", "##  #   ", "    G#  "],
+      [" # #   G", "    P   ", "   S    ", "   # # #", "#       ", "        ", "  P     ", " # ##   "],
+      [" S # P #", "     G# ", "     #  ", "    ##  ", "  # # # ", " #   #  ", "     #  ", "  P  # #"],
+      [" S # P  ", "        ", "P#      ", "        ", "    #   ", "#     # ", "   #   #", " G#  #  "],
+      ["## # # #", "  #     ", "S #     ", "  ##  P ", "     #  ", "    PG  ", "   #   #", "#   #   "],
+      ["#  #  S ", "G ###   ", "     #  ", " P#P    ", "#       ", " #      ", "     ## ", " #  # # "],
+      ["    #   ", "P  ##   ", "#       ", "# # S#  ", "     #  ", "# #    #", " ##     ", "    P#G "],
+      ["  G     ", "#   ##  ", "#      P", "   #  ##", "# S    #", "P      #", "        ", "   #    "],
+      ["  #     ", "   P    ", "  # #  #", "G      #", "     #  ", " #    S ", " # # #  ", "  #  P  "],
+      ["      ##", "P  #  ##", "#       ", "    ##  ", "     # #", " ##G   #", "    # # ", "PS## #  "],
+      [" PG#    ", "#   # # ", "##      ", " #  # ##", "  #    #", "   #    ", "  P   S ", "    #   "],
+      ["   #G   ", "##  # # ", "      # ", "  #     ", "  # PS #", " P      ", "  #  #  ", "       #"],
+      ["     S  ", " ## # # ", "G#      ", "#  #    ", "   # ## ", "  #     ", " #      ", "  P  #P "],
+      ["        ", "    #   ", "   #  #S", "  #     ", " #     #", "  #     ", "# PG  # ", "#####P #"],
+      ["#      G", " #      ", "###     ", "  # #   ", "    ##  ", " P   # #", " ## P   ", "     S  "],
+      ["#G   S  ", "P# #    ", "   #   #", "      P ", "    #   ", "    #   ", "        ", "  ##    "],
+      ["  #    P", " S   #  ", "    #   ", "   # #  ", "  #  # #", "        ", "   #G  P", "    #  #"],
+      ["S#  # #P", "   #  # ", "        ", "  ####  ", "G     # ", " #  #   ", "    #P# ", "    #   "],
+      [" # #G   ", "#  ##   ", "        ", "   P #  ", "     ## ", "        ", "       S", "    # P "],
+      ["     #  ", "#    S #", "        ", "  ##   #", "##P G   ", "#   #P  ", " # # # #", "## ##   "],
+      ["   #    ", "    #  #", "        ", "#   #   ", "     P  ", " S # #  ", " P #    ", "    G # "],
+      [" P   #  ", " # #  S ", "#    ## ", "# #     ", "     ## ", "G       ", "P # #   ", "# #     "],
+      ["   #    ", " #   S #", " #  #   ", "#  #    ", " #  #  P", " ##     ", "#G     #", "## #   P"],
+      ["#  #    ", "#       ", "    P  #", "    #  #", "  #G # #", "  #  P  ", "  #  S  ", "     ## "],
+      ["#G#P  ##", "  #   ##", "      # ", " #      ", "    #S  ", "  ###   ", "   ##   ", "   P #  "]],
     // 레벨 3 (30판)
     [["   #  # ", "  P ## P", "#      #", "   #    ", " #    G ", " ## # ##", "#  S#   "],
      ["#      S", " #      ", "#  P#   ", "   P  G#", "  #  #  ", "#      #", "# #  ## "],
@@ -1526,97 +1600,147 @@
     return { hint: function () { return "방향키 하나로 A와 B가 동시에 움직여요. 한쪽이 벽에 막혀도 다른 쪽은 움직여요! A는 A 칸에, B는 B 칸에 동시에 들어가면 끝나요." + (mirror ? " 이번 판은 B가 좌우만 반대로 움직여요." : "") + " Z로 되돌리고 R로 다시 시작해요."; } };
   }
 
-  // ---------- 벨트 경로 (한붓그리기) ----------
+  // ---------- 도마 닦기 (한붓그리기 / 오일러 경로) ----------
+  // 2026-10-12 사용자 요청: 격자 칸 채우기 대신 "집 모양" 같은 점+선 그래프. 얼룩 선을 한 번씩만 전부 닦는다.
+  //   (2026-10-12 사용자 요청으로 점 옆 숫자는 뺐다.) 홀수 점이 2개면 둘 중 하나에서 시작해 다른 하나에서 끝난다.
+  //   판은 실행 중 생성: 격자 위 점들을 고르고, 연결 + 모든 점 차수 2 이상 + 홀수 점 2개(L1은 0개도 허용)가 될 때까지 뽑는다 -- 항상 풀린다.
   var ROUTE_CFG = [
-    { W: 4, H: 4, cut: 2 },
-    { W: 5, H: 5, cut: 3 },
-    { W: 7, H: 6, cut: 3 },   // 2026-10-12: 6x5 -> 7x6 (칸 수 ~27 -> ~39, 30초 이상 걸리게)
+    { V: 5, E: 7, odd: 0 },
+    { V: 6, E: 10, odd: 2 },
+    { V: 7, E: 13, odd: 2 },   // 2026-10-12: 제작 퍼즐 20~30초대. 얼룩 선 13개
   ];
-  // 직사각형 칸 전체를 한 번에 지나는 랜덤 한붓그리기 길(backbite 알고리즘)을 만든 뒤, 길의 앞뒤 몇 칸을 막아 구멍을 낸다.
-  // 남은 칸을 전부 지나는 길이 항상 존재하고(= 항상 풀림), 길만 따라 걷는 외길이 아니라 갈림길이 많다.
-  function makeRoutePlan(cfg) {
-    var W = cfg.W, H = cfg.H, N = W * H, path = [], x, y, i;
-    for (y = 0; y < H; y++) for (x = 0; x < W; x++) path.push(y * W + (y % 2 ? W - 1 - x : x)); // 뱀 모양에서 시작
-    function nbrs(c) { var cx = c % W, cy = (c / W) | 0, o = []; if (cx > 0) o.push(c - 1); if (cx < W - 1) o.push(c + 1); if (cy > 0) o.push(c - W); if (cy < H - 1) o.push(c + W); return o; }
-    for (i = 0; i < N * 30; i++) {
-      var os = nbrs(path[0]).filter(function (n) { return n !== path[1]; });
-      var n = os[rand(os.length)], j = path.indexOf(n);
-      path = path.slice(0, j).reverse().concat(path.slice(j)); // path[0]과 n(=path[j])이 이웃이므로 앞부분을 뒤집어도 이어진다
-      if (i % 2) path.reverse();
+  var ROUTE_GX = 5, ROUTE_GY = 4;   // 점을 놓을 수 있는 격자 (5x4)
+  function routePoint(g) { return [10 + (g % ROUTE_GX) * 20, 12 + ((g / ROUTE_GX) | 0) * 17.3]; }
+  function routeCross(p1, p2, p3, p4) { // 두 선분이 끝점 말고 안쪽에서 만나는가
+    function o(a, b, c) { return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); }
+    var d1 = o(p1, p2, p3), d2 = o(p1, p2, p4), d3 = o(p3, p4, p1), d4 = o(p3, p4, p2);
+    return ((d1 > 1e-6 && d2 < -1e-6) || (d1 < -1e-6 && d2 > 1e-6)) && ((d3 > 1e-6 && d4 < -1e-6) || (d3 < -1e-6 && d4 > 1e-6));
+  }
+  function routeOnSeg(a, b, p) { // 점 p가 선분 ab 위(끝점 제외)에 있는가
+    var cr = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+    if (Math.abs(cr) > 1e-6) return false;
+    var dot = (p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1]), len = (b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]);
+    return dot > 1e-6 && dot < len - 1e-6;
+  }
+  function eulerTrail(V, edges, start) { // Hierholzer. start 점에서 모든 선을 한 번씩 지나는 점 순서
+    var adj = [], used = [], i; for (i = 0; i < V; i++) adj.push([]);
+    edges.forEach(function (e, k) { adj[e[0]].push([e[1], k]); adj[e[1]].push([e[0], k]); });
+    var stack = [start], out = [];
+    while (stack.length) {
+      var v = stack[stack.length - 1], moved = false;
+      while (adj[v].length) { var pr = adj[v].pop(); if (used[pr[1]]) continue; used[pr[1]] = true; stack.push(pr[0]); moved = true; break; }
+      if (!moved) out.push(stack.pop());
     }
-    var front = rand(cfg.cut + 1), back = cfg.cut - front;
-    var kept = path.slice(front, N - back), cells = [];
-    for (i = 0; i < N; i++) cells.push("#");
-    kept.forEach(function (q) { cells[q] = " "; });
-    cells[kept[0]] = "S";
-    var rows = []; for (y = 0; y < H; y++) rows.push(cells.slice(y * W, (y + 1) * W).join(""));
-    var dirs = ""; for (i = 1; i < kept.length; i++) { var df = kept[i] - kept[i - 1]; dirs += df === 1 ? "R" : df === -1 ? "L" : df === W ? "D" : "U"; }
-    return { rows: rows, solution: dirs };
+    return out.reverse();
+  }
+  function makeRoutePlan(cfg) {
+    for (var tries = 0; tries < 6000; tries++) {
+      var cells = shuffle(Array.apply(null, { length: ROUTE_GX * ROUTE_GY }).map(function (_, i) { return i; })).slice(0, cfg.V);
+      var pts = cells.map(routePoint), V = cfg.V, i, j;
+      // 선을 놓을 수 있는 쌍: 다른 점을 지나가지 않는 것만
+      var cand = [];
+      for (i = 0; i < V; i++) for (j = i + 1; j < V; j++) {
+        var bad = false; for (var k = 0; k < V && !bad; k++) if (k !== i && k !== j && routeOnSeg(pts[i], pts[j], pts[k])) bad = true;
+        if (!bad) cand.push([i, j]);
+      }
+      if (cand.length < cfg.E) continue;
+      var pick = shuffle(cand).slice(0, cfg.E), deg = [], cnt = 0;
+      for (i = 0; i < V; i++) deg.push(0);
+      pick.forEach(function (e) { deg[e[0]]++; deg[e[1]]++; });
+      if (deg.some(function (d) { return d < 2; })) continue;
+      var odd = deg.filter(function (d) { return d % 2; }).length;
+      if (odd !== cfg.odd) continue;
+      // 연결
+      var seen = {}, q = [0]; seen[0] = 1;
+      while (q.length) { var u = q.pop(); pick.forEach(function (e) { var w = e[0] === u ? e[1] : e[1] === u ? e[0] : -1; if (w >= 0 && !seen[w]) { seen[w] = 1; q.push(w); } }); }
+      if (Object.keys(seen).length !== V) continue;
+      // 선이 서로 지나치는 곳은 너무 많지 않게(집 그림처럼 X 한두 개)
+      for (i = 0; i < pick.length; i++) for (j = i + 1; j < pick.length; j++) {
+        var A = pick[i], B = pick[j]; if (A[0] === B[0] || A[0] === B[1] || A[1] === B[0] || A[1] === B[1]) continue;
+        if (routeCross(pts[A[0]], pts[A[1]], pts[B[0]], pts[B[1]])) cnt++;
+      }
+      if (cnt > 2) continue;
+      var startV = 0; for (i = 0; i < V; i++) if (deg[i] % 2) { startV = i; break; }
+      return { V: V, pts: pts, edges: pick, deg: deg, path: eulerTrail(V, pick, startV) };
+    }
+    // 만에 하나 못 만들었을 때의 대비: 집 모양
+    var pts2 = [[50, 12], [30, 30], [70, 30], [30, 64], [70, 64]], ed2 = [[0, 1], [0, 2], [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]];
+    return { V: 5, pts: pts2, edges: ed2, deg: [2, 4, 4, 3, 3], path: eulerTrail(5, ed2, 3) };
   }
   function routeGame(body, c) {
-    var plan = makeRoutePlan(ROUTE_CFG[c.level - 1]), W = plan.rows[0].length, H = plan.rows.length;
-    var open = [], start = 0, i;
-    for (i = 0; i < W * H; i++) { var ch = plan.rows[(i / W) | 0].charAt(i % W); if (ch !== "#") open.push(i); if (ch === "S") start = i; }
-    var isOpen = {}; open.forEach(function (q) { isOpen[q] = 1; });
-    var trail = [start], visited = {}; visited[start] = 1; var doomed = false;
-    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: plan.rows, path: plan.solution }));
-    var floor = ""; for (i = 0; i < W * H; i++) floor += '<i class="sk-cell ' + (isOpen[i] ? "is-road" : "is-wall") + '"></i>';
-    body.innerHTML = '<div class="sk-wrap"><div class="sk-board rt-board" style="--cols:' + W + ';--rows:' + H + '"><div class="sk-floor">' + floor + '</div><svg class="rt-line" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none"><polyline points="" fill="none"/></svg><span class="sk-man rt-man">' + SK_MAN_SVG + "</span></div></div>"
-      + '<p class="sk-status"><span>닦은 칸 <b class="rt-n">1</b> / ' + open.length + '</span></p><p class="mg-freeze-note"></p>'
-      + '<div class="pk-pad sk-pad">' + arrowPad("data-rt", actBtn("data-rt", "undo", "한 칸 되돌리기", "Z · ⌫") + actBtn("data-rt", "restart", "처음부터", "R")) + "</div>";
-    var cellEls = body.querySelectorAll(".sk-cell"), man = body.querySelector(".rt-man"), line = body.querySelector(".rt-line polyline");
-    var nEl = body.querySelector(".rt-n"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".sk-board");
-    cellEls[start].classList.add("is-start");
-    function reachableAll() { // 남은 칸을 전부 지나는 길이 아직 가능한가 (필요 조건 검사: 연결 + 막다른 칸은 최대 1개)
-      var head = trail[trail.length - 1], seen = {}, q = [head], cnt = 0; seen[head] = 1;
-      var around = function (cur) { var cx = cur % W, cy = (cur / W) | 0, o = [], dd = [[0, -1], [0, 1], [-1, 0], [1, 0]]; dd.forEach(function (d) { var nx = cx + d[0], ny = cy + d[1]; if (nx >= 0 && ny >= 0 && nx < W && ny < H) o.push(ny * W + nx); }); return o; };
-      while (q.length) {
-        var cur = q.pop();
-        around(cur).forEach(function (ni) { if (!isOpen[ni] || visited[ni] || seen[ni]) return; seen[ni] = 1; cnt++; q.push(ni); });
-      }
-      var remain = open.length - trail.length;
-      if (cnt !== remain) return false;
-      var ends = 0;
-      for (var u = 0; u < W * H; u++) {
-        if (!isOpen[u] || visited[u]) continue;
-        var deg = around(u).filter(function (ni) { return isOpen[ni] && (!visited[ni] || ni === head); }).length;
-        if (deg === 0) return false;
-        if (deg === 1) { ends++; if (ends > 1 && remain > 1) return false; }
-      }
-      return true;
+    var plan = makeRoutePlan(ROUTE_CFG[c.level - 1]), V = plan.V, pts = plan.pts, edges = plan.edges, deg = plan.deg, i;
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ vertices: pts, edges: edges, path: plan.path }));
+    var cx = 0, cy = 0; pts.forEach(function (p) { cx += p[0] / V; cy += p[1] / V; });
+    var svg = '<svg class="eu-svg" viewBox="0 0 100 76" aria-hidden="false">';
+    edges.forEach(function (e, k) { svg += '<line class="eu-edge" data-e="' + k + '" x1="' + pts[e[0]][0] + '" y1="' + pts[e[0]][1] + '" x2="' + pts[e[1]][0] + '" y2="' + pts[e[1]][1] + '"/>'; });
+    for (i = 0; i < V; i++) svg += '<circle class="eu-dot" data-v="' + i + '" cx="' + pts[i][0] + '" cy="' + pts[i][1] + '" r="2.4"/><circle class="eu-hit" data-v="' + i + '" cx="' + pts[i][0] + '" cy="' + pts[i][1] + '" r="6.5"/>';
+    svg += '<g class="eu-cloth" style="display:none"><rect x="-3.4" y="-2.6" width="6.8" height="5.2" rx="1.2"/><path d="M-3.4 -0.8h6.8M-3.4 0.9h6.8"/></g></svg>';
+    body.innerHTML = '<div class="eu-wrap"><div class="eu-board">' + svg + '</div>'
+      + '<p class="sk-status"><span>닦은 얼룩 <b class="eu-n">0</b> / ' + edges.length + '</span></p>'
+      + '<p class="mg-freeze-note"></p><div class="pk-pad sk-pad">' + arrowPad("data-eu", actBtn("data-eu", "undo", "한 선 되돌리기", "Z · ⌫") + actBtn("data-eu", "restart", "처음부터", "R")) + '</div></div>';
+    var edgeEls = body.querySelectorAll(".eu-edge"), dotEls = body.querySelectorAll(".eu-dot"), cloth = body.querySelector(".eu-cloth"), nEl = body.querySelector(".eu-n"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".eu-board");
+    var cur = -1, sel = 0, used = [], trail = [], doomed = false;
+    function edgeBetween(a, b) { for (var k = 0; k < edges.length; k++) if (!used[k] && ((edges[k][0] === a && edges[k][1] === b) || (edges[k][0] === b && edges[k][1] === a))) return k; return -1; }
+    function feasible() { // 남은 선을 지금 점에서 한 번씩 전부 지나는 길이 아직 가능한가
+      var rem = [], k, d = []; for (k = 0; k < V; k++) d.push(0);
+      for (k = 0; k < edges.length; k++) if (!used[k]) { rem.push(k); d[edges[k][0]]++; d[edges[k][1]]++; }
+      if (!rem.length) return true;
+      var seen = {}, q = [cur]; seen[cur] = 1;
+      while (q.length) { var u = q.pop(); rem.forEach(function (r) { var w = edges[r][0] === u ? edges[r][1] : edges[r][1] === u ? edges[r][0] : -1; if (w >= 0 && !seen[w]) { seen[w] = 1; q.push(w); } }); }
+      for (k = 0; k < rem.length; k++) if (!seen[edges[rem[k]][0]]) return false;
+      var odds = []; for (k = 0; k < V; k++) if (d[k] % 2) odds.push(k);
+      return odds.length === 0 ? d[cur] > 0 : (odds.length === 2 && odds.indexOf(cur) >= 0);
     }
     function paint() {
-      placeAt(man, trail[trail.length - 1], W);
-      var inTrail = {}; trail.forEach(function (q) { inTrail[q] = 1; });
-      for (var k = 0; k < W * H; k++) cellEls[k].classList.toggle("is-trail", !!inTrail[k]);
-      line.setAttribute("points", trail.map(function (q) { return (q % W + 0.5) + "," + (((q / W) | 0) + 0.5); }).join(" "));
+      edgeEls.forEach(function (e, k) { e.classList.toggle("is-wiped", !!used[k]); });
+      dotEls.forEach(function (d, v) { d.classList.toggle("is-cur", v === cur); d.classList.toggle("is-sel", cur < 0 && v === sel); });
+      if (cur >= 0) { cloth.style.display = ""; cloth.setAttribute("transform", "translate(" + pts[cur][0] + " " + pts[cur][1] + ")"); } else cloth.style.display = "none";
       nEl.textContent = trail.length;
       boardEl.classList.toggle("is-doomed", doomed);
-      if (c.testHooks) body.setAttribute("data-rt", [trail[trail.length - 1] % W, (trail[trail.length - 1] / W) | 0, trail.length].join(","));
+      if (c.testHooks) body.setAttribute("data-eu", [cur, trail.length].join(","));
+    }
+    function stepTo(v) {
+      if (cur < 0) { cur = v; sel = v; trail = []; used = []; note.textContent = "여기서 시작! 이어진 얼룩 선을 눌러 닦아 보세요"; paint(); return; }
+      if (v === cur) return;
+      var k = edgeBetween(cur, v);
+      if (k < 0) { restartAnim(boardEl, "is-shake"); note.textContent = "지금 점에 이어진, 아직 안 닦은 선으로만 갈 수 있어요"; return; }
+      used[k] = true; trail.push(k); cur = v;
+      if (trail.length === edges.length) { paint(); note.textContent = "도마를 다 닦았어요!"; c.later(c.finish, 420); return; }
+      var ok = feasible();
+      if (!ok && !doomed) { c.addMistake(); note.textContent = "이 길로는 남은 얼룩을 다 못 닦아요 — Z로 되돌려 보세요"; restartAnim(boardEl, "is-shake"); }
+      else if (ok) note.textContent = "";
+      doomed = !ok; paint();
+    }
+    function nearest(from, dir, cands) { // 화면 방향(위/아래/왼/오)에 가장 가까운 후보(각도 60도 이내)
+      var best = -1, bestScore = 1e9;
+      cands.forEach(function (v) {
+        var vx = pts[v][0] - pts[from][0], vy = pts[v][1] - pts[from][1], len = Math.sqrt(vx * vx + vy * vy); if (!len) return;
+        var cos = (vx * dir[0] + vy * dir[1]) / len; if (cos < 0.5) return;
+        var score = (1 - cos) * 100 + len * 0.05; if (score < bestScore) { bestScore = score; best = v; }
+      });
+      return best;
     }
     function act(a) {
       if (c.isFinished()) return;
       if (a === "undo") {
-        if (trail.length < 2) return;
-        var gone = trail.pop(); delete visited[gone];
-        doomed = !reachableAll(); note.textContent = doomed ? "아직 막다른 길이에요 — 더 되돌려 보세요 (Z)" : ""; paint(); return;
+        if (!trail.length) { if (cur >= 0) { cur = -1; paint(); } return; }
+        var k = trail.pop(); used[k] = false; cur = edges[k][0] === cur ? edges[k][1] : edges[k][0];
+        doomed = trail.length ? !feasible() : false; note.textContent = doomed ? "아직 막다른 길이에요 — 더 되돌려 보세요 (Z)" : ""; paint(); return;
       }
-      if (a === "restart") { trail = [start]; visited = {}; visited[start] = 1; doomed = false; note.textContent = ""; paint(); return; }
+      if (a === "restart") { cur = -1; used = []; trail = []; doomed = false; note.textContent = ""; paint(); return; }
+      if (a === "space" || a === "enter") { if (cur < 0) stepTo(sel); return; }
       var d = SOKO_DIRS[a]; if (!d) return;
-      var head = trail[trail.length - 1], nx = head % W + d[0], ny = ((head / W) | 0) + d[1];
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
-      var ni = ny * W + nx;
-      if (!isOpen[ni] || visited[ni]) { restartAnim(man, "is-bump"); return; }
-      trail.push(ni); visited[ni] = 1;
-      if (trail.length === open.length) { paint(); note.textContent = "도마를 다 닦았어요!"; c.later(c.finish, 420); return; }
-      var ok = reachableAll();
-      if (!ok && !doomed) { c.addMistake(); note.textContent = "남은 길로 갈 수 없게 됐어요 — Z로 되돌려 보세요"; restartAnim(boardEl, "is-shake"); }
-      else if (ok) note.textContent = "";
-      doomed = !ok; paint();
+      if (cur < 0) { var all = []; for (var v = 0; v < V; v++) if (v !== sel) all.push(v); var nv = nearest(sel, d, all); if (nv >= 0) { sel = nv; paint(); } return; }
+      var outs = [], k2; for (k2 = 0; k2 < edges.length; k2++) if (!used[k2] && (edges[k2][0] === cur || edges[k2][1] === cur)) outs.push(edges[k2][0] === cur ? edges[k2][1] : edges[k2][0]);
+      var tv = nearest(cur, d, outs); if (tv >= 0) stepTo(tv); else restartAnim(boardEl, "is-shake");
     }
-    bindPad(body, c, "data-rt", act);
+    boardEl.addEventListener("pointerdown", function (e) {
+      var t = e.target; if (!t || !t.getAttribute) return; var v = t.getAttribute("data-v"); if (v === null) return;
+      e.preventDefault(); stepTo(parseInt(v, 10));
+    });
+    bindPad(body, c, "data-eu", act);
     paint();
-    return { hint: function () { return "주방 입구(주황 칸)에서 출발해 방향키로 도마의 모든 칸을 한 번씩만 닦으세요. 한 번 닦은 칸은 다시 못 가요. 막히면 Z로 한 칸씩 되돌리세요. 남은 칸을 다 닦을 수 없게 되면 알려줘요."; } };
+    return { hint: function () { return "얼룩 선을 한 번씩만 전부 닦으세요. 점을 눌러 시작하고 이어진 점을 눌러 닦아요 (방향키 + Space도 돼요). 막히면 Z로 되돌려요. (점에 이어진 선이 홀수 개인 곳에서 시작하면 풀려요)"; } };
   }
 
   // ---------- 컨베이어 잇기 (파이프) ----------
@@ -1764,7 +1888,75 @@
     return { hint: function () { return "맨 왼쪽 탑을 맨 오른쪽 칸으로 옮기세요. ←→로 칸을 고르고 스페이스로 맨 위 상자를 집고, 다른 칸에서 스페이스로 놓아요. 큰 상자를 작은 상자 위에 놓으면 실수! (1·2·3 키로 칸 바로 선택, Z 되돌리기, R 처음부터)"; } };
   }
 
-  var GAMES = { pack: packGame, inspect: inspectGame, sticker: stickerGame, map: mapGame, soko: sokoGame, ice: iceGame, route: routeGame, twin: twinGame, pipe: pipeGame, hanoi: hanoiGame };
+  // ---------- 손질 / 엿보기: 타이밍 액션 (2026-10-12) ----------
+  // 막대 위를 오가는 표시가 초록 구간에 있을 때 SPACE(또는 버튼 탭). 생각할 게 없고 손만 움직이는 게임이라
+  // "멈춰서 고민하는 공백"이 생기지 않는다. 구간은 매번 위치가 바뀌고 갈수록 좁아지며 표시는 빨라진다.
+  //   prep : 도마 위 생선을 pieces*3번 썰기 (비싼 초밥일수록 조각 수가 많아 오래 걸린다)
+  //   peek : 상대 가게 창문 틈에 렌즈 맞추기 5번 -- 실수 0이면 엿보기 3회, 2번 이하면 2회, 그 이상이면 1회
+  function timingGame(body, c, cfg) {
+    var total = cfg.total, done = 0, lock = 0, zoneW = cfg.zoneW0, zoneX = 0.4, speed = cfg.speed0, pos = 0, dir = 1, last = performance.now(), raf = 0;
+    if (c.testHooks) { zoneW = 1; zoneX = 0; }
+    function newZone() { zoneW = c.testHooks ? 1 : Math.max(cfg.zoneMin, zoneW - cfg.zoneStep); zoneX = c.testHooks ? 0 : 0.08 + Math.random() * (0.84 - zoneW); }
+    var pips = ""; for (var i = 0; i < total; i++) pips += '<i class="tm-pip"></i>';
+    body.innerHTML = '<div class="tm-wrap tm-' + cfg.skin + '">'
+      + '<div class="tm-stage">' + cfg.stageHtml + '</div>'
+      + '<div class="tm-bar"><span class="tm-zone"></span><span class="tm-mark">' + cfg.markHtml + '</span></div>'
+      + '<div class="tm-pips">' + pips + '</div>'
+      + '<p class="tm-note">&nbsp;</p>'
+      + '<button type="button" class="mg-key tm-btn" data-tm="hit">' + cfg.btn + '<small>SPACE</small></button></div>';
+    var zone = body.querySelector(".tm-zone"), mark = body.querySelector(".tm-mark"), note = body.querySelector(".tm-note"), pipEls = body.querySelectorAll(".tm-pip"), bar = body.querySelector(".tm-bar");
+    function paintZone() { zone.style.left = (zoneX * 100) + "%"; zone.style.width = (zoneW * 100) + "%"; }
+    function frame(now) {
+      if (c.isFinished()) return;
+      var dt = Math.min(64, now - last); last = now;
+      pos += dir * speed * dt / 1000;
+      if (pos >= 1) { pos = 1; dir = -1; } else if (pos <= 0) { pos = 0; dir = 1; }
+      mark.style.left = (pos * 100) + "%";
+      if (c.testHooks) body.setAttribute("data-tm", [done, total, zoneX.toFixed(3), zoneW.toFixed(3), pos.toFixed(3)].join(","));
+      raf = requestAnimationFrame(frame);
+    }
+    function hit() {
+      if (c.isFinished() || done >= total) return;
+      var now = performance.now(); if (now < lock) return;
+      var inZone = pos >= zoneX && pos <= zoneX + zoneW;
+      if (inZone) {
+        pipEls[done].classList.add("is-on"); done++;
+        speed = Math.min(cfg.speedMax, speed + cfg.speedStep); bar.classList.remove("is-miss"); bar.classList.add("is-hit"); setTimeout(function () { bar.classList.remove("is-hit"); }, 160);
+        note.textContent = cfg.okText(done, total);
+        if (done >= total) { cancelAnimationFrame(raf); mark.style.left = (pos * 100) + "%"; c.later(c.finish, 250); return; }
+        newZone(); paintZone();
+      } else {
+        c.addMistake(); lock = now + 450; bar.classList.add("is-miss"); setTimeout(function () { bar.classList.remove("is-miss"); }, 450);
+        note.textContent = "빗나갔어요! 잠깐 멈춤";
+      }
+    }
+    bindPad(body, c, "data-tm", function (a) { if (a === "space" || a === "enter" || a === "down" || a === "hit") hit(); });
+    c.onCleanup(function () { cancelAnimationFrame(raf); });
+    paintZone(); raf = requestAnimationFrame(frame);
+    return { hint: function () { return cfg.hint; } };
+  }
+  function prepGame(body, c) {
+    var key = c.sushi || "egg", pieces = clamp(parseInt(c.opts.pieces, 10) || 3, 1, 5), total = pieces * 3;
+    var cuts = ""; for (var i = 1; i <= pieces; i++) cuts += '<i style="left:' + (i * 100 / (pieces + 1)) + '%"></i>';
+    return timingGame(body, c, {
+      skin: "prep", total: total, zoneW0: 0.30, zoneMin: 0.13, zoneStep: 0.02, speed0: 0.75, speedStep: 0.035, speedMax: 1.5,
+      stageHtml: '<div class="tm-fish">' + sushiSvg(key, "tm-fish-svg") + '<div class="tm-cuts">' + cuts + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' ' + pieces + '조각 손질</div>',
+      markHtml: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20L17 4l4 3L7 21z" fill="#cfd6dc" stroke="#2b1d12" stroke-width="1.6"/><path d="M17 4l4 3" stroke="#2b1d12" stroke-width="2"/></svg>',
+      btn: "썰기!", okText: function (d, t) { return d + " / " + t + " 썰었어요"; },
+      hint: "칼이 초록 구간에 올 때 SPACE(또는 버튼)로 썰어요. 빗나가면 잠깐 멈춰요. 갈수록 빨라지고 구간이 좁아져요.",
+    });
+  }
+  function peekGame(body, c) {
+    return timingGame(body, c, {
+      skin: "peek", total: 5, zoneW0: 0.20, zoneMin: 0.09, zoneStep: 0.02, speed0: 0.95, speedStep: 0.07, speedMax: 1.9,
+      stageHtml: '<div class="tm-window"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="tm-label">상대 가게 창문 틈에 렌즈를 맞추세요</div>',
+      markHtml: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="rgba(255,255,255,0.35)" stroke="#2b1d12" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="#2b1d12"/></svg>',
+      btn: "엿보기!", okText: function (d, t) { return d + " / " + t + " 성공"; },
+      hint: "렌즈가 밝은 틈에 올 때 SPACE로 엿봐요. 실수가 적을수록 후반에 엿볼 수 있는 횟수가 늘어요 (실수 0 = 3회, 2번 이하 = 2회, 그 이상 = 1회).",
+    });
+  }
+
+  var GAMES = { prep: prepGame, peek: peekGame, pack: packGame, inspect: inspectGame, sticker: stickerGame, map: mapGame, soko: sokoGame, ice: iceGame, route: routeGame, twin: twinGame, pipe: pipeGame, hanoi: hanoiGame };
 
   // ======================================================================
   // 공통 진행: 헤더(제목/시간/실수/포기), 타이머, 완료 배너, 정리
@@ -1777,7 +1969,7 @@
     var rootEl = el("div", "mg-root mg-kind-" + kind);
     rootEl.innerHTML =
       '<header class="mg-head"><div class="mg-title"><span class="mg-name">' + KINDS[kind].name + '</span>'
-      + '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span>'
+      + (KINDS[kind].noLevel ? '' : '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span>')
       + (opts.sushi && SUSHI[opts.sushi] ? '<span class="mg-making" data-sushi="' + opts.sushi + '">' + sushiSvg(opts.sushi) + '<b>' + SUSHI[opts.sushi] + ' 초밥</b> 제작 중</span>' : '') + '</div>'
       + '<div class="mg-stats"><span class="mg-time">0.0초</span><span class="mg-miss">실수 0</span></div>'
       + '<button type="button" class="mg-giveup">포기</button></header>'

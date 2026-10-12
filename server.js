@@ -6,6 +6,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
 const { GameRoom } = require("./game-room");
+const { TYPES, SECURE_PHASE_MS } = require("./game-data.js");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -30,7 +31,7 @@ function getOrCreateRoom(code) {
   if (!entry) {
     const room = new GameRoom(code, (state) => broadcast(code, state));
     // busy: 레일 화면(/rail)이 열어 준 미니게임을 그 좌석 플레이어가 지금 하고 있는가 (레일 화면에 "플레이 중" 표시 + 중복 지시 방지).
-    entry = { room, sockets: new Set(), busy: { "1": false, "2": false } };
+    entry = { room, sockets: new Set(), busy: { "1": false, "2": false }, making: { "1": null, "2": null }, lastDoneAt: { "1": null, "2": null } };
     rooms.set(code, entry);
   }
   return entry;
@@ -39,14 +40,14 @@ function getOrCreateRoom(code) {
 function railInfo(entry) {
   let count = 0;
   for (const c of entry.sockets) if (c.role === "rail") count++;
-  return { count, busy: entry.busy };
+  return { count, busy: entry.busy, making: entry.making };
 }
 
 function broadcast(code, state) {
   const entry = rooms.get(code);
   if (!entry) return;
   // 제작 단계가 아니면 레일이 연 게임은 의미가 없다 -- 여기서 한 번에 정리한다.
-  if (state.phase !== "secure") entry.busy = { "1": false, "2": false };
+  if (state.phase !== "secure") { entry.busy = { "1": false, "2": false }; entry.making = { "1": null, "2": null }; entry.lastDoneAt = { "1": null, "2": null }; }
   // now: 서버 시계. 메인 모니터는 따로 있는 기기라 기기 시계가 어긋나 있을 수 있어서, 이 값으로 오차를 보정한다.
   // rail: 지금 접속 중인 레일 화면 수 + 좌석별 플레이 중 여부. 플레이어 화면은 rail.count > 0이면 "레일 화면에서 누르세요" 모드가 된다.
   const payload = JSON.stringify({ type: "state", state, now: Date.now(), rail: railInfo(entry) });
@@ -203,7 +204,14 @@ wss.on("connection", (ws, req) => {
           if (a.length > 500) a.shift();
           console.log("[mini] " + k + " " + (msg.mini.ms / 1000).toFixed(1) + "s 실수 " + (msg.mini.mistakes | 0));
         }
+        if (msg.prep && Number.isFinite(msg.prep.ms) && msg.prep.ms > 0 && msg.prep.ms < 3600000) {
+          const a = (MINI_STATS["prep"] = MINI_STATS["prep"] || []);
+          a.push({ ms: msg.prep.ms, mistakes: Number.isFinite(msg.prep.mistakes) ? msg.prep.mistakes : 0 });
+          if (a.length > 500) a.shift();
+        }
         const wasBusy = entry.busy[conn.seat];
+        entry.making[conn.seat] = null;
+        entry.lastDoneAt[conn.seat] = Date.now();
         entry.busy[conn.seat] = false; // 끝냈으니 레일 화면에서 다시 누를 수 있다 (room.secureCell의 브로드캐스트에 같이 실려 간다)
         entry.room.secureCell(conn.seat, msg.cellId, typeof msg.sushi === "string" ? msg.sushi : null);
         if (wasBusy) broadcast(code, entry.room.state); // 중복 메시지라 room이 방송을 안 했을 때를 위해
@@ -212,8 +220,29 @@ wss.on("connection", (ws, req) => {
       case "game-closed":
         // 플레이어가 레일이 열어 준 게임을 포기/닫았다 -> 다시 누를 수 있게.
         if (!conn.seat) return;
-        if (entry.busy[conn.seat]) { entry.busy[conn.seat] = false; broadcast(code, entry.room.state); }
+        if (entry.busy[conn.seat] || entry.making[conn.seat]) { entry.busy[conn.seat] = false; entry.making[conn.seat] = null; broadcast(code, entry.room.state); }
         break;
+      case "game-stage": {
+        // 메인 모니터용 "지금 뭘 만드는 중" 표시 (2026-10-12). 서버 규칙에는 영향 없음 -- 표시 전용.
+        if (!conn.seat || entry.room.state.phase !== "secure") return;
+        const stage = msg.stage === "prep" ? "prep" : "make";
+        const cat = Number.isInteger(msg.catIdx) && msg.catIdx >= 0 && msg.catIdx < TYPES.length ? msg.catIdx : null;
+        if (cat === null) return;
+        if (stage === "prep" && !entry.making[conn.seat]) {
+          // 멈춤 시간 계측(평가 G3): 직전 초밥을 끝낸 시각(첫 초밥은 제작 시작 시각)부터 다음 초밥을 시작하기까지의 공백.
+          const st0 = entry.room.state;
+          const base = entry.lastDoneAt[conn.seat] || (st0.secureEndsAt ? st0.secureEndsAt - SECURE_PHASE_MS : null);
+          if (base) {
+            const gap = Date.now() - base, a = (MINI_STATS["idle-gap"] = MINI_STATS["idle-gap"] || []);
+            a.push({ ms: gap, mistakes: 0 });
+            if (a.length > 500) a.shift();
+            if (gap > 5000) console.log("[idle] 좌석 " + conn.seat + " 다음 초밥 시작까지 " + (gap / 1000).toFixed(1) + "s");
+          }
+        }
+        entry.making[conn.seat] = { catIdx: cat, stage, sushi: typeof msg.sushi === "string" ? msg.sushi.slice(0, 12) : null };
+        broadcast(code, entry.room.state);
+        break;
+      }
       case "vote":
         if (!conn.seat || (msg.dir !== "up" && msg.dir !== "down")) return;
         entry.room.vote(conn.seat, msg.dir);
@@ -238,6 +267,20 @@ wss.on("connection", (ws, req) => {
         if (!conn.seat) return;
         entry.room.halftimeReady(conn.seat);
         break;
+      case "peek-result":
+        // 하프타임 엿보기 미니게임 결과 (실수 횟수) -> 횟수 3/2/1회
+        if (!conn.seat) return;
+        entry.room.peekEarned(conn.seat, typeof msg.mistakes === "number" ? msg.mistakes : 3);
+        break;
+      case "use-peek": {
+        if (!conn.seat) return;
+        const r = entry.room.usePeek(conn.seat);
+        const payload = JSON.stringify({ type: "peek-reveal", ok: r.ok, code: r.code || null, invoiceId: r.invoiceId || null });
+        for (const c of entry.sockets) {
+          if (c.role !== "rail" && c.clientId === conn.clientId && c.ws.readyState === c.ws.OPEN) c.ws.send(payload);
+        }
+        break;
+      }
       case "restart-ready":
         // 2026-08-28 신설: 종료 화면의 "다시 시작" 버튼 -- 같은 방에서 좌석/셰프 유지한 채 새 게임.
         if (!conn.seat) return;
@@ -252,9 +295,9 @@ wss.on("connection", (ws, req) => {
     entry.sockets.delete(conn);
     if (conn.role === "rail") { broadcast(code, entry.room.state); return; }
     // 게임 중이던 플레이어가 탭을 닫았으면 레일 화면이 영영 "플레이 중"에 묶이지 않게 푼다 (같은 clientId가 다른 연결로 남아 있으면 유지).
-    if (conn.seat && entry.busy[conn.seat]) {
+    if (conn.seat && (entry.busy[conn.seat] || entry.making[conn.seat])) {
       const stillThere = Array.from(entry.sockets).some((c) => c.role !== "rail" && c.clientId && c.clientId === conn.clientId);
-      if (!stillThere) { entry.busy[conn.seat] = false; broadcast(code, entry.room.state); }
+      if (!stillThere) { entry.busy[conn.seat] = false; entry.making[conn.seat] = null; broadcast(code, entry.room.state); }
     }
     if (conn.seat && conn.clientId) {
       const seat = conn.seat;

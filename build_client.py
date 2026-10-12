@@ -571,6 +571,45 @@ HEAD_HTML = """<!doctype html>
   .thief-window h4 { margin:0 0 0.5rem; font-family:var(--font-display); font-size:0.95rem; color:var(--danger); }
   .thief-floors { display:flex; flex-wrap:wrap; gap:0.4rem; }
   .thief-floors .btn { flex:none; padding:0.4rem 0.7rem; font-size:0.8rem; }
+  .thief-floors .btn small, .peek-panel .btn small { display:block; font-size:0.62rem; font-weight:600; opacity:0.8; }
+  .thief-floors .btn.is-peeked { border-color:var(--danger); box-shadow:0 0 0 2px rgba(199,64,45,0.28); }
+
+  /* 시작 3컷 설명 / 3줄 규칙 / 게이트 카운트다운 / 5초 깜빡임 (2026-10-12) */
+  .intro3 { position:fixed; left:calc(50% + 40px); top:12px; transform:translateX(-50%); width:min(440px, 58vw); height:58px; z-index:55; pointer-events:none;
+    animation:introLife 10s linear both; animation-delay:calc(var(--el) * -1); }
+  .intro3 .cut { position:absolute; inset:0; display:flex; gap:0.8rem; align-items:center; padding:0.4rem 0.8rem; background:#2b1d12; color:#fff; border-radius:14px; opacity:0;
+    box-shadow:0 5px 0 rgba(0,0,0,0.22); animation:introCut 3.34s linear both; animation-delay:calc(var(--d) - var(--el)); }
+  .intro3 .cut i { flex:none; width:1.9rem; height:1.9rem; border-radius:50%; background:#ffc62e; color:#2b1d12; font-style:normal; font-weight:800; display:grid; place-items:center; font-size:1.1rem; }
+  .intro3 .cut b { display:block; font-size:0.95rem; } .intro3 .cut span { display:block; font-size:0.76rem; opacity:0.85; margin-top:0.05rem; }
+  @keyframes introCut { 0% { opacity:0; transform:translateY(8px); } 8% { opacity:1; transform:none; } 92% { opacity:1; transform:none; } 100% { opacity:0; } }
+  @keyframes introLife { 0%, 97% { opacity:1; visibility:visible; } 100% { opacity:0; visibility:hidden; } }
+  .rules3 { margin:0.7rem 0 0; padding:0 0 0 1.3rem; display:flex; flex-direction:column; gap:0.3rem; font-size:0.9rem; color:var(--muted); text-align:left; }
+  .rules3 b { color:var(--ink, #2b1d12); }
+  .halftime-box .rules3 { display:inline-flex; margin:0.8rem auto 0; }
+  .gate-count { display:block; margin-top:0.5rem; font-size:0.8rem; color:var(--muted); text-align:center; }
+  @keyframes nudgeBlink { 0%, 100% { transform:none; box-shadow:none; } 50% { transform:scale(1.04); box-shadow:0 0 0 4px rgba(255,198,46,0.9); } }
+  body.nudge-on .rail-btn:not([disabled]), body.nudge-on .floor-btn:not([disabled]):not(.is-gone) { animation:nudgeBlink 0.9s ease-in-out infinite; }
+  body.nudge-on .rw h2 { animation:nudgeBlink 0.9s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { body.nudge-on .rail-btn, body.nudge-on .floor-btn, body.nudge-on .rw h2 { animation:none; } }
+  .sfx-toggle { position:fixed; left:12px; bottom:12px; z-index:70; width:38px; height:38px; display:grid; place-items:center; padding:0; border-radius:50%;
+    border:2px solid #2b1d12; background:#fff; color:#2b1d12; cursor:pointer; box-shadow:0 2px 0 #2b1d12; opacity:0.85; }
+  .sfx-toggle:hover { opacity:1; } .sfx-toggle:focus-visible { outline:3px solid #ffc62e; outline-offset:2px; }
+  /* 엿보기 (2026-10-12) */
+  .peek-box { margin:0.9rem 0 0.4rem; padding:0.7rem 0.8rem; border:1.5px dashed var(--panel-line); border-radius:12px; text-align:center; display:flex; flex-direction:column; gap:0.45rem; align-items:center; }
+  .peek-box .pb-title { font-family:var(--font-display); font-size:1rem; }
+  .peek-box .pb-desc, .peek-box .pb-other { font-size:0.8rem; color:var(--muted); }
+  .peek-box .pb-done b { display:block; font-family:var(--font-display); font-size:1.05rem; color:var(--gold); }
+  .peek-box .pb-done span { font-size:0.8rem; color:var(--muted); }
+  .peek-panel { margin-top:0.8rem; padding:0.6rem 0.7rem; border:1px solid var(--panel-line); border-radius:12px; display:flex; flex-direction:column; gap:0.5rem; }
+  .peek-panel h3 { margin:0; font-size:0.85rem; }
+  .peek-panel .btn { font-size:0.9rem; padding:0.5rem 0.6rem; line-height:1.25; }
+  .peek-seen-list { display:flex; flex-direction:column; gap:0.35rem; }
+  .peek-seen { display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; }
+  .peek-empty { font-size:0.78rem; color:var(--muted); }
+  .peek-pop { position:fixed; left:50%; top:22%; transform:translateX(-50%); z-index:60; background:#2b1d12; color:#fff; border-radius:16px; padding:1rem 1.6rem;
+    display:flex; flex-direction:column; align-items:center; gap:0.2rem; box-shadow:0 6px 0 rgba(0,0,0,0.25); animation:peekIn 160ms ease-out; }
+  .peek-pop small { font-size:0.78rem; opacity:0.8; } .peek-pop b { font-size:1.9rem; font-family:var(--font-display); font-weight:700; } .peek-pop span { font-size:1.05rem; }
+  @keyframes peekIn { from { opacity:0; transform:translate(-50%,-8px); } to { opacity:1; transform:translate(-50%,0); } }
 
   /* halftime 전환 화면 */
   .halftime-box { text-align:center; max-width:480px; }
@@ -835,8 +874,73 @@ APP_JS_TEMPLATE = r"""
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4.5-6h9L21 9"></path><path d="M3 9l9 12 9-12"></path><path d="M3 9h18"></path><path d="M9 3l3 6 3-6"></path></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15c0-4 4-7 9-7 5 0 9 3 9 7z"></path><path d="M3 15h18v2H3z"></path><path d="M8 11c1 1 1 3 0 4M12 10c1 1 1 4 0 5M16 11c1 1 1 3 0 4"></path></svg>',
   ];
+  // ---------- 효과음 (2026-10-12): 파일 없이 WebAudio로 합성. 브라우저 정책상 첫 클릭/키 입력 뒤부터 소리가 난다. ----------
+  // 켜짐/꺼짐은 화면 왼쪽 아래 스피커 버튼 (localStorage에 기억, 못 쓰는 환경이면 그냥 켜짐).
+  var SFX = (function () {
+    var ctx = null, on = true;
+    try { on = localStorage.getItem("bp-sfx") !== "off"; } catch (e) {}
+    var SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 987.77]; // 접시 6개 = 도레미솔라시 (접시마다 고정 음)
+    function unlock() {
+      if (!ctx) { try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) ctx = new AC(); } catch (e) { ctx = null; } }
+      if (ctx && ctx.state === "suspended") { try { ctx.resume(); } catch (e) {} }
+    }
+    function tone(freq, dur, type, vol, delay, slideTo) {
+      if (!on || !ctx || ctx.state !== "running") return;
+      var t0 = ctx.currentTime + (delay || 0), o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type || "sine"; o.frequency.setValueAtTime(freq, t0);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+    }
+    return {
+      unlock: unlock,
+      isOn: function () { return on; },
+      toggle: function () { on = !on; try { localStorage.setItem("bp-sfx", on ? "on" : "off"); } catch (e) {} unlock(); if (on) tone(784, 0.1, "triangle", 0.12); return on; },
+      click: function () { tone(880, 0.05, "triangle", 0.07); },
+      key: function () { tone(660, 0.03, "triangle", 0.04); },
+      select: function () { tone(660, 0.08, "triangle", 0.12); tone(990, 0.12, "triangle", 0.12, 0.07); },
+      plate: function (i) { var f = SCALE[((i % 6) + 6) % 6]; tone(f, 0.16, "sine", 0.14); tone(f * 2, 0.08, "sine", 0.04); },
+      ok: function () { tone(659, 0.12, "triangle", 0.13); tone(784, 0.12, "triangle", 0.13, 0.1); tone(1047, 0.22, "triangle", 0.13, 0.2); },
+      bad: function () { tone(220, 0.25, "sawtooth", 0.09, 0, 110); },
+      peek: function () { tone(1318, 0.1, "sine", 0.08); tone(1760, 0.18, "sine", 0.08, 0.09); }
+    };
+  })();
+  function sfxButton() {
+    if (document.getElementById("sfx-toggle")) return;
+    var b = document.createElement("button");
+    b.id = "sfx-toggle"; b.type = "button"; b.className = "sfx-toggle";
+    function paint() {
+      var on = SFX.isOn();
+      b.setAttribute("aria-label", on ? "효과음 끄기" : "효과음 켜기"); b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/>'
+        + (on ? '<path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/>' : '<path d="M17 9l5 6M22 9l-5 6"/>') + '</svg>';
+    }
+    b.addEventListener("click", function (e) { e.stopPropagation(); SFX.toggle(); paint(); });
+    paint(); document.body.appendChild(b);
+  }
+  // 버튼을 누를 때마다: 접시 버튼은 그 접시 음, 초밥 종류/미니게임 선택은 선택음, 나머지는 짧은 틱.
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("button, [data-action]");
+    if (!t || t.disabled || t.id === "sfx-toggle") return;
+    SFX.unlock();
+    var plate = null;
+    if (t.hasAttribute("data-floor-idx")) plate = parseInt(t.getAttribute("data-floor-idx"), 10);
+    else { var m = /^fixed-floor-(\d+)$/.exec(t.getAttribute("data-cell") || ""); if (m) plate = parseInt(m[1], 10) - 1; }
+    var a = t.getAttribute("data-action") || "";
+    if (plate !== null && !isNaN(plate)) SFX.plate(plate);
+    else if (a === "open-type" || a === "open-cell" || a === "rail-press" || a === "start-peek" || a === "use-peek") SFX.select();
+    else SFX.click();
+  }, true);
+  document.addEventListener("keydown", function (e) {
+    SFX.unlock();
+    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (typeof mg !== "undefined" && mg && (e.code === "Space" || e.code.indexOf("Arrow") === 0 || e.code === "Enter")) SFX.key(); // 미니게임 조작
+  }, true);
+  document.addEventListener("pointerdown", function () { SFX.unlock(); }, true);
+
   var ELEVATOR_ROUNDS = @@ELEVATOR_ROUNDS@@;
   var SECURE_PHASE_MS = @@SECURE_PHASE_MS@@;
+  var VOTE_MS = @@VOTE_MS@@;
   var PRIORITY_MULTIPLIER = @@PRIORITY_MULTIPLIER@@;
   var SAME_FLOOR_CHOICE_MS = @@SAME_FLOOR_CHOICE_MS@@;
   var HALVES = @@HALVES@@;
@@ -876,6 +980,9 @@ APP_JS_TEMPLATE = r"""
 
   var state = null; // populated by the first "state" message from the server
   var local = { openCellId: null, toast: null, pending: {} };
+  // 5초 이상 아무것도 안 하면(평가 G3) 눌러야 할 버튼이 깜빡인다: 마지막 조작 시각. 클릭/키 입력과 게임 종료 때 갱신된다.
+  var lastAct = Date.now();
+  var INTRO_MS = 10000;
   // 방금 완료 신호를 보낸 칸(서버 브로드캐스트가 오기 전) -- 종류 버튼이 같은 칸을 또 골라 중복 완료로 무시되는 걸 막는다.
   function markPending(id) { local.pending[id] = Date.now(); }
   var wsConnected = false;
@@ -923,6 +1030,21 @@ APP_JS_TEMPLATE = r"""
     var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     return proto + "//" + window.location.host + "/ws?room=" + encodeURIComponent(ROOM) + (RAIL ? "&role=rail" : "");
   }
+  // 상태가 바뀔 때의 효과음: 벨트가 다른 접시로 움직이면 그 접시 음(둘 다 듣는다), 라운드 결과가 나오면 내 서빙 결과음, 엿보기 도착음.
+  function sfxOnState(prev, st) {
+    try {
+      if (!prev || !st || st.phase !== "elevator" || prev.phase !== "elevator") return;
+      var a = prev.elevator, b = st.elevator;
+      if (a.round === b.round && a.floorIdx !== b.floorIdx) SFX.plate(b.floorIdx);
+      if (a.state !== "result" && b.state === "result" && !MAIN && !RAIL) {
+        var seat = mySeat(), last = b.log && b.log[b.log.length - 1];
+        if (seat && last && last.round === b.round) {
+          var mine = null; last.delivered.forEach(function (d) { if (d.seat === seat) mine = d; });
+          if (mine) { if (mine.stolen) SFX.bad(); else SFX.ok(); }
+        }
+      }
+    } catch (e) { /* 효과음 실패는 게임에 영향 없음 */ }
+  }
   function connectWS() {
     if (!ROOM) return;
     try { ws = new WebSocket(wsUrl()); } catch (e) { setTimeout(connectWS, 1500); return; }
@@ -941,7 +1063,9 @@ APP_JS_TEMPLATE = r"""
         // the elevator's floorIdx is now real, server-authoritative position -- every click (from
         // either player) already moves it for real before this broadcast goes out, so a plain
         // re-render is enough to show the car actually stepping; no client-side simulation needed.
+        var prevState = state;
         state = msg.state;
+        sfxOnState(prevState, state);
         if (typeof msg.now === "number") clockOffset = msg.now - Date.now();
         if (msg.rail) railInfo = msg.rail;
         // 2026-08-27: "pick-courier"는 좌석 번호를 클라이언트가 미리 못 정하므로(서버가 정해서
@@ -956,6 +1080,7 @@ APP_JS_TEMPLATE = r"""
       }
       else if (msg.type === "error") { handleWsError(msg); }
       else if (msg.type === "open-game") { onRailOpenGame(msg.cellId); }
+      else if (msg.type === "peek-reveal") { onPeekReveal(msg); }
     };
     ws.onclose = function () { wsConnected = false; renderConnBanner(); setTimeout(connectWS, 1200); };
     ws.onerror = function () {};
@@ -1232,7 +1357,8 @@ APP_JS_TEMPLATE = r"""
   // 값이 숫자 하나면 그대로, [전반, 후반] 배열이면 지금 하프 것 (TYPES의 miniLevel/pieces).
   function perHalf(v) { return Array.isArray(v) ? v[(state && state.half === 2) ? 1 : 0] : v; }
   function closeMiniGame() {
-    if (mg) { try { mg.ctl.destroy(); } catch (e) { /* ignore */ } mg = null; notifyGameClosed(); }
+    lastAct = Date.now();
+    if (mg) { var wasPeek = mg.kind === "peek"; try { mg.ctl.destroy(); } catch (e) { /* ignore */ } mg = null; if (!wasPeek) notifyGameClosed(); }
     var layer = document.getElementById("mg-layer");
     if (layer) { layer.classList.add("hidden"); layer.innerHTML = ""; }
   }
@@ -1259,17 +1385,32 @@ APP_JS_TEMPLATE = r"""
     var layer = document.getElementById("mg-layer");
     layer.innerHTML = '<div class="mg-wrap"><div class="mg-clock">제작 시간<b id="mg-clock">--:--</b></div><div id="mg-host"></div></div>';
     layer.classList.remove("hidden");
-    mg = {
-      cellId: cellId,
-      ctl: MiniGames.start(document.getElementById("mg-host"), {
-        kind: t.mini, level: perHalf(t.miniLevel), sushi: pickedSushi,
+    // 2026-10-12: 초밥 하나 = 손질(액션형 칼질 타이밍) -> 제작(종류별 퍼즐) 두 단계. 칸은 손질을 시작하는 순간부터 내 칸이고,
+    // 서버에는 제작까지 끝낸 뒤 secure-cell 한 번만 보낸다(서버 규칙은 그대로).
+    mg = { cellId: cellId, ctl: null, stage: "prep", prep: null };
+    function beginStage(stage) {
+      if (mg.ctl) { try { mg.ctl.destroy(); } catch (e) { /* ignore */ } }
+      mg.stage = stage;
+      var o = { sushi: pickedSushi, testHooks: TEST_HOOKS, onCancel: function () { closeMiniGame(); } };
+      if (stage === "prep") {
+        o.kind = "prep"; o.pieces = t.pieces;
+        o.onDone = function (res) { mg.prep = res; beginStage("make"); };
+      } else {
+        o.kind = t.mini; o.level = perHalf(t.miniLevel);
         // 지정 초밥은 칸이 곧 서빙 접시라 주문표에 그 접시를 그대로 찍는다 (호수는 제작 순간 서버가 정하므로 표기 안 함).
-        label: t.fixedFloor ? FLOORS[meta.num] : null,
-        testHooks: TEST_HOOKS,
-        onDone: function (res) { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id), mini: res && res.ms ? { kind: res.kind, level: res.level, ms: res.ms, mistakes: res.mistakes } : undefined }); },
-        onCancel: function () { closeMiniGame(); },
-      }),
-    };
+        o.label = t.fixedFloor ? FLOORS[meta.num] : null;
+        o.onDone = function (res) {
+          var id = cellId, prep = mg && mg.prep;
+          markPending(id); closeMiniGame();
+          send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id),
+            mini: res && res.ms ? { kind: res.kind, level: res.level, ms: res.ms, mistakes: res.mistakes } : undefined,
+            prep: prep && prep.ms ? { ms: prep.ms, mistakes: prep.mistakes } : undefined });
+        };
+      }
+      send({ type: "game-stage", seat: mySeat(), catIdx: meta.catIdx, stage: stage, sushi: pickedSushi }); // 메인 모니터의 "지금 만드는 중" 표시용
+      mg.ctl = MiniGames.start(document.getElementById("mg-host"), o);
+    }
+    beginStage("prep");
     // 자동 테스트 전용(?mgtest=1): 게임을 실제로 풀지 않고 "풀었다"로 처리 -- 많은 칸을 한꺼번에 제작해야 하는
     // 회전 벨트 단계 테스트가 제작 시간 안에 끝나게 하려는 용도다. 미니게임 자체는 test_minigames.js와
     // test_minigames_live.js가 실제로 플레이하며 검증한다. 일반 접속에는 이 함수가 생기지 않는다.
@@ -1285,6 +1426,42 @@ APP_JS_TEMPLATE = r"""
     }
     updateMiniClock();
   }
+  // ---- 엿보기 (2026-10-12): 전반-후반 하프타임에 미니게임 1회(재도전 없음) -> 후반 벨트에서 횟수만큼 상대 주문표 1장씩 몰래 보기 ----
+  function openPeekGame() {
+    var seat = mySeat();
+    if (!seat || !state || state.phase !== "halftime" || mg || state.peek[seat].played || !window.MiniGames) return;
+    var layer = document.getElementById("mg-layer");
+    layer.innerHTML = '<div class="mg-wrap"><div id="mg-host"></div></div>';
+    layer.classList.remove("hidden");
+    mg = { cellId: null, kind: "peek", ctl: null };
+    mg.ctl = MiniGames.start(document.getElementById("mg-host"), {
+      kind: "peek", testHooks: TEST_HOOKS,
+      onCancel: function () { closeMiniGame(); },
+      onDone: function (res) {
+        closeMiniGame();
+        send({ type: "peek-result", seat: seat, mistakes: res && typeof res.mistakes === "number" ? res.mistakes : 3 });
+      },
+    });
+  }
+  function peekInfoFor(seat) { return (state && state.peek && state.peek[seat]) || { charges: 0, played: false, used: 0, seen: [] }; }
+  function usePeek() {
+    var seat = mySeat();
+    if (!seat || !state || state.phase !== "elevator" || state.half !== 2) return;
+    if (peekInfoFor(seat).charges <= 0) { showToast("남은 엿보기가 없어요"); return; }
+    send({ type: "use-peek", seat: seat });
+  }
+  function onPeekReveal(msg) {
+    if (!msg.ok) { showToast(msg.code === "nothing" ? "더 엿볼 상대 주문이 없어요" : (msg.code === "no_charge" ? "남은 엿보기가 없어요" : "지금은 엿볼 수 없어요")); return; }
+    var iv = findInvoiceById(msg.invoiceId);
+    if (!iv) return;
+    SFX.peek();
+    var old = document.getElementById("peek-pop"); if (old) old.remove();
+    var d = document.createElement("div");
+    d.id = "peek-pop"; d.className = "peek-pop";
+    d.innerHTML = '<small>상대 주문표를 엿봤어요</small><b>' + esc(roomCode(iv.floorIdx)) + '</b><span>' + esc(sushiShort(iv.sushi)) + ' 초밥</span>';
+    document.body.appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 3400);
+  }
   function updateMiniClock() {
     var el = document.getElementById("mg-clock");
     if (!el || !state || state.phase !== "secure" || !state.secureEndsAt) return;
@@ -1295,6 +1472,7 @@ APP_JS_TEMPLATE = r"""
   // 상태가 바뀔 때마다 호출: 제작 시간이 끝났거나 그 칸이 이미 제작됐으면(재접속 등) 열려 있던 게임을 닫는다.
   function syncMiniGame() {
     if (!mg) return;
+    if (mg.kind === "peek") { if (!state || state.phase !== "halftime") closeMiniGame(); return; }
     var why = cellBlockedReason(state, mg.cellId);
     if (why) { closeMiniGame(); showToast(why); }
   }
@@ -1418,12 +1596,27 @@ APP_JS_TEMPLATE = r"""
     return html;
   }
 
+  // 후반 전용: 엿보기 남은 횟수 + 이미 엿본 상대 주문표(아직 서빙 전인 것만). 상대의 접시/초밥 종류만 보인다.
+  function renderPeekPanel(st, seat) {
+    if (st.half !== 2) return '';
+    var pk = peekInfoFor(seat);
+    if (!pk.played && !pk.seen.length) return '';
+    var seenHtml = pk.seen.map(function (id) { return findInvoiceById(id); }).filter(function (iv) { return iv && iv.deliveredRound === null; }).map(function (iv) {
+      return '<div class="peek-seen">' + plateTag(iv.floorIdx) + '<b>' + esc(sushiShort(iv.sushi)) + ' 초밥</b></div>';
+    }).join('');
+    return '<div class="peek-panel"><h3>엿보기</h3>'
+      + '<button class="btn ghost" data-action="use-peek"' + (pk.charges > 0 ? '' : ' disabled') + '>상대 주문 엿보기<small>남은 ' + pk.charges + '회 · E 키</small></button>'
+      + (seenHtml ? '<div class="peek-seen-list">' + seenHtml + '</div>' : '<div class="peek-empty">' + (pk.charges > 0 ? '아직 엿본 주문이 없어요' : '엿보기를 다 썼어요') + '</div>')
+      + '</div>';
+  }
+
   function renderElevator(st, seat) {
     var html = '<main class="stage"><div class="elev-layout">';
     // left column: gauge, then my own package list directly beneath it -- opponent's list is
     // never rendered here (or anywhere in the elevator phase), only mine.
     html += '<div class="elev-left">' + renderShaft(st.elevator.floorIdx)
       + '<div class="player-col me"><h3>내 초밥</h3>' + renderInvoiceList(st, seat) + '</div>'
+      + renderPeekPanel(st, seat)
       + '</div>';
 
     html += '<div>';
@@ -1438,12 +1631,16 @@ APP_JS_TEMPLATE = r"""
       var otherSeat0 = seat === "1" ? "2" : "1";
       var myReady0 = !!st.elevator.readyNext[seat];
       var otherReady0 = !!st.elevator.readyNext[otherSeat0];
-      html += '<div style="margin-top:0.75rem;color:var(--muted);font-size:0.9rem;">제작한 초밥을 확인하고, 준비가 되면 스페이스바를 눌러주세요. 이어서 우선 초밥 지정 시간(' + (PRIORITY_PICK_MS / 1000) + '초)이 열려요.</div>';
+      html += rules3([
+        '<b>← →</b> 로 벨트를 돌려 내 초밥의 접시에 맞춰요 (라운드당 ' + (VOTE_MS / 1000) + '초)',
+        '라운드 시작 때 <b>우선 초밥</b> 1개를 고르면 서빙 성공 시 점수 x' + PRIORITY_MULTIPLIER,
+        st.half === 2 ? '후반: <b>초밥도둑</b>으로 상대를 막고, 얻은 <b>엿보기</b>로 상대 주문을 훔쳐봐요' : '못 팔면 마이너스 · 상대의 주문표는 안 보여요'
+      ]);
       html += '<div class="ready-row" style="margin-top:0.75rem;">'
         + '<span class="ready-chip' + (myReady0 ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady0 ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
         + '<span class="ready-chip' + (otherReady0 ? ' is-ready' : '') + '">' + seatName(otherSeat0, st) + (otherReady0 ? ' · 준비 완료' : ' · 대기 중') + '</span>'
         + '</div>'
-        + spaceHint('회전 벨트 시작');
+        + spaceHint('회전 벨트 시작') + gateAuto(st.elevator);
       html += '</div>';
 
       html += '</div></div></main>';
@@ -1482,8 +1679,10 @@ APP_JS_TEMPLATE = r"""
           + ' 상대를 기다리는 중...</div>';
       } else {
         html += '<div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem;">접시를 골라 배치하면, 다음 라운드에 상대가 그 접시에 서빙할 때 가로채서 상대에게 확정 마이너스 점수를 줘요. 이 후반 동안 총 ' + perHalf + '번까지 놓을 수 있고(라운드당 1개), 마지막 라운드엔 놓을 수 없으니 신중하게 골라주세요.</div>';
+        var peekedAt = {};
+        peekInfoFor(seat).seen.forEach(function (id) { var iv = findInvoiceById(id); if (iv && iv.deliveredRound === null) peekedAt[iv.floorIdx] = sushiShort(iv.sushi); });
         html += '<div class="thief-floors">' + FLOORS.map(function (f, i) {
-          return '<button class="btn ghost" data-action="place-thief" data-floor-idx="' + i + '">' + esc(f) + '</button>';
+          return '<button class="btn ghost' + (peekedAt[i] ? ' is-peeked' : '') + '" data-action="place-thief" data-floor-idx="' + i + '">' + esc(f) + (peekedAt[i] ? '<small>엿봄 · ' + esc(peekedAt[i]) + '</small>' : '') + '</button>';
         }).join('') + '<button class="btn ghost" data-action="skip-thief">건너뛰기</button></div>';
       }
       html += '<div class="time-left-big" id="thief-clock">' + (doneMine ? '' : '남은 시간 계산 중...') + '</div>';
@@ -1558,7 +1757,7 @@ APP_JS_TEMPLATE = r"""
         + '<span class="ready-chip' + (myReady ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
         + '<span class="ready-chip' + (otherReady ? ' is-ready' : '') + '">' + seatName(otherSeat, st) + (otherReady ? ' · 준비 완료' : ' · 대기 중') + '</span>'
         + '</div>'
-        + spaceHint(nextLabel);
+        + spaceHint(nextLabel) + gateAuto(st.elevator);
     }
     html += '</div>';
 
@@ -1581,7 +1780,16 @@ APP_JS_TEMPLATE = r"""
         + '<div class="chip">' + esc(seatName("2", st)) + '<span class="n">' + fmtWon(h1.scores["2"]) + '</span></div>'
         + '</div>';
     }
-    html += '<p style="color:var(--muted);font-size:0.9rem;">후반이 시작돼요. 초밥 보드가 새로 채워지고, 후반부터는 <strong style="color:var(--danger)">초밥도둑</strong>을 배치할 수 있어요.</p>';
+    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '엿보기에 성공하면 상대 주문표를 몰래 볼 수 있어요']);
+    var pkMe = peekInfoFor(seat), pkOther = peekInfoFor(otherSeat);
+    html += '<div class="peek-box">';
+    if (pkMe.played) {
+      html += '<div class="pb-done"><b>엿보기 ' + pkMe.charges + '회 획득</b><span>후반 회전 벨트에서 상대 주문표를 ' + pkMe.charges + '장 몰래 볼 수 있어요</span></div>';
+    } else {
+      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">상대 가게 창문 틈에 렌즈를 맞춰요. 실수가 적을수록 후반에 상대 주문표를 더 많이 볼 수 있어요 (1회만 도전).</div>'
+        + '<button class="btn primary" data-action="start-peek">엿보기 도전</button>';
+    }
+    html += '<div class="pb-other">' + esc(seatName(otherSeat, st)) + ' · ' + (pkOther.played ? '도전 완료' : '아직 도전 안 함') + '</div></div>';
     html += '<div class="ready-row">'
       + '<span class="ready-chip' + (myReady ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
       + '<span class="ready-chip' + (otherReady ? ' is-ready' : '') + '">' + seatName(otherSeat, st) + (otherReady ? ' · 준비 완료' : ' · 대기 중') + '</span>'
@@ -1689,12 +1897,65 @@ APP_JS_TEMPLATE = r"""
         if (blocked) { local.openCellId = null; notifyGameClosed(); setTimeout(function () { showToast(blocked); }, 0); }
       }
       // 레일 화면이 접속해 있으면 버튼은 그쪽에 있다 -- 내 화면은 "기다리는 화면"이고, 게임은 레일에서 눌렀을 때 뜬다.
-      body += (railInfo.count > 0 ? renderRailWaiting(state, seat) : renderBoard(state, seat)) + renderPuzzleOverlay(state);
+      body += (railInfo.count > 0 ? renderRailWaiting(state, seat) : renderBoard(state, seat)) + renderPuzzleOverlay(state) + introHtml(state, false);
     }
     else if (state.phase === "elevator") body += renderElevator(state, seat);
     else if (state.phase === "halftime") body += renderHalftime(state, seat);
     else if (state.phase === "end") body += renderEnd(state, seat);
     return body;
+  }
+  // 시작 10초 3컷 설명 (2026-10-12, 평가 G1): 전반 제작 단계가 시작되면 화면 아래에 컷 3개가 3.3초씩 지나간다.
+  // 조작을 막지 않고(pointer-events 없음) 시간도 안 뺏는다. 다시 그려져도 경과 시간만큼 애니메이션이 이어지게 음수 지연을 쓴다.
+  function introHtml(st, big) {
+    if (!st || st.phase !== "secure" || st.half !== 1 || !st.secureEndsAt) return '';
+    var elapsed = Math.max(0, SECURE_PHASE_MS - (st.secureEndsAt - nowMs()));
+    if (elapsed >= INTRO_MS) return '';
+    var cuts = [
+      ['초밥을 만들어요', '레일에서 종류를 골라 손질하고 퍼즐을 풀어요'],
+      ['주문표가 붙어요', '초밥마다 서빙할 접시가 정해져요 · 상대에겐 비밀'],
+      ['벨트를 돌려 서빙!', '내 접시에 맞추면 돈, 못 팔면 마이너스']
+    ];
+    return '<div class="intro3' + (big ? ' big' : '') + '" style="--el:' + (elapsed / 1000).toFixed(2) + 's">'
+      + cuts.map(function (c, i) {
+        return '<div class="cut" style="--d:' + (i * 3.34).toFixed(2) + 's"><i>' + (i + 1) + '</i><div><b>' + c[0] + '</b><span>' + c[1] + '</span></div></div>';
+      }).join('') + '</div>';
+  }
+  // 단계별 규칙은 3줄 이내 (평가 G2).
+  function rules3(lines) {
+    return '<ol class="rules3">' + lines.map(function (l) { return '<li>' + l + '</li>'; }).join('') + '</ol>';
+  }
+  // 게이트(idle/result) 자동 진행 카운트다운 (서버가 GATE_AUTO_MS 뒤 둘 다 준비로 처리한다).
+  function gateAuto(el) {
+    if (!el.gateEndsAt) return '';
+    return '<span class="gate-count" data-ends="' + el.gateEndsAt + '">' + Math.max(0, Math.ceil((el.gateEndsAt - nowMs()) / 1000)) + '초 뒤 자동 진행</span>';
+  }
+  // 메인 모니터 G4: 제작 중 실시간 현황 / 라운드 서빙 결과(이유 포함, 서빙된 주문표는 공개)
+  function mvLive(st) {
+    return '<div class="mv-live">' + ["1", "2"].map(function (sn) {
+      var made = st.board.filter(function (c) { return c.takenBy === sn; }).length;
+      var mk = railInfo.making && railInfo.making[sn];
+      var now = mk ? (TYPES[mk.catIdx].name + (mk.stage === "prep" ? ' 손질 중' : ' 제작 중')) : (st.seatOwners[sn] ? '다음 초밥 고르는 중' : '입장 대기');
+      return '<div class="mv-live-card' + (mk ? ' is-active' : '') + '"><b>' + esc(seatName(sn, st)) + '</b><span class="mv-live-now">' + esc(now) + '</span><small>만든 초밥 ' + made + '개</small></div>';
+    }).join('') + '</div>';
+  }
+  function mvResult(st) {
+    var el = st.elevator, entry = el.log && el.log[el.log.length - 1];
+    if (!entry || entry.round !== el.round) return '';
+    return '<div class="mv-res">' + ["1", "2"].map(function (sn) {
+      var d = null; entry.delivered.forEach(function (x) { if (x.seat === sn) d = x; });
+      var line, cls;
+      var invs = st.players[sn].invoices, done = invs.filter(function (v) { return v.deliveredRound !== null; }).length;
+      if (d) {
+        var t = TYPES[d.catIdx], iv = findInvoiceById(d.invoiceId), sname = iv ? sushiShort(iv.sushi) : '';
+        var nm = sname ? sname + ' 초밥' : t.name;
+        if (d.stolen) { line = FLOORS[d.floorIdx] + ' 접시 · ' + nm + ' — 초밥도둑에게 도난! ' + fmtWon(-t.penalty); cls = ' is-bad'; }
+        else { line = FLOORS[d.floorIdx] + ' 접시 · ' + nm + ' — 서빙 성공 ' + fmtWon(d.priority ? t.reward * PRIORITY_MULTIPLIER : t.reward) + (d.priority ? ' (우선 x' + PRIORITY_MULTIPLIER + ')' : ''); cls = ' is-ok'; }
+      } else {
+        line = (invs.length - done) ? (FLOORS[entry.floorIdx] + ' 접시에 맞는 주문이 없었어요') : '남은 주문이 없어요';
+        cls = ' is-none';
+      }
+      return '<div class="mv-res-row' + cls + '"><b>' + esc(seatName(sn, st)) + '</b><span>' + esc(line) + '</span><small>만든 초밥 ' + invs.length + '개 · 처리 ' + done + '개</small></div>';
+    }).join('') + '</div>';
   }
   function renderTopbarShell() {
     return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live</span><h1>초밥 서빙 게임</h1></div>'
@@ -1780,7 +2041,7 @@ APP_JS_TEMPLATE = r"""
       html += '<div class="board-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '">'
         + railSideButtons(st, "1", t, catIdx, left) + mid + railSideButtons(st, "2", t, catIdx, left) + '</div>';
     });
-    return html + '</div></div>';
+    return html + '</div>' + introHtml(st, false) + '</div>';
   }
   function railTick() {
     var c = document.getElementById("rv-clock"), b = document.getElementById("rv-bar");
@@ -1831,6 +2092,15 @@ APP_JS_TEMPLATE = r"""
       + (c ? '<span class="mv-seat-icon">' + COURIER_ICONS[idx] + '</span>' + esc(c.name) : '<span class="mv-seat-icon" style="color:var(--muted)">' + COURIER_ICONS[tIdx] + '</span><span style="color:var(--muted)">' + esc(team.name) + '</span>')
       + '<small>' + (!c ? '입장 대기' : (readyMap ? (ready ? readyWord + ' 완료' : '대기 중') : '입장 완료')) + '</small></div>';
   }
+  // 엿보기 현황 (하프타임: 획득 횟수 / 후반 벨트: 사용 횟수). 내용(무슨 주문표인지)은 보여주지 않는다.
+  function mvPeekRow(st, mode) {
+    if (!st.peek) return '';
+    return '<div class="mv-peek">' + ["1", "2"].map(function (sn) {
+      var pk = st.peek[sn];
+      var txt = mode === "halftime" ? (pk.played ? ('엿보기 ' + pk.charges + '회 획득') : '엿보기 도전 전') : ('엿보기 ' + pk.used + '회 사용 · 남은 ' + pk.charges + '회');
+      return '<span class="mv-peek-chip">' + esc(seatName(sn, st)) + ' · ' + txt + '</span>';
+    }).join('') + '</div>';
+  }
   function mvTime(endsAt, totalMs, opts) {
     // 큰 시계 한 덩어리. 값은 mainTick()이 채운다 (초기 문자열만 같은 규칙으로 미리 넣어 깜빡임을 막는다).
     opts = opts || {};
@@ -1878,7 +2148,7 @@ APP_JS_TEMPLATE = r"""
         + '<div class="mv-secure-top"><div class="mv-label">제작 남은 시간</div>'
         + mvTime(endsAt, SECURE_PHASE_MS, { lowMs: 30000 })
         + '<div class="mv-bar"><i data-ends="' + endsAt + '" data-total="' + SECURE_PHASE_MS + '"></i></div></div>'
-        + '<div class="mv-cats">' + cats + '</div></div>';
+        + '<div class="mv-cats">' + cats + '</div>' + mvLive(st) + '</div>' + introHtml(st, true);
     }
     else if (st.phase === "elevator") {
       var el = st.elevator, floorIdx = el.floorIdx;
@@ -1898,11 +2168,14 @@ APP_JS_TEMPLATE = r"""
       mvCont += mvDelta;
       html = head("회전 벨트 · " + halfName) + '<div class="mv-body"><div class="mv-elev">'
         + '<div class="mv-shaft">' + ringHtml(carFrom, 'mv', 'mv-car', mvCont) + '</div>'
-        + '<div class="mv-elev-main">'
+        + '<div class="mv-elev-main' + (el.state === "result" ? ' is-result' : '') + '">'
         + '<span class="mv-round">라운드 ' + el.round + ' / ' + ELEVATOR_ROUNDS + '</span>'
         + '<div class="mv-nowfloor"><span class="mv-label">현재 접시</span><span class="mv-floor-big">' + FLOORS[floorIdx] + '</span></div>'
         + '<div class="mv-state">' + esc(stateLabel) + '</div>'
-        + (ends ? mvTime(ends, 0, { sec: true }) : (wait ? '<div class="mv-wait">' + esc(wait) + '</div>' : ''))
+        + (ends ? mvTime(ends, 0, { sec: true }) : (wait && !((el.state === "idle" || el.state === "result") && el.gateEndsAt) ? '<div class="mv-wait">' + esc(wait) + '</div>' : ''))
+        + ((el.state === "idle" || el.state === "result") && el.gateEndsAt ? '<div class="mv-wait">' + esc(wait) + ' · <b class="mv-time mv-auto" data-ends="' + el.gateEndsAt + '" data-fmt="sec">' + mvFormat(el.gateEndsAt, 'sec') + '</b> 뒤 자동 진행</div>' : '')
+        + (el.state === "result" ? mvResult(st) : '')
+        + (st.half === 2 ? mvPeekRow(st, "elevator") : '')
         + '</div></div></div>';
       mvPrevFloor = floorIdx;
       return '<div class="mv">' + html + '</div>';
@@ -1913,6 +2186,7 @@ APP_JS_TEMPLATE = r"""
         + (h1 ? '<div class="mv-scores">' + ["1", "2"].map(function (sn) { return '<div class="mv-score">' + esc(seatName(sn, st)) + '<b>' + fmtWon(h1.scores[sn]) + '</b></div>'; }).join('') + '</div>' : '')
         + '<p>잠시 후 후반이 시작돼요</p>'
         + '<div class="mv-seats">' + mvSeatCard(st, "1", st.halftimeReady, "준비") + mvSeatCard(st, "2", st.halftimeReady, "준비") + '</div>'
+        + mvPeekRow(st, "halftime")
         + '</div></div>';
     }
     else if (st.phase === "end") {
@@ -2038,6 +2312,8 @@ APP_JS_TEMPLATE = r"""
       send({ type: "choose-delivery", seat: mySeat(), invoiceId: t.getAttribute("data-inv") });
       return;
     }
+    if (action === "start-peek") { openPeekGame(); return; }
+    if (action === "use-peek") { usePeek(); return; }
     if (action === "place-thief") {
       send({ type: "place-thief", seat: mySeat(), floorIdx: parseInt(t.getAttribute("data-floor-idx"), 10) });
       return;
@@ -2068,12 +2344,13 @@ APP_JS_TEMPLATE = r"""
       } else if (seat && state && state.phase === "elevator" && state.elevator.state === "priority" && !e.repeat && !state.elevator.priorityConfirmed[seat]) {
         e.preventDefault();
         send({ type: "confirm-priority", seat: seat });
-      } else if (seat && state && state.phase === "halftime" && !e.repeat && !state.halftimeReady[seat]) {
+      } else if (seat && state && state.phase === "halftime" && !mg && !e.repeat && !state.halftimeReady[seat]) {
         e.preventDefault();
         send({ type: "halftime-ready", seat: seat });
       }
       return;
     }
+    if (e.code === "KeyE" && !e.repeat && !mg && state && state.phase === "elevator" && state.half === 2) { usePeek(); return; }
     if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
       var seat2 = mySeat();
       if (seat2 && state && state.phase === "elevator" && state.elevator.state === "voting") {
@@ -2083,10 +2360,22 @@ APP_JS_TEMPLATE = r"""
     }
   });
 
+  // 5초 이상 조작이 없으면 눌러야 할 버튼이 깜빡인다 (제작 단계). 게이트 자동 진행 카운트다운도 여기서 갱신한다.
+  function nudgeTick() {
+    var idle = state.phase === "secure" && !mg && !local.openCellId && nowMs() - lastAct > 5000;
+    document.body.classList.toggle("nudge-on", idle);
+    Array.prototype.forEach.call(document.querySelectorAll(".gate-count[data-ends]"), function (e) {
+      e.textContent = Math.max(0, Math.ceil((parseInt(e.getAttribute("data-ends"), 10) - nowMs()) / 1000)) + "초 뒤 자동 진행";
+    });
+  }
+  document.addEventListener("pointerdown", function () { lastAct = Date.now(); });
+  document.addEventListener("keydown", function () { lastAct = Date.now(); });
+
   // ---------- local countdown display only: the server owns the actual round/phase transitions
   // via its own timers, so there is nothing for the client to "submit" or auto-advance here ----------
   setInterval(function () {
     if (!state) return;
+    if (!MAIN) nudgeTick();
     if (MAIN) { mainTick(); return; }
     if (RAIL) { railTick(); return; }
     updateMiniClock();
@@ -2127,6 +2416,7 @@ APP_JS_TEMPLATE = r"""
     }
   }, 200);
 
+  sfxButton();
   render();
   connectWS();
 })();
@@ -2144,6 +2434,7 @@ APP_JS = (APP_JS_TEMPLATE
           .replace("@@HERO_URL@@", HERO_URL)
           .replace("@@ELEVATOR_ROUNDS@@", str(ELEVATOR_ROUNDS))
           .replace("@@SECURE_PHASE_MS@@", str(SECURE_PHASE_MS))
+          .replace("@@VOTE_MS@@", str(VOTE_MS))
           .replace("@@PRIORITY_MULTIPLIER@@", str(PRIORITY_MULTIPLIER))
           .replace("@@SAME_FLOOR_CHOICE_MS@@", str(SAME_FLOOR_CHOICE_MS))
           .replace("@@HALVES@@", str(HALVES))

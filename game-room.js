@@ -102,7 +102,7 @@ function freshElevator() {
     // 그 플레이어(들)에게 5초간 어느 걸 먼저 보낼지 고르게 하는 중간 단계 (없으면 곧장 result로).
     // "result"는 5초 이동/선택이 끝난 뒤 두 플레이어 모두 스페이스바를 눌러야(readyNext) 다음
     // 라운드(또는 마지막 라운드라면 하프 종료)로 넘어가는 대기 단계.
-    round: 1, floorIdx: START_FLOOR_IDX, state: "idle", votingEndsAt: null,
+    round: 1, floorIdx: START_FLOOR_IDX, state: "idle", votingEndsAt: null, gateEndsAt: null,
     // votes: per-seat click counters, kept purely for the round log -- they no longer decide
     // anything and are never shown to players. Real movement is immediate, see vote().
     votes: { "1": { up: 0, down: 0 }, "2": { up: 0, down: 0 } },
@@ -133,6 +133,22 @@ function freshElevator() {
   };
 }
 
+// 엿보기(2026-10-12 신설): 전반 끝 하프타임에 미니게임으로 "엿보기 횟수"를 얻고, 후반 회전 벨트에서 횟수만큼
+// 상대의 아직 서빙 안 된 주문표 1장(접시+초밥)을 몰래 본다. charges=남은 횟수, played=하프타임 게임을 이미 했는지,
+// used=후반에 쓴 횟수, seen=내가 엿본 상대 주문표 id 목록(화면에는 내 것만 그린다 -- 전체 상태가 브로드캐스트되므로
+// 숨김은 UI 수준이다. 상대 주문표 자체가 이미 state.players에 있는 것과 같은 한계).
+// 게이트 자동 진행(2026-10-12, 평가 G3 "5초 이상 멈춤 없음"): 벨트의 idle/result 게이트는 둘 다 스페이스를 눌러야 넘어가는데,
+// 한쪽이 안 눌러서 화면이 멈추는 일이 없게 GATE_AUTO_MS 뒤엔 자동으로 둘 다 준비로 처리한다 (화면에 카운트다운 표시).
+const GATE_AUTO_MS = Number(process.env.GATE_AUTO_MS) || 15000;
+
+function freshPeek() {
+  return { "1": { charges: 0, played: false, used: 0, seen: [] }, "2": { charges: 0, played: false, used: 0, seen: [] } };
+}
+function peekChargesFor(mistakes) {
+  const m = Number.isFinite(mistakes) ? mistakes : 3;
+  return m <= 0 ? 3 : (m <= 2 ? 2 : 1);
+}
+
 function initialState() {
   return {
     phase: "lobby", // lobby -> secure -> elevator -> halftime -> secure -> elevator -> end -> (재시작 시) secure ...
@@ -149,6 +165,7 @@ function initialState() {
     elevator: freshElevator(),
     half: 1,
     halftimeReady: { "1": false, "2": false },
+    peek: freshPeek(),
     halfHistory: [], // [{half, players, scores}, ...] -- snapshot taken at the end of each half
     scores: null, // grand total across both halves, set once phase becomes "end"
     // restartReady: 종료 화면의 "다시 시작" 버튼용 준비 게이트 (2026-08-28 신설). phase가 "end"일
@@ -282,7 +299,23 @@ class GameRoom {
     if (this.state.phase !== "secure") return;
     this.state.phase = "elevator";
     this.state.elevator = freshElevator();
+    this._armGate();
     this.emit();
+  }
+
+  // idle/result 게이트가 열릴 때 호출: 자동 진행 시각을 찍고 타이머를 건다. 타이머 슬롯은 하나이고 이 시점엔 다른 타이머가 없다.
+  // 낡은 타이머가 다른 게이트를 건드리지 않게 gateEndsAt이 같은 때만 동작한다.
+  _armGate() {
+    const el = this.state.elevator;
+    const endsAt = Date.now() + GATE_AUTO_MS;
+    el.gateEndsAt = endsAt;
+    this._scheduleAt(endsAt, () => this._autoGate(endsAt));
+  }
+  _autoGate(expected) {
+    const el = this.state.elevator;
+    if (this.state.phase !== "elevator" || (el.state !== "idle" && el.state !== "result") || el.gateEndsAt !== expected) return;
+    this.setElevatorReady("1");
+    this.setElevatorReady("2");
   }
 
   // ---- elevator phase ----
@@ -497,6 +530,7 @@ class GameRoom {
     // and see what was just delivered before moving on.
     el.state = "result";
     el.readyNext = { "1": false, "2": false };
+    this._armGate();
     this.emit();
   }
 
@@ -565,6 +599,7 @@ class GameRoom {
     this.touch();
     el.readyNext[seat] = true;
     if (!(el.readyNext["1"] && el.readyNext["2"])) { this.emit(); return; }
+    el.gateEndsAt = null;
     if (el.state === "idle") {
       this._enterNextRound(); // begins round 1 (via thief window in 후반, or straight to voting); also emits
       return;
@@ -625,9 +660,39 @@ class GameRoom {
     this.state.elevator = freshElevator();
     this.state.half = 1;
     this.state.halfHistory = [];
+    this.state.peek = freshPeek();
     this.state.scores = null;
     this.state.restartReady = { "1": false, "2": false };
     this._startGame(); // phase -> "secure", secure 타이머 새로 시작, emit까지 포함
+  }
+
+  // 하프타임 엿보기 미니게임 결과 -- 1인 1회만 인정(재도전 불가). 실수 0/1/2+ 에 따라 3/2/1회.
+  peekEarned(seat, mistakes) {
+    if (this.state.phase !== "halftime") return;
+    const pk = this.state.peek[seat];
+    if (!pk || pk.played) return;
+    this.touch();
+    pk.played = true;
+    pk.charges = peekChargesFor(mistakes);
+    this.emit();
+  }
+
+  // 후반 회전 벨트 중: 횟수 1회를 써서 상대의 미서빙 주문표 1장을 엿본다(이미 엿본 것은 제외).
+  // 엿볼 게 없으면 횟수를 쓰지 않고 { ok:false, code:"nothing" }.
+  usePeek(seat) {
+    if (this.state.phase !== "elevator" || this.state.half !== 2) return { ok: false, code: "phase" };
+    const pk = this.state.peek[seat];
+    if (!pk || pk.charges <= 0) return { ok: false, code: "no_charge" };
+    const other = seat === "1" ? "2" : "1";
+    const pool = this.state.players[other].invoices.filter((inv) => inv.deliveredRound === null && !pk.seen.includes(inv.id));
+    if (!pool.length) return { ok: false, code: "nothing" };
+    this.touch();
+    const inv = pool[Math.floor(Math.random() * pool.length)];
+    pk.seen.push(inv.id);
+    pk.charges -= 1;
+    pk.used += 1;
+    this.emit();
+    return { ok: true, invoiceId: inv.id };
   }
 
   halftimeReady(seat) {
@@ -658,7 +723,8 @@ class GameRoom {
     if (this.timer) clearTimeout(this.timer);
     const ms = Math.max(0, ts - Date.now());
     this.timer = setTimeout(() => { this.timer = null; fn(); }, ms);
+    if (this.timer.unref) this.timer.unref(); // 서버는 http 서버가 프로세스를 붙잡아 준다 -- 직접 구동하는 테스트가 타이머 때문에 안 끝나는 일 방지
   }
 }
 
-module.exports = { GameRoom, initialState, scoreInvoice, resultLabel, totalScore };
+module.exports = { peekChargesFor, GameRoom, initialState, scoreInvoice, resultLabel, totalScore };

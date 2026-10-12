@@ -397,7 +397,7 @@ async function main() {
   const MAPCFG = [
     { cols: 5, rows: 4, houses: 8,  targets: 2, flash: 4500, similar: 0, blocks: 0 },
     { cols: 6, rows: 4, houses: 11, targets: 3, flash: 3000, similar: 4, blocks: 2 },
-    { cols: 9, rows: 6, houses: 20, targets: 4, flash: 2200, similar: 8, blocks: 10 },
+    { cols: 7, rows: 5, houses: 14, targets: 4, flash: 2500, similar: 6, blocks: 6 },
   ];
   assert(await page.evaluate(() => MiniGames.MAP_REPLAY_AFTER_MS) === 20000, "map replay unlocks 20 seconds after the game starts");
   const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };

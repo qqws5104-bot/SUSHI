@@ -88,7 +88,7 @@ async function playOpenGame(page) {
     await playIce(page);
   } else if (kind === "route") {
     const path = JSON.parse(await page.getAttribute("#mg-layer .mg-body", "data-plan")).path;
-    for (const ch of path) await page.keyboard.press(KEY[{ U: "up", D: "down", L: "left", R: "right" }[ch]]);
+    for (const v of path) await page.dispatchEvent(`#mg-layer .eu-hit[data-v="${v}"]`, "pointerdown");
   } else if (kind === "soko") {
     const rows = JSON.parse(await page.getAttribute("#mg-layer .mg-body", "data-plan")).rows, P = skParse(rows);
     const path = skSolve(P, P.player, P.boxes);
@@ -165,6 +165,17 @@ async function playMap(page) {
   }
 }
 
+// 2026-10-12: 초밥 하나 = 손질(타이밍 액션) -> 제작 퍼즐. 테스트 모드에서는 초록 구간이 막대 전체라 SPACE만 눌러도 통과한다.
+async function passPrep(page) {
+  for (let i = 0; i < 80; i++) {
+    const prep = await page.$("#mg-layer .mg-kind-prep");
+    if (!prep) { if (i > 5 && (await page.$("#mg-layer .mg-root"))) return; await page.waitForTimeout(100); continue; }
+    if (!(await page.$("#mg-layer .mg-kind-prep .mg-done.is-on"))) await page.keyboard.press("Space");
+    await page.waitForTimeout(90);
+  }
+  throw new Error("passPrep: 손질 단계를 통과하지 못함");
+}
+
 async function main() {
   const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
   const seedCtx = await browser.newContext();
@@ -202,6 +213,7 @@ async function main() {
 
   // ---- b. 일반 초밥 -> 초밥 담기(보통=L2), 남은 제작 시간 표시 ----
   await clickSel(p1, openSel("normal-1"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-ice")) === 1, { label: "일반 초밥 = 초밥 담기" });
   const clock = await p1.textContent("#mg-clock");
   assert(/^\d:\d\d$/.test(clock), "secure-phase clock shown inside the game layer, got: " + clock);
@@ -215,6 +227,7 @@ async function main() {
   const before = await icState(p1);
   assert(before[3] === 1, "1 slide made before the broadcast, got " + before);
   await clickSel(p2, openSel("normal-2"));
+  await passPrep(p2);
   await waitFor(async () => (await countSel(p2, "#mg-layer .mg-root")) === 1, { label: "p2 game open" });
   await p2.evaluate(() => window.__mgFinish());                      // p2가 칸 하나 제작 -> 서버가 p1에게도 state 브로드캐스트
   await waitFor(async () => (await myCount(p2, 0)) === 1, { label: "p2 secured one normal box" });
@@ -233,18 +246,20 @@ async function main() {
 
   // ---- e. 중급 -> 주문 서빙 (어려움=L3: 7x5 지도 / 주문표 4장) ----
   await clickSel(p1, openSel("fragile-1"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-map")) === 1, { label: "중급 = 주문 서빙" });
   const fMap = await p1.evaluate(() => { const b = document.querySelector("#mg-layer .mg-body"); return { grid: b.dataset.grid, targets: b.dataset.targets.split(";").length }; });
-  assert(fMap.grid === "9,6" && fMap.targets === 4, "중급 주문 서빙은 어려움(9x6 / 주문표 4), got " + JSON.stringify(fMap));
+  assert(fMap.grid === "7,5" && fMap.targets === 4, "중급 주문 서빙은 어려움(7x5 / 주문표 4), got " + JSON.stringify(fMap));
   await playOpenGame(p1);
   await waitFor(async () => (await myCount(p1, 1)) === 1, { label: "fragile box secured" });
   log("중급 초밥 칸 -> 주문 서빙(7x5, 주문표 4장) 완주 -> fragile-1 제작");
 
-  // ---- f. 지정 접시 -> 도마 닦기 (어려움=L3: 7x6 / 막힌 칸 3, 칸이 곧 서빙 접시) ----
+  // ---- f. 지정 접시 -> 도마 닦기 (어려움=L3: 6x5 / 막힌 칸 3, 칸이 곧 서빙 접시) ----
   await clickSel(p1, openSel("fixed-floor-2"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-route")) === 1, { label: "지정 접시 = 도마 닦기" });
   const rtPlan = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert(rtPlan.rows.length === 6 && rtPlan.rows[0].length === 7 && rtPlan.rows.join("").split("#").length - 1 === 3, "지정 접시 도마 닦기는 7x6 / 막힌 칸 3, got " + rtPlan.rows.join("/"));
+  assert(rtPlan.vertices.length === 7 && rtPlan.edges.length === 13, "지정 접시 도마 닦기는 점 7 / 선 13, got " + JSON.stringify(rtPlan.edges));
   await playOpenGame(p1);
   await waitFor(() => isFloorMine(p1, 1), { label: "fixed-floor-2 (주황) secured by really playing the route game" });
   // 제작된 칸의 얼굴에는 주문표 목적지(호수)가 찍힌다 -- 보드에서 주황 행 칸(fixed-floor 행의 2번째)의 .invoice-label을 읽는다.
@@ -254,10 +269,11 @@ async function main() {
     return lab ? lab.textContent : null;
   });
   assert(/^연어$/.test(faceText), `fixed-floor-2 face should show the sushi kind (연어), got ${faceText}`);
-  log(`지정 접시 칸 -> 도마 닦기(7x6) 진짜로 플레이해서 완주 -> 제작, 만든 초밥 ${faceText} (주황 접시 칸)`);
+  log(`지정 접시 칸 -> 도마 닦기(점 7·선 13) 진짜로 플레이해서 완주 -> 제작, 만든 초밥 ${faceText} (주황 접시 칸)`);
 
   // ---- g. 특선 초밥 -> 재료 정리(소코반) (어려움=L3: 상자 3개) ----
   await clickSel(p1, openSel("valuable-1"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-soko")) === 1, { label: "특선 초밥 = 재료 정리" });
   assert((await countSel(p1, ".puzzle-frame")) === 0, "valuable no longer shows the Ubongo puzzle image");
   assert((await countSel(p1, "#mg-layer .sk-box")) === 3, "어려움 재료 정리는 상자 3개");
@@ -267,6 +283,7 @@ async function main() {
 
   // ---- h. 포기: 제작되지 않음 ----
   await clickSel(p1, openSel("fixed-floor-3"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-route")) === 1, { label: "route open for give-up" });
   await clickSel(p1, "#mg-layer .mg-giveup");
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-root")) === 0, { label: "give-up closes" });
@@ -277,6 +294,7 @@ async function main() {
   // p2가 테스트 훅(__mgFinish)으로 칸을 "푼 것으로" 제작한다. 열어 둔 칸은 잠기지 않으므로 상대가 그 칸을 가져갈 수도 있다.
   async function p2Finish(cellId) {
     await clickSel(p2, openSel(cellId));
+    await passPrep(p2);
     await waitFor(async () => (await countSel(p2, "#mg-layer .mg-root")) === 1, { label: `p2 opened ${cellId}` });
     assert(await p2.evaluate(() => window.__mgFinish()), "p2 __mgFinish");
     await waitFor(async () => (await countSel(p2, "#mg-layer .mg-root")) === 0, { label: `p2 finished ${cellId}` });
@@ -284,6 +302,7 @@ async function main() {
   const toastText = (pg) => pg.evaluate(() => { const t = document.getElementById("toast"); return t ? t.textContent : ""; });
   // (1) 지정 접시: 내가 하던 그 접시를 상대가 먼저 제작 -> 내 게임이 닫히고 안내가 뜬다 (선점자 우선)
   await clickSel(p1, openSel("fixed-floor-4"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-route")) === 1, { label: "p1 route for fixed-floor-4" });
   await p2Finish("fixed-floor-4");
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-root")) === 0, { label: "p1 game closes when the opponent takes the floor first" });
@@ -293,6 +312,7 @@ async function main() {
   log("지정 접시: 상대가 먼저 제작하면 내 게임이 닫히고 안내(선점자 우선), 그 접시 버튼은 마감으로 표시");
   // (2) 일반 종류: 같은 종류 빈 칸이 남아 있으면 내 게임은 그대로, 마지막 개수까지 소진되면 닫힌다
   await clickSel(p1, openSel("fragile-2"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-map")) === 1, { label: "p1 map for fragile-2" });
   await p2Finish("fragile-2"); // p1이 열어 둔 칸 자체를 상대가 가져가도, 같은 종류 빈 칸이 있으니 내 게임은 유지
   await sleep(400);
@@ -308,6 +328,7 @@ async function main() {
 
   // ---- i. 제작 시간이 끝나면 열려 있던 게임이 닫힌다 ----
   await clickSel(p1, openSel("normal-3"));
+  await passPrep(p1);
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-root")) === 1, { label: "game open at the end" });
   await waitFor(async () => (await bodyText(p1)).includes("회전 벨트"), { timeout: 40000, label: "secure phase ends -> elevator" });
   assert((await countSel(p1, "#mg-layer .mg-root")) === 0, "an open game must be closed when the secure phase ends");

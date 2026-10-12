@@ -47,6 +47,17 @@ async function passPriority(p1, p2, nextSel) {
   await waitFor(async () => (await countSel(p1, ".priority-window")) === 0, { label: "priority window closes", timeout: 4000 });
 }
 
+// 2026-10-12: 초밥 하나 = 손질(타이밍 액션) -> 제작 퍼즐. 테스트 모드에서는 초록 구간이 막대 전체라 SPACE만 눌러도 통과한다.
+async function passPrep(page) {
+  for (let i = 0; i < 80; i++) {
+    const prep = await page.$("#mg-layer .mg-kind-prep");
+    if (!prep) { if (i > 5 && (await page.$("#mg-layer .mg-root"))) return; await page.waitForTimeout(100); continue; }
+    if (!(await page.$("#mg-layer .mg-kind-prep .mg-done.is-on"))) await page.keyboard.press("Space");
+    await page.waitForTimeout(90);
+  }
+  throw new Error("passPrep: 손질 단계를 통과하지 못함");
+}
+
 async function main() {
   const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
   const seedCtx = await browser.newContext();
@@ -80,7 +91,7 @@ async function main() {
   await waitFor(async () => {
     const t1 = await bodyText(p1), t2 = await bodyText(p2);
     return t1.includes("회전 벨트") && t2.includes("회전 벨트");
-  }, { label: "전반 elevator phase (idle gate) 도달", timeout: 15000 });
+  }, { label: "전반 elevator phase (idle gate) 도달", timeout: 60000 });
   log("전반 elevator phase 진입");
 
   // 전반 5라운드: 제작한 게 없어 서빙도 없다 -- idle/result 게이트만 통과시키며 흘려보낸다.
@@ -108,6 +119,7 @@ async function main() {
     const kind = id.replace(/-\d+$/, "");
     await clickSel(p1, kind === "fixed-floor" ? '[data-action="open-cell"][data-cell="' + id + '"]' : '.rail-btn[data-action="open-type"][data-cat="' + CAT_IDX[kind] + '"]');
     await p1.waitForTimeout(500);
+    await passPrep(p1);
   };
   const giveUp = async () => {
     // 미니게임의 포기 버튼(텍스트 '포기')을 누른다
@@ -119,7 +131,7 @@ async function main() {
   await openCell("normal-1");
   const iceRows = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan")).rows;
   const iceLen = iceSolve(iceRows).length;
-  assert_(await countSel(p1, "#mg-layer .mg-kind-ice") === 1 && iceLen >= 14 && iceLen <= 17, `일반 초밥 초밥 담기은 보통(L2, 최적 14~17번 미끄러짐)이어야 함, got ${iceLen}`);
+  assert_(await countSel(p1, "#mg-layer .mg-kind-ice") === 1 && iceLen >= 10 && iceLen <= 13, `일반 초밥 초밥 담기은 보통(L2, 최적 10~13번 미끄러짐)이어야 함, got ${iceLen}`);
   log(`후반 일반 초밥(초밥 담기, 보통): 최적 ${iceLen}번 미끄러짐`);
   await giveUp();
 
@@ -128,17 +140,17 @@ async function main() {
     const b = document.querySelector("#mg-layer .mg-body");
     return b ? { grid: b.dataset.grid, targets: b.dataset.targets.split(";").length, blocked: b.dataset.blocked.split(";").filter(Boolean).length } : null;
   });
-  assert_(mapInfo && mapInfo.grid === "9,6" && mapInfo.targets === 4 && mapInfo.blocked === 10, `중급 주문 서빙(어려움): 9x6 지도 / 목표 4개 / 공사장 10칸이어야 함, got ${JSON.stringify(mapInfo)}`);
+  assert_(mapInfo && mapInfo.grid === "7,5" && mapInfo.targets === 4 && mapInfo.blocked === 6, `중급 주문 서빙(어려움): 7x5 지도 / 목표 4개 / 공사장 6칸이어야 함, got ${JSON.stringify(mapInfo)}`);
   assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 1 && (await countSel(p1, "#mg-layer .mg-parcel")) === 4, "주문 서빙은 주문표 초밥 4개가 먼저 뜨고 지도는 가려져 있어야 함");
   await p1.waitForTimeout(3100); // 주문표 단계(2.5초)가 끝나면 지도가 뜬다
   assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 0, "주문표 단계가 끝나면 지도가 떠야 함");
-  log("후반 중급(주문 서빙, 어려움): 9x6 지도, 주문표 4장, 공사장 10칸, 주문표 -> 지도 순서");
+  log("후반 중급(주문 서빙, 어려움): 7x5 지도, 주문표 4장, 공사장 6칸, 주문표 -> 지도 순서");
   await giveUp();
 
   await openCell("fixed-floor-3");
   const rt = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.rows.length === 6 && rt.rows[0].length === 7 && rt.rows.join("").split("#").length - 1 === 3, `지정 접시 도마 닦기(어려움): 7x6 / 막힌 칸 3이어야 함, got ${rt.rows.join("/")}`);
-  log("후반 지정 접시(도마 닦기, 어려움): 6x5, 막힌 칸 3");
+  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.vertices.length === 7 && rt.edges.length === 13, `지정 접시 도마 닦기(어려움): 점 7 / 선 13이어야 함, got ${JSON.stringify(rt.edges)}`);
+  log("후반 지정 접시(도마 닦기, 어려움): 한붓그리기 점 7 / 선 13");
   await giveUp();
 
   await openCell("valuable-1");

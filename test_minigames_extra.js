@@ -104,66 +104,53 @@ async function main() {
     log("twin: 되돌리기/처음부터로 두 초밥원이 함께 돌아감");
   }
 
-  // ================= 도마 닦기 (한붓그리기) =================
+  // ================= 도마 닦기 (한붓그리기 -- 점+선 그래프, 오일러 경로) =================
   {
-    const MV = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] };
-    const sim = (rows, path) => { // 풀이가 실제로 모든 길 칸을 한 번씩만 지나는지
-      const W = rows[0].length; let start = -1, open = 0;
-      rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== "#") open++; if (ch === "S") start = y * W + x; }));
-      let p = start; const seen = new Set([p]);
-      for (const ch of path) { const x = p % W + MV[ch][0], y = ((p / W) | 0) + MV[ch][1]; if (x < 0 || y < 0 || x >= W || y >= rows.length || rows[y][x] === "#") return false; p = y * W + x; if (seen.has(p)) return false; seen.add(p); }
-      return seen.size === open;
+    const trailOk = (o) => { // 풀이 점 순서가 모든 선을 정확히 한 번씩 지나는가
+      const left = o.edges.map((e) => e.slice().sort((x, y) => x - y).join("-")); let ok = o.path.length === o.edges.length + 1;
+      for (let i = 0; i + 1 < o.path.length && ok; i++) { const k = [o.path[i], o.path[i + 1]].sort((x, y) => x - y).join("-"), at = left.indexOf(k); if (at < 0) ok = false; else left.splice(at, 1); }
+      return ok && left.length === 0;
     };
+    const degOf = (o) => { const d = o.vertices.map(() => 0); o.edges.forEach(([a, b]) => { d[a]++; d[b]++; }); return d; };
     const sizes = {};
-    for (const [lv, o] of await poolRows("route", 40)) { assert(sim(o.rows, o.path), `route L${lv}: generated plan's solution must cover every road cell exactly once`); sizes[lv] = o.rows.join("").replace(/#/g, "").length; }
-    log("route: 실행 중 생성한 판 모두 풀 수 있음 (길 칸 수 L1 " + sizes[1] + " / L2 " + sizes[2] + " / L3 " + sizes[3] + ")");
+    for (const [lv, o] of await poolRows("route", 40)) {
+      assert(trailOk(o), `route L${lv}: generated plan's solution must cover every line exactly once`);
+      const d = degOf(o), odd = d.filter((x) => x % 2).length;
+      assert(d.every((x) => x >= 2) && (lv === 1 ? odd === 0 : odd === 2), `route L${lv}: degrees >=2 and ${lv === 1 ? "no" : "exactly two"} odd points, got ${d}`);
+      if (odd === 2) assert(d[o.path[0]] % 2 === 1, `route L${lv}: solution starts at an odd point`);
+      sizes[lv] = o.edges.length;
+    }
+    log("route: 실행 중 생성한 판 모두 풀 수 있음 (얼룩 선 수 L1 " + sizes[1] + " / L2 " + sizes[2] + " / L3 " + sizes[3] + ")");
+    const tap = (v) => page.dispatchEvent(`.eu-hit[data-v="${v}"]`, "pointerdown");
     for (let lv = 1; lv <= 3; lv++) {
       await launch("route", lv);
-      const o = await plan(); await pressKeys(o.path);
+      const o = await plan(); for (const v of o.path) await tap(v);
       await waitFor(result, { label: `route L${lv} done` });
       const r = await result(); assert(r.ok && r.kind === "route" && r.mistakes === 0, "route clean run " + JSON.stringify(r));
-      log(`route L${lv}: 길 ${o.path.length + 1}칸을 한 번씩 지나 클리어 (${r.ms}ms, 실수 0)`);
+      log(`route L${lv}: 선 ${o.edges.length}개를 한 번씩 닦아 클리어 (${r.ms}ms, 실수 0)`);
     }
-    // 되돌리기 / 처음부터 / 막다른 길
-    const around = (rows, W, c) => Object.values(MV).map((d) => [c % W + d[0], ((c / W) | 0) + d[1]]).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < rows.length).map(([x, y]) => y * W + x);
-    function findDeadEnd(o) { // 해법 경로를 따라가다가 "남은 칸을 다 지날 수 없게 되는" 이웃 칸으로 벗어나는 지점 (게임 안의 검사와 같은 필요 조건)
-      const rows = o.rows, W = rows[0].length, open = []; let start = -1;
-      rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== "#") open.push(y * W + x); if (ch === "S") start = y * W + x; }));
-      const isOpen = new Set(open);
-      const doomed = (trail) => {
-        const vis = new Set(trail), head = trail[trail.length - 1], seen = new Set([head]), q = [head]; let n = 0;
-        while (q.length) { const c = q.pop(); for (const i of around(rows, W, c)) { if (!isOpen.has(i) || vis.has(i) || seen.has(i)) continue; seen.add(i); n++; q.push(i); } }
-        const remain = open.length - trail.length; if (n !== remain) return true;
-        let ends = 0;
-        for (const u of open) { if (vis.has(u)) continue; const deg = around(rows, W, u).filter((i) => isOpen.has(i) && (!vis.has(i) || i === head)).length; if (deg === 0) return true; if (deg === 1) { ends++; if (ends > 1 && remain > 1) return true; } }
-        return false;
-      };
-      const trail = [start];
-      for (let k = 0; k < o.path.length; k++) {
-        const head = trail[trail.length - 1];
-        for (const [ch, d] of Object.entries(MV)) { const x = head % W + d[0], y = ((head / W) | 0) + d[1], i = y * W + x; if (x < 0 || y < 0 || x >= W || y >= rows.length || !isOpen.has(i) || trail.includes(i) || ch === o.path[k]) continue; if (doomed([...trail, i])) return { prefix: o.path.slice(0, k), ch }; }
-        const d = MV[o.path[k]]; trail.push(head % W + d[0] + (((head / W) | 0) + d[1]) * W);
-      }
-      return null;
-    }
-    let o, found = null, W, st = async () => (await attr("data-rt")).split(",").map(Number);
-    for (let attempt = 0; attempt < 40 && !found; attempt++) { await launch("route", 3); o = await plan(); found = findDeadEnd(o); }
-    assert(found, "a generated puzzle with a dead-end move exists (tried 40)");
-    W = o.rows[0].length;
-    await pressKeys(o.path.slice(0, 4)); assert((await st())[2] === 5, "5 cells in trail");
-    await page.keyboard.press("z"); assert((await st())[2] === 4, "undo one cell");
-    await page.keyboard.press(KEY[o.path[3]]); await page.keyboard.press(KEY[({ U: "D", D: "U", L: "R", R: "L" })[o.path[3]]]); // 방금 지난 쪽으로 되돌아가기 = 이미 지난 칸 -> 안 움직임
-    assert((await st())[2] === 5, "can't step back onto a visited cell");
-    await page.keyboard.press("r"); assert((await st())[2] === 1, "R restarts at the start");
-    await pressKeys(found.prefix); await page.keyboard.press(KEY[found.ch]);
-    assert((await miss()) === 1, "walking into a dead end is one mistake");
+    // 방향키 + Space 조작, 되돌리기 / 처음부터 / 막다른 길
+    const st = async () => (await attr("data-eu")).split(",").map(Number);
+    await launch("route", 3); let o = await plan();
+    await tap(o.path[0]); assert((await st()).join() === `${o.path[0]},0`, "tapping a point starts there");
+    await tap(o.path[1]); await tap(o.path[2]); assert((await st())[1] === 2, "two lines wiped");
+    await page.keyboard.press("z"); assert((await st())[1] === 1, "Z undoes one line");
+    await page.keyboard.press("r"); assert((await st()).join() === "-1,0", "R restarts with no start point");
+    // 짝수 점에서 시작하면 어차피 못 끝낸다 -> 첫 선을 닦는 순간 막다른 길 = 실수 1회 + 안내
+    const deg = degOf(o), evenV = deg.findIndex((x) => x % 2 === 0);
+    await tap(evenV); const nb = o.edges.find((e) => e.includes(evenV)), other = nb[0] === evenV ? nb[1] : nb[0];
+    await tap(other);
+    assert((await miss()) === 1, "starting at an even point wastes the run: one mistake once the dead end happens");
     assert((await page.textContent(".mg-freeze-note")).length > 0, "a note explains the dead end");
     await page.keyboard.press("z");
     assert((await page.textContent(".mg-freeze-note")).length === 0 && (await miss()) === 1, "undoing out of the dead end clears the note");
-    await page.keyboard.press("r"); await pressKeys(o.path);
+    await page.keyboard.press("r"); for (const v of o.path) await tap(v);
     await waitFor(result, { label: "route after dead end done" });
     assert((await result()).mistakes === 1, "the dead-end mistake is in the result");
-    log("route: 지난 칸은 못 감, Z 한 칸 되돌리기, R 처음부터, 막다른 길 = 실수 1회 + 안내");
+    // 키보드만으로: 방향키로 시작 점 선택 후 Space, 방향키로 선 따라가기 (가장 가까운 방향의 선)
+    await launch("route", 1); o = await plan();
+    await page.keyboard.press("Space"); assert((await st())[0] >= 0, "Space starts at the highlighted point");
+    log("route: 점 눌러 시작/선 닦기, Z 한 선 되돌리기, R 처음부터, 막다른 길 = 실수 1회 + 안내, Space로 키보드 시작");
   }
 
   // ================= 컨베이어 잇기 =================
