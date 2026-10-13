@@ -209,6 +209,14 @@ for _k in ("egg", "whitefish", "salmon", "eel"):
         with open(_p, "rb") as _f:
             SUSHI_IMG[_k] = "data:image/webp;base64," + base64.b64encode(_f.read()).decode("ascii")
 SUSHI_IMG_JSON = json.dumps(SUSHI_IMG, ensure_ascii=False)
+# 2026-10-12 레일 손질 게임용 재료 일러스트(사용자 제공): art/prep_<bowl|pan|salmon|whitefish|eel>.webp
+PREP_IMG = {}
+for _k in ("bowl", "pan", "salmon", "whitefish", "eel"):
+    _p = os.path.join(os.path.dirname(__file__), "art", "prep_" + _k + ".webp")
+    if os.path.exists(_p):
+        with open(_p, "rb") as _f:
+            PREP_IMG[_k] = "data:image/webp;base64," + base64.b64encode(_f.read()).decode("ascii")
+PREP_IMG_JSON = json.dumps(PREP_IMG, ensure_ascii=False)
 ROOMS_JSON = json.dumps(ROOMS, ensure_ascii=False)
 
 HEAD_HTML = """<!doctype html>
@@ -449,7 +457,7 @@ HEAD_HTML = """<!doctype html>
   @media (prefers-reduced-motion: reduce) { .rail-btn.is-busy { animation:none; } }
 
   /* 플레이어 화면(레일 모드)의 대기 카드 */
-  .rw { display:flex; flex-direction:column; gap:0.8rem; }
+  .rw { display:flex; flex-direction:column; gap:0.8rem; padding:1rem 1.2rem; }
   .rw h2 { margin:0; font-size:1.3rem; }
   .rw-sub { margin:0; color:var(--muted); font-size:0.9rem; }
   .rw-sub b { color:var(--ink); }
@@ -462,8 +470,54 @@ HEAD_HTML = """<!doctype html>
   .rw-name small { font-weight:700; color:var(--muted); font-size:0.72rem; }
   .rw-left { font-family:var(--font-display); font-weight:700; font-size:0.85rem; white-space:nowrap; }
   .rw-left b { font-size:1.1rem; }
-  .rw-mine { display:flex; flex-wrap:wrap; gap:0.25rem; justify-content:flex-end; }
+  .rw-mine { display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end; }
   .rw-mine small { color:var(--muted); }
+  .rw-chips { display:flex; flex-wrap:wrap; gap:0.25rem; justify-content:flex-end; }
+  .rw-row.has-kai { box-shadow:0 0 0 3px color-mix(in srgb, var(--c) 35%, transparent); }
+  .rw-kai { color:var(--c); }
+  .rw-mine .rail-btn { padding:0.45rem 0.9rem; min-width:9rem; }
+
+  /* 레일 화면 제작 단계(2026-10-12): 공용 화면 좌/우 패널, 각자 동시에 손질 */
+  .rp-wrap { flex:1 1 0; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:clamp(0.5rem,1.6vw,1.4rem); }
+  .rp { min-height:0; display:flex; flex-direction:column; gap:0.45rem; padding:0.7rem 0.8rem; border-radius:18px; border:var(--pop-line,3px) solid var(--ink); background:var(--panel); box-shadow:0 5px 0 var(--ink); overflow:hidden; }
+  .rp-1 { border-color:#D9382E; box-shadow:0 5px 0 #D9382E; }
+  .rp-2 { border-color:#1F4FA8; box-shadow:0 5px 0 #1F4FA8; }
+  .rp-name { display:flex; align-items:center; gap:0.5rem; color:var(--c); font-family:var(--font-display); font-size:clamp(1.1rem,3.2vh,1.8rem); font-weight:800; }
+  .rp-name small { color:var(--muted); font-size:0.8rem; }
+  .rp-name-ico { width:1.3em; height:1.3em; display:inline-flex; }
+  .rp-name-ico svg { width:100%; height:100%; }
+  .rp-stock { display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 0.4rem; }
+  .rp-stock-label { font-size:0.78rem; font-weight:800; color:var(--muted); }
+  .rp-chip { display:inline-flex; align-items:center; gap:0.25rem; padding:0.1rem 0.55rem; border-radius:999px; border:2px solid var(--c); font-size:0.82rem; font-weight:700; opacity:0.55; background:#fff; }
+  .rp-chip.has { opacity:1; background:color-mix(in srgb, var(--c) 30%, #fff); }
+  .rp-chip-ico { width:1.1em; height:1.1em; display:inline-flex; }
+  .rp-chip-ico svg { width:100%; height:100%; }
+  .rp-chip b { font-size:1rem; }
+  .rp-keys { font-size:0.78rem; font-weight:700; color:var(--muted); }
+  .rp-msg { min-height:1.5em; font-weight:800; font-size:0.95rem; }
+  .rp-msg.is-ok { color:var(--ok); }
+  .rp-msg.is-bad { color:var(--danger); }
+  .rp-menu { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:0.5rem; justify-content:center; }
+  .rp-pick { font-family:var(--font-display); font-weight:800; font-size:clamp(1rem,2.6vh,1.4rem); }
+  .rp-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.5rem; }
+  .rp-card { --c:#ccc; display:grid; grid-template-columns:auto 1fr; grid-template-areas:"ico name" "ico sub" "left left"; align-items:center; gap:0 0.5rem; text-align:left; padding:0.55rem 0.7rem; border-radius:14px; border:3px solid var(--c); background:#fff; color:var(--ink); font:inherit; cursor:pointer; }
+  .rp-card .rp-ico { grid-area:ico; width:4.2rem; height:3.2rem; display:inline-flex; align-items:center; justify-content:center; }
+  .rp-card .rp-ico svg, .rp-card .rp-ico img { width:100%; height:100%; object-fit:contain; }
+  .rp-card b { grid-area:name; font-family:var(--font-display); font-size:clamp(0.95rem,2.4vh,1.2rem); }
+  .rp-card small { grid-area:sub; color:var(--muted); font-weight:700; }
+  .rp-card .rp-left { grid-area:left; font-size:0.82rem; font-weight:700; margin-top:0.2rem; }
+  .rp-card.is-sel { background:color-mix(in srgb, var(--c) 35%, #fff); outline:4px solid var(--ink); outline-offset:2px; transform:translateY(-2px); }
+  .rp-card:disabled { opacity:0.45; cursor:not-allowed; }
+  .rp-help { margin:0; font-size:0.85rem; color:var(--muted); }
+  .rp-help b { color:var(--ink); }
+  .rp-game { flex:1 1 auto; min-height:0; display:none; overflow:auto; }
+  .rp.is-playing .rp-game { display:block; }
+  .rp.is-playing .rp-menu { display:none; }
+  .rp-game .mg-root { max-width:100%; }
+  .rp-game .mg-hint { display:none; }
+  .rp-game .tm-stage { width:min(100%,330px); }
+  .rp-game .pr-art { max-height:140px; }
+  .rp-game .mg-head { margin-bottom:0.3rem; }
   @media (max-width:560px) { .rw-row { grid-template-columns:auto minmax(0,1fr) auto; } .rw-mine { grid-column:1 / -1; justify-content:flex-start; } }
 
   /* on genuinely short viewports, shrink the chrome around the board (topbar + side-timer) too --
@@ -676,6 +730,12 @@ HEAD_HTML = """<!doctype html>
   .sa-half::after { content:""; position:absolute; left:0; right:0; top:0; height:7%; background:var(--cd); box-shadow:0 4px 0 rgba(0,0,0,0.18); }
   .sa-sign { position:absolute; top:23%; display:flex; align-items:center; gap:0.6rem; padding:0.35rem 1.4rem 0.45rem; background:#fff6dc; border:var(--pop-line) solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); color:var(--c); font-family:var(--font-pop); font-size:clamp(1.9rem,5.2vw,4.2rem); line-height:1.1; white-space:nowrap; }
   .sa-sign svg { width:1.05em; height:1.05em; fill:currentColor; flex:none; }
+  .sa-long { font-size:clamp(1.3rem,3.4vw,2.9rem); top:8%; }
+  .name-row { display:flex; align-items:center; justify-content:center; gap:0.6rem; margin:0 0 0.8rem; font-family:var(--font-pop); }
+  .name-row span { font-size:0.9rem; color:var(--muted); }
+  .name-in { width:11em; max-width:60%; padding:0.45rem 0.8rem; font:inherit; font-size:1.15rem; text-align:center; color:var(--ink); background:#fff; border:var(--pop-line) solid var(--ink); border-radius:12px; box-shadow:0 3px 0 var(--ink); }
+  .name-in:focus { outline:3px solid var(--gold); outline-offset:2px; }
+  .lobby-box .name-row { margin:0.4rem 0 1rem; }
   .sa-king .sa-sign { left:5%; transform:rotate(-3deg); }
   .sa-hunter .sa-sign { right:5%; transform:rotate(3deg); }
   .sa-noren { position:absolute; top:7%; display:flex; gap:0.5%; }
@@ -858,6 +918,9 @@ APP_JS_TEMPLATE = r"""
   function spaceHint(label) {
     return '<div class="space-hint"><span class="sh-key">SPACE</span><span class="sh-label">' + label + '</span></div>';
   }
+  var PREP_IMGS = @@PREP_IMG_JSON@@;   // 레일 손질 재료 일러스트(bowl/pan/salmon/whitefish/eel)
+  if (window.MiniGames && MiniGames.setPrepImages) MiniGames.setPrepImages(PREP_IMGS);
+  var PREP_CARD_IMG = { egg: "pan", whitefish: "whitefish", eel: "eel", salmon: "salmon" };   // 레일 메뉴 카드 그림 (계란은 완성된 달걀말이)
   var SUSHI_IMG = @@SUSHI_IMG_JSON@@;   // 초밥 키 -> 일러스트(data URI, 투명 컷아웃)
   // 보드 한 줄(종류)의 배경 일러스트: 그 종류의 초밥 컷아웃. 없으면 예전 상자 그림.
   function railArt(catIdx) {
@@ -928,7 +991,7 @@ APP_JS_TEMPLATE = r"""
     else { var m = /^fixed-floor-(\d+)$/.exec(t.getAttribute("data-cell") || ""); if (m) plate = parseInt(m[1], 10) - 1; }
     var a = t.getAttribute("data-action") || "";
     if (plate !== null && !isNaN(plate)) SFX.plate(plate);
-    else if (a === "open-type" || a === "open-cell" || a === "rail-press" || a === "start-peek" || a === "use-peek") SFX.select();
+    else if (a === "open-type" || a === "open-cell" || a === "rail-start" || a === "start-peek" || a === "use-peek") SFX.select();
     else SFX.click();
   }, true);
   document.addEventListener("keydown", function (e) {
@@ -1080,7 +1143,7 @@ APP_JS_TEMPLATE = r"""
         syncMiniGame();
       }
       else if (msg.type === "error") { handleWsError(msg); }
-      else if (msg.type === "open-game") { onRailOpenGame(msg.cellId); }
+      else if (msg.type === "rail-result") { railResult(msg); }
       else if (msg.type === "peek-reveal") { onPeekReveal(msg); }
     };
     ws.onclose = function () { wsConnected = false; renderConnBanner(); setTimeout(connectWS, 1200); };
@@ -1095,6 +1158,9 @@ APP_JS_TEMPLATE = r"""
       try { sessionStorage.removeItem("bp-seat"); } catch (e) {}
       showToast(seatName(msg.seat, state) + " 자리는 이미 다른 사람이 앉았어요.");
       render();
+    }
+    else if (msg.code === "name_taken") {
+      showToast("상대 팀과 같은 이름은 쓸 수 없어요. 다른 이름을 지어주세요.");
     }
     else if (msg.code === "room_full") {
       showToast("이 방은 이미 두 명이 다 찼어요.");
@@ -1163,10 +1229,20 @@ APP_JS_TEMPLATE = r"""
     for (var i = 0; i < COURIERS.length; i++) if (COURIERS[i].key === key) return COURIERS[i];
     return null;
   }
+  // 2026-10-12: 팀 이름은 플레이어가 직접 짓는다(st.names, 서버가 정리·저장). 비어 있으면 자리의 기본 이름(빨강팀/남색팀).
+  var NAME_MAX = 8;
+  function defaultName(seat) { var c = COURIERS[Number(seat) - 1]; return c ? c.name : ("플레이어 " + seat); }
   function seatName(seat, st) {
-    var key = st && st.courierPick && st.courierPick[seat];
-    var c = key ? courierByKey(key) : null;
-    return c ? c.name : ("플레이어 " + seat);
+    var n = st && st.names && st.names[seat];
+    return n ? n : defaultName(seat);
+  }
+  // 이름 입력칸: render()가 #app을 통째로 갈아끼우므로 입력 중이던 값/커서/포커스를 보존한다. 한글 조합 중에는 렌더를 미룬다.
+  var nameDraft = null;          // 입장 전 입력 중인 이름 (입장 버튼 누르면 서버로 보낸다)
+  var nameComposing = false, renderPending = false;
+  try { nameDraft = localStorage.getItem("bp-name"); } catch (e) {}
+  function saveNameDraft(v) { nameDraft = v; try { localStorage.setItem("bp-name", v); } catch (e) {} }
+  function nameInput(id, value, ph) {
+    return '<input id="' + id + '" class="name-in" type="text" maxlength="' + NAME_MAX + '" autocomplete="off" spellcheck="false" value="' + esc(value || "") + '" placeholder="' + esc(ph) + '" aria-label="팀 이름">';
   }
 
   // 시작(셰프 선택) 화면 뒤에 옅게 흩뿌리는 장식용 초밥상자 라인아트 -- 2026-08-27 신설
@@ -1188,34 +1264,36 @@ APP_JS_TEMPLATE = r"""
     var mine = owner && owner === CLIENT_ID;
     return '<div class="team-card team-' + c.key + (owner ? ' is-in' : '') + (mine ? ' is-mine' : '') + '" style="--team:' + c.color + '">'
       + '<span class="team-icon">' + COURIER_ICONS[i] + '</span>'
-      + '<b class="team-name">' + esc(c.name) + '</b>'
+      + '<b class="team-name">' + esc(seatName(sn, state)) + '</b>'
       + '<span class="team-state">' + (mine ? '내 자리' : (owner ? '입장 완료' : '대기 중')) + '</span></div>';
   }
   // 시작 화면 배경 일러스트(코드로 그림). 사진 같은 질감 없이 평면 도형 + 팀 색 + 회전 레일만으로 구성한다.
   var CROWN_SVG = '<svg viewBox="0 0 24 20" aria-hidden="true"><path d="M2 5l5.5 5L12 2l4.5 8L22 5l-2 13H4z"/></svg>';
   var FISH_SVG = '<svg viewBox="0 0 26 14" aria-hidden="true"><path d="M2 7c0-3.4 3.6-5.6 8-5.6 3.2 0 5.8 1.2 7.2 3.2L24 1.6v10.8l-6.8-3.2C15.8 11.2 13.2 12.6 10 12.6 5.6 12.6 2 10.4 2 7z"/></svg>';
-  function splashArt() {
+  function splashArt(st) {
     var keys = ["egg", "salmon", "whitefish", "eel"], cols = ["#d93a2b", "#1f3f87", "#f2b233", "#2f9e6a"], plates = "", i;
     for (i = 0; i < 16; i++) {
       var k = keys[i % 4];
       plates += '<span class="sa-plate" style="--pc:' + cols[(i * 3) % 4] + '">' + (window.MiniGames && MiniGames.SUSHI[k] ? MiniGames.sushiSvg(k, "sa-sushi") : '') + '</span>';
     }
     return '<div class="splash-art" aria-hidden="true">'
-      + '<div class="sa-half sa-king"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign">' + CROWN_SVG + '초밥왕</div></div>'
-      + '<div class="sa-half sa-hunter"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign">스시헌터' + FISH_SVG + '</div></div>'
+      + '<div class="sa-half sa-king"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign' + (Array.from(seatName("1", st)).length > 5 ? ' sa-long' : '') + '">' + CROWN_SVG + esc(seatName("1", st)) + '</div></div>'
+      + '<div class="sa-half sa-hunter"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign' + (Array.from(seatName("2", st)).length > 5 ? ' sa-long' : '') + '">' + esc(seatName("2", st)) + FISH_SVG + '</div></div>'
       + '<div class="sa-vs">VS</div>'
       + '<div class="sa-belt"><div class="sa-track">' + plates + plates + '</div></div></div>';
   }
   function renderSeatPicker() {
     var roomFull = state && state.seatOwners["1"] && state.seatOwners["2"]
       && state.seatOwners["1"] !== CLIENT_ID && state.seatOwners["2"] !== CLIENT_ID;
-    var nextTeam = state && !state.seatOwners["1"] ? COURIERS[0] : COURIERS[1];
+    var nextSeat = state && !state.seatOwners["1"] ? "1" : "2";
+    var nextTeam = COURIERS[Number(nextSeat) - 1];
     // 2026-10-12: 게임 시작 화면 = 콘셉트 이미지가 화면 전체(배경). 그림 위에 입장 패널만 얹는다 (카드 안에 일러스트를 끼우는 구조가 아님).
-    return '<div class="splash">' + splashArt() + '<div class="splash-panel">'
+    return '<div class="splash">' + splashArt(state) + '<div class="splash-panel">'
       + '<div class="team-row">' + teamCard(0) + '<span class="vs-badge">VS</span>' + teamCard(1) + '</div>'
+      + (roomFull ? '' : '<label class="name-row"><span>우리 팀 이름</span>' + nameInput("name-join", nameDraft, "비우면 " + nextTeam.name) + '</label>')
       + '<button class="btn primary big join-btn" data-action="join-team"' + (roomFull ? ' disabled' : '') + '>'
-      + (roomFull ? '방이 가득 찼어요' : ('입장하기 · ' + esc(nextTeam.name) + '로 시작')) + '</button>'
-      + '<div class="room-share">먼저 들어온 사람이 초밥왕, 다음 사람이 스시헌터 · 방 코드 <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
+      + (roomFull ? '방이 가득 찼어요' : '입장하기') + '</button>'
+      + '<div class="room-share">팀 이름은 입장 전·대기실에서 바꿀 수 있어요(최대 ' + NAME_MAX + '글자) · 방 코드 <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
       + '<div class="screen-links">초밥 확보(레일)·관전(메인)은 다른 화면에서: <a href="/rail?room=' + encodeURIComponent(ROOM) + '" target="_blank" rel="noopener">레일 화면 열기</a><a href="/?room=' + encodeURIComponent(ROOM) + '&view=main" target="_blank" rel="noopener">메인 화면 열기</a></div>'
       + '</div></div>';
   }
@@ -1236,6 +1314,7 @@ APP_JS_TEMPLATE = r"""
     var other = otherSeat ? !!st.ready[otherSeat] : false;
     return '<main class="stage"><div class="center-screen"><div class="lobby-box card">'
       + '<h2>' + esc(seatName("1", st)) + ' VS ' + esc(seatName("2", st)) + '</h2>'
+      + (seat ? '<label class="name-row"><span>우리 팀 이름</span>' + nameInput("name-lobby", st.names && st.names[seat], defaultName(seat)) + '</label>' : '')
       + '<p class="rule-note">초밥마다 판매가가 달라요(계란 1,000 · 흰살생선 2,000 · 연어 1,500 · 장어 3,000). 만든 초밥을 라운드 안에 못 팔면(서빙 못 함 · 도둑에게 뺏김) <b>원재료값</b>만큼 점수가 깎여요.</p>'
       + '<p>두 사람 모두 입장했으면 각자 자기 키보드의 <strong>스페이스바</strong>를 눌러 준비하세요.<br>'
       + '둘 다 준비되면 자동으로 시작하고, 최대 3분 동안(초밥이 다 떨어지면 일찍 끝나요) 초밥을 만든 뒤 회전 벨트 라운드(총 ' + ELEVATOR_ROUNDS + '라운드)로 넘어가요. 전반·후반 두 번 하고 점수를 합산해요.</p>'
@@ -1260,6 +1339,11 @@ APP_JS_TEMPLATE = r"""
   }
   // 이 칸을 지금 눌러서 제작할 수 있는가. 지정 초밥은 그 접시(칸)이 비어 있어야 하고, 나머지 종류는 같은 종류
   // 빈 칸이 하나라도 있으면 된다(서버가 대신 빈 칸을 준다). 반환: null이면 가능, 아니면 사유 문구.
+  // 2026-10-12 레일 모드: 레일 화면이 연결돼 있으면 손질(회 만들기)은 레일에서, 자리에서는 재료함의 회로 퍼즐 조립만 한다.
+  function railMode() { return !MAIN && !RAIL && railInfo.count > 0; }
+  function stockOf(st, seat, catIdx) { return (st && st.stock && st.stock[seat] && st.stock[seat][catIdx]) || 0; }
+  function prepLeft(st, catIdx) { return boardLeft(st, catIdx) - stockOf(st, "1", catIdx) - stockOf(st, "2", catIdx); } // 아직 손질로 선점 가능한 공급량
+  var PREP_LABEL = { egg: "휘젓기", whitefish: "칼질", eel: "굽기", salmon: "뼈 발라내기" };
   function cellBlockedReason(st, cellId) {
     if (!st || st.phase !== "secure") return "제작 시간이 끝났어요";
     var c = boardCell(st, cellId);
@@ -1366,15 +1450,10 @@ APP_JS_TEMPLATE = r"""
   // 칸을 연다: 미니게임이 있는 종류면 게임, 없으면(특선 초밥) 우봉고 오버레이. open-cell 버튼/레일 화면 지시가 같이 쓴다.
   function openCell(cellId) {
     var m = cellMeta(cellId, state.half);
+    if (railMode() && m && stockOf(state, mySeat(), m.catIdx) <= 0) { showToast("재료함에 회가 없어요 — 레일 화면에서 먼저 손질하세요"); return; }
     if (m && TYPES[m.catIdx].mini && window.MiniGames) { openMiniGame(cellId); return; }
     newSushiPick(cellId);
     local.openCellId = cellId; render();
-  }
-  // 레일 화면이 "이 칸을 풀어라"고 보냈을 때. 이미 뭔가 하고 있으면(서버도 막지만 경합 대비) 무시한다.
-  function onRailOpenGame(cellId) {
-    if (!state || state.phase !== "secure" || mg || local.openCellId) return;
-    if (cellBlockedReason(state, cellId)) { notifyGameClosed(); return; }
-    openCell(cellId);
   }
   // 레일이 열어 준 게임을 닫았다(포기/시간 종료/소진)는 걸 서버에 알린다 -- 레일 화면의 "플레이 중" 표시와 중복 지시 방지용.
   function notifyGameClosed() { send({ type: "game-closed", seat: mySeat() }); }
@@ -1388,7 +1467,8 @@ APP_JS_TEMPLATE = r"""
     layer.classList.remove("hidden");
     // 2026-10-12: 초밥 하나 = 손질(액션형 칼질 타이밍) -> 제작(종류별 퍼즐) 두 단계. 칸은 손질을 시작하는 순간부터 내 칸이고,
     // 서버에는 제작까지 끝낸 뒤 secure-cell 한 번만 보낸다(서버 규칙은 그대로).
-    mg = { cellId: cellId, ctl: null, stage: "prep", prep: null };
+    var fromStock = railMode(); // 레일 모드: 손질은 이미 레일에서 끝냈다 -- 재료함의 회로 조립(퍼즐)만 한다
+    mg = { cellId: cellId, ctl: null, stage: fromStock ? "make" : "prep", prep: null };
     function beginStage(stage) {
       if (mg.ctl) { try { mg.ctl.destroy(); } catch (e) { /* ignore */ } }
       mg.stage = stage;
@@ -1406,7 +1486,7 @@ APP_JS_TEMPLATE = r"""
         o.onDone = function (res) {
           var id = cellId, prep = mg && mg.prep;
           markPending(id); closeMiniGame();
-          send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id),
+          send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id), fromStock: fromStock || undefined,
             mini: res && res.ms ? { kind: res.kind, level: res.level, ms: res.ms, mistakes: res.mistakes } : undefined,
             prep: prep && prep.ms ? { ms: prep.ms, mistakes: prep.mistakes } : undefined });
         };
@@ -1414,7 +1494,7 @@ APP_JS_TEMPLATE = r"""
       send({ type: "game-stage", seat: mySeat(), catIdx: meta.catIdx, stage: stage, sushi: pickedSushi }); // 메인 모니터의 "지금 만드는 중" 표시용
       mg.ctl = MiniGames.start(document.getElementById("mg-host"), o);
     }
-    beginStage("prep");
+    beginStage(fromStock ? "make" : "prep");
     // 자동 테스트 전용(?mgtest=1): 게임을 실제로 풀지 않고 "풀었다"로 처리 -- 많은 칸을 한꺼번에 제작해야 하는
     // 회전 벨트 단계 테스트가 제작 시간 안에 끝나게 하려는 용도다. 미니게임 자체는 test_minigames.js와
     // test_minigames_live.js가 실제로 플레이하며 검증한다. 일반 접속에는 이 함수가 생기지 않는다.
@@ -1424,7 +1504,7 @@ APP_JS_TEMPLATE = r"""
         var id = mg.cellId;
         markPending(id);
         closeMiniGame();
-        send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id) });
+        send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id), fromStock: fromStock || undefined });
         return true;
       };
     }
@@ -1901,7 +1981,7 @@ APP_JS_TEMPLATE = r"""
         if (blocked) { local.openCellId = null; notifyGameClosed(); setTimeout(function () { showToast(blocked); }, 0); }
       }
       // 레일 화면이 접속해 있으면 버튼은 그쪽에 있다 -- 내 화면은 "기다리는 화면"이고, 게임은 레일에서 눌렀을 때 뜬다.
-      body += (railInfo.count > 0 ? renderRailWaiting(state, seat) : renderBoard(state, seat)) + renderPuzzleOverlay(state) + introHtml(state, false);
+      body += (railMode() ? renderRailSeat(state, seat) : renderBoard(state, seat)) + renderPuzzleOverlay(state) + introHtml(state, false);
     }
     else if (state.phase === "elevator") body += renderElevator(state, seat);
     else if (state.phase === "halftime") body += renderHalftime(state, seat);
@@ -1915,7 +1995,7 @@ APP_JS_TEMPLATE = r"""
     var elapsed = Math.max(0, SECURE_PHASE_MS - (st.secureEndsAt - nowMs()));
     if (elapsed >= INTRO_MS) return '';
     var cuts = [
-      ['초밥을 만들어요', '레일에서 종류를 골라 손질하고 퍼즐을 풀어요'],
+      ['초밥을 만들어요', '레일에서 손질해 회를 만들고, 내 자리에서 퍼즐로 조립해요'],
       ['주문표가 붙어요', '초밥마다 서빙할 접시가 정해져요 · 상대에겐 비밀'],
       ['벨트를 돌려 서빙!', '내 접시에 맞추면 돈, 못 팔면 마이너스']
     ];
@@ -1938,8 +2018,9 @@ APP_JS_TEMPLATE = r"""
     return '<div class="mv-live">' + ["1", "2"].map(function (sn) {
       var made = st.board.filter(function (c) { return c.takenBy === sn; }).length;
       var mk = railInfo.making && railInfo.making[sn];
-      var now = mk ? (TYPES[mk.catIdx].name + (mk.stage === "prep" ? ' 손질 중' : ' 제작 중')) : (st.seatOwners[sn] ? '다음 초밥 고르는 중' : '입장 대기');
-      return '<div class="mv-live-card' + (mk ? ' is-active' : '') + '"><b>' + esc(seatName(sn, st)) + '</b><span class="mv-live-now">' + esc(now) + '</span><small>만든 초밥 ' + made + '개</small></div>';
+      var now = mk ? (TYPES[mk.catIdx].name + (mk.stage === "prep" ? ' 손질 중' : (railInfo.count > 0 ? ' 조립 중' : ' 제작 중'))) : (st.seatOwners[sn] ? '다음 초밥 고르는 중' : '입장 대기');
+      var kai = 0; TYPES.forEach(function (t, ci) { kai += stockOf(st, sn, ci); });
+      return '<div class="mv-live-card' + (mk ? ' is-active' : '') + '"><b>' + esc(seatName(sn, st)) + '</b><span class="mv-live-now">' + esc(now) + '</span><small>만든 초밥 ' + made + '개' + (railInfo.count > 0 ? ' · 회 ' + kai + '개' : '') + '</small></div>';
     }).join('') + '</div>';
   }
   function mvResult(st) {
@@ -1967,85 +2048,161 @@ APP_JS_TEMPLATE = r"""
   }
 
 
-  // ---------- 레일 사이트 (2026-10-07, /rail) ----------
-  // 두 플레이어가 같이 보는 공용 화면. 제작 단계에서 종류마다 한 줄: 가운데 레일 위에 초밥 상자(남은 개수 점), 왼쪽 = 1번 자리 버튼,
-  // 오른쪽 = 2번 자리 버튼. 버튼을 누르면 서버(rail-press)가 그 자리 플레이어의 기기에 해당 종류 미니게임을 띄운다. 이 화면은 좌석이 없고
-  // 비공개 정보(내가 제작한 호수, 우선 초밥 등)는 어디에도 그리지 않는다 -- 남은 개수와 누가 지금 게임 중인지만 보인다.
+  // ---------- 레일 사이트 (/rail) ---------- 입장 화면. 제작 단계 화면은 아래 "레일 화면 (2026-10-12 개편)" 참고.
   function renderRailJoin() {
     return '<main class="stage"><div class="center-screen"><div class="lobby-box card"><h2>레일 화면</h2>'
       + '<p>메인 화면에 뜬 방 코드를 입력하세요.</p>'
       + '<p><input id="rail-code" class="rv-code" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="방 코드"> '
       + '<button class="btn ok" data-action="rail-join">입장</button></p></div></div></main>';
   }
+  // ---------- 레일 화면 (2026-10-12 개편) ----------
+  // 공용 화면 하나를 좌/우로 나눠 두 플레이어가 동시에 손질(회 만들기) 미니게임을 한다. 1번 자리(왼쪽) = W A S D + SPACE,
+  // 2번 자리(오른쪽) = 방향키 + ENTER. 손질을 끝내면 서버가 그 종류의 공급량에서 1개를 선점해 그 자리의 재료함(state.stock)에 회를 쌓는다.
+  // 게임 DOM은 #app을 갈아끼우는 render() 밖(#rail-live 안의 .rp-game)에 두고 패널 머리/메뉴만 갱신한다 (진행 중인 게임이 안 사라지게).
+  var railUi = { "1": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 }, "2": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 } };
+  var RAIL_KEYS = {
+    "1": { KeyA: "ArrowLeft", KeyD: "ArrowRight", KeyW: "ArrowUp", KeyS: "ArrowDown", Space: "Space" },
+    "2": { ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", ArrowUp: "ArrowUp", ArrowDown: "ArrowDown", Enter: "Space", NumpadEnter: "Space" }
+  };
+  var RAIL_KEY_HINT = { "1": "W A S D 로 조작 · SPACE 로 확인", "2": "방향키로 조작 · ENTER 로 확인 (게임 안내의 SPACE = ENTER)" };
+  function railHead(label) {
+    return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live</span><h1>레일 화면</h1></div>'
+      + '<div class="rv-chips">' + (label ? '<span class="rv-chip phase">' + esc(label) + '</span>' : '') + '<span class="rv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
+  }
   function railSideHead(st, side) {
     var key = st.courierPick && st.courierPick[side];
     var c = key ? courierByKey(key) : null;
     var idx = c ? COURIERS.indexOf(c) : -1;
     var here = !!st.seatOwners[side];
-    var busy = railInfo.busy && railInfo.busy[side];
-    return '<span class="rv-side' + (c ? ' is-on' : '') + (busy ? ' is-busy' : '') + '" data-side="' + side + '"' + (c ? ' style="--c:' + c.color + '"' : '') + '>'
+    return '<span class="rv-side' + (c ? ' is-on' : '') + '" data-side="' + side + '"' + (c ? ' style="--c:' + c.color + '"' : '') + '>'
       + (c ? '<span class="rv-side-icon">' + COURIER_ICONS[idx] + '</span>' : '')
-      + '<b>' + esc(c ? c.name : '플레이어 ' + side) + '</b>'
-      + '<small>' + (!here ? '입장 대기' : (busy ? '게임 중...' : '버튼을 누르세요')) + '</small></span>';
+      + '<b>' + esc(seatName(side, st)) + '</b>'
+      + '<small>' + (!here ? '입장 대기' : '자리에 앉았어요') + '</small></span>';
   }
-  function railSideButtons(st, side, t, catIdx, left) {
-    var here = !!st.seatOwners[side];
-    var busy = !!(railInfo.busy && railInfo.busy[side]);
-    var html = '<div class="rail-side mine side-' + side + '" style="--c:' + t.color + '">';
-    if (t.fixedFloor) {
-      html += '<div class="floor-btns">';
-      for (var num = 0; num < t.count; num++) {
-        var cell = boardCell(st, t.key + "-" + (num + 1));
-        var off = !here || busy || (cell && cell.taken);
-        html += '<button class="floor-btn' + (cell && cell.taken ? ' is-gone' : '') + '" data-action="rail-press" data-side="' + side + '" data-cat="' + catIdx + '" data-cell="' + t.key + '-' + (num + 1) + '"'
-          + (off ? ' disabled' : '') + '>' + esc(FLOORS[num]) + '</button>';
-      }
-      html += '</div>';
-    } else {
-      var off2 = !here || busy || left === 0;
-      html += '<button class="rail-btn' + (busy ? ' is-busy' : '') + '" data-action="rail-press" data-side="' + side + '" data-cat="' + catIdx + '"' + (off2 ? ' disabled' : '') + '>'
-        + '<span class="rbt">' + (left === 0 ? '소진' : (busy ? '게임 중...' : esc(MINI_NAME[t.mini] || '우봉고') + ' 시작')) + '</span>'
-        + '<span class="rbp">팔면 ' + fmtWon(t.reward) + ' · 못 팔면 ' + fmtWon(-t.penalty) + '</span></button>';
-    }
-    return html + '</div>';
-  }
+  // 제작 단계가 아닐 때의 레일 화면 (제작 단계는 railRenderSecure가 따로 그린다)
   function renderRail() {
     var st = state;
-    var head = function (label) {
-      return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live</span><h1>레일 화면</h1></div>'
-        + '<div class="rv-chips">' + (label ? '<span class="rv-chip phase">' + esc(label) + '</span>' : '') + '<span class="rv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
-    };
-    if (!st) return '<div class="rv">' + head('') + '<div class="rv-center"><h2>연결 중...</h2></div></div>';
+    if (!st) return '<div class="rv">' + railHead('') + '<div class="rv-center"><h2>연결 중...</h2></div></div>';
     var halfName = st.half === 2 ? "후반" : "전반";
-    if (st.phase !== "secure") {
-      var msg = st.phase === "lobby" ? ['참가자를 기다리고 있어요', '두 플레이어가 준비하면 이 화면에 레일이 열려요']
-        : st.phase === "elevator" ? ['서빙 중이에요', '다음 초밥 제작 단계에서 레일이 다시 열려요']
-        : st.phase === "halftime" ? ['하프타임', '후반이 시작되면 레일이 새 초밥으로 채워져요']
-        : ['게임이 끝났어요', '다시 시작하면 레일이 열려요'];
-      return '<div class="rv">' + head(st.phase === "lobby" ? '대기 중' : halfName) + '<div class="rv-center"><h2>' + msg[0] + '</h2><p>' + msg[1] + '</p>'
-        + '<div class="rv-sides">' + railSideHead(st, "1") + railSideHead(st, "2") + '</div></div></div>';
-    }
-    var endsAt = st.secureEndsAt || nowMs();
-    var html = '<div class="rv">' + head('초밥 제작 · ' + halfName);
-    html += '<div class="rv-clockrow"><span class="rv-clock-label">남은 시간</span><b id="rv-clock" data-ends="' + endsAt + '">' + fmtClock(endsAt - nowMs()) + '</b>'
+    var msg = st.phase === "lobby" ? ['참가자를 기다리고 있어요', '두 플레이어가 준비하면 이 화면에서 손질(회 만들기)을 시작해요']
+      : st.phase === "elevator" ? ['서빙 중이에요', '다음 초밥 제작 단계에서 레일이 다시 열려요']
+      : st.phase === "halftime" ? ['하프타임', '후반이 시작되면 레일이 새 초밥으로 채워져요']
+      : ['게임이 끝났어요', '다시 시작하면 레일이 열려요'];
+    return '<div class="rv">' + railHead(st.phase === "lobby" ? '대기 중' : halfName) + '<div class="rv-center"><h2>' + msg[0] + '</h2><p>' + msg[1] + '</p>'
+      + '<div class="rv-sides">' + railSideHead(st, "1") + railSideHead(st, "2") + '</div></div></div>';
+  }
+  function railBuildSecure() {
+    var shell = function (side) { return '<section class="rp rp-' + side + '" id="rp-' + side + '" data-side="' + side + '"><div class="rp-top"></div><div class="rp-menu"></div><div class="rp-game"></div></section>'; };
+    document.getElementById("app").innerHTML = '<div class="rv rv-live" id="rail-live"><div id="rl-head"></div><div id="rl-clock"></div>'
+      + '<div class="rp-wrap">' + shell("1") + shell("2") + '</div><div id="rl-intro"></div></div>';
+  }
+  function railPaneTop(st, side) {
+    var key = st.courierPick && st.courierPick[side], c = key ? courierByKey(key) : COURIERS[Number(side) - 1], idx = COURIERS.indexOf(c);
+    var u = railUi[side], chips = TYPES.map(function (t, ci) {
+      var n = stockOf(st, side, ci);
+      return '<span class="rp-chip' + (n ? ' has' : '') + '" style="--c:' + t.color + '"><span class="rp-chip-ico">' + CAT_ICONS[ci] + '</span>' + (PREP_LABEL[t.sushi[0]] ? esc(SUSHI_NAME_SHORT(t)) : '') + ' 회 <b>' + n + '</b></span>';
+    }).join('');
+    return '<div class="rp-name" style="--c:' + c.color + '"><span class="rp-name-ico">' + COURIER_ICONS[idx] + '</span><b>' + esc(seatName(side, st)) + '</b>'
+      + (st.seatOwners[side] ? '' : '<small>입장 대기</small>') + '</div>'
+      + '<div class="rp-stock"><span class="rp-stock-label">내 재료함</span>' + chips + '</div>'
+      + '<div class="rp-keys">' + esc(RAIL_KEY_HINT[side]) + '</div>'
+      + '<div class="rp-msg' + (u.msg ? (u.ok ? ' is-ok' : ' is-bad') : '') + '">' + esc(u.msg || '') + '</div>';
+  }
+  function SUSHI_NAME_SHORT(t) { return t.name.replace(" 초밥", ""); }
+  function railPaneMenu(st, side) {
+    var here = !!st.seatOwners[side], u = railUi[side];
+    var cards = TYPES.map(function (t, ci) {
+      var left = prepLeft(st, ci), off = !here || left <= 0;
+      return '<button type="button" class="rp-card' + (u.sel === ci ? ' is-sel' : '') + (left <= 0 ? ' is-out' : '') + '" data-action="rail-start" data-side="' + side + '" data-cat="' + ci + '" style="--c:' + t.color + '"' + (off ? ' disabled' : '') + '>'
+        + '<span class="rp-ico">' + (PREP_IMGS[PREP_CARD_IMG[t.sushi[0]]] ? '<img src="' + PREP_IMGS[PREP_CARD_IMG[t.sushi[0]]] + '" alt="">' : CAT_ICONS[ci]) + '</span>'
+        + '<b>' + esc(t.name) + '</b>'
+        + '<small>' + esc(PREP_LABEL[t.sushi[0]] || '손질') + '</small>'
+        + '<span class="rp-left">' + (left <= 0 ? '소진' : '남은 재료 <b>' + left + '</b>') + '</span></button>';
+    }).join('');
+    return '<div class="rp-pick">무엇을 손질할까요?</div><div class="rp-cards">' + cards + '</div>'
+      + '<p class="rp-help">' + (side === "1" ? 'A / D' : '← / →') + ' 로 고르고 ' + (side === "1" ? 'SPACE' : 'ENTER') + ' 로 시작 · 손질이 끝나면 <b>내 자리 화면</b>에서 퍼즐로 조립해요</p>';
+  }
+  function railRenderSecure() {
+    var st = state;
+    if (!document.getElementById("rail-live")) railBuildSecure();
+    var halfName = st.half === 2 ? "후반" : "전반", endsAt = st.secureEndsAt || nowMs();
+    document.getElementById("rl-head").innerHTML = railHead('초밥 제작 · ' + halfName);
+    document.getElementById("rl-clock").innerHTML = '<div class="rv-clockrow"><span class="rv-clock-label">남은 시간</span><b id="rv-clock" data-ends="' + endsAt + '">' + fmtClock(endsAt - nowMs()) + '</b>'
       + '<div class="rv-bar"><i id="rv-bar" data-ends="' + endsAt + '"></i></div></div>';
-    html += '<div class="board-grid rv-board">';
-    html += '<div class="rail-head">' + railSideHead(st, "1") + '<span>레일</span>' + railSideHead(st, "2") + '</div>';
-    TYPES.forEach(function (t, catIdx) {
-      var left = boardLeft(st, catIdx), pips = '';
-      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '">' + FISH_PIP + '</span>';
-      var mid = '<div class="rail-mid"><div class="rail-box" style="background:' + t.color + ';--c:' + t.color + '">'
-        + '<span class="cell-art" style="background-image:url(\'' + railArt(catIdx) + '\')"></span>'
-        + '<span class="rb-name"><span class="cat-icon">' + CAT_ICONS[catIdx] + '</span>' + esc(t.name) + '</span>'
-        + '<span class="rb-game">' + esc(MINI_NAME[t.mini] || '우봉고') + '</span>'
-        + '<span class="pips">' + pips + '</span>'
-        + '<span class="cat-left">남은 <b>' + left + '</b> / ' + t.count + '</span>'
-        + (left === 0 ? '<span class="stamp">소진</span>' : '')
-        + '</div></div>';
-      html += '<div class="board-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '">'
-        + railSideButtons(st, "1", t, catIdx, left) + mid + railSideButtons(st, "2", t, catIdx, left) + '</div>';
+    ["1", "2"].forEach(function (side) {
+      var pane = document.getElementById("rp-" + side), u = railUi[side];
+      pane.classList.toggle("is-playing", !!u.ctl);
+      pane.querySelector(".rp-top").innerHTML = railPaneTop(st, side);
+      if (!u.ctl) pane.querySelector(".rp-menu").innerHTML = railPaneMenu(st, side);
     });
-    return html + '</div>' + introHtml(st, false) + '</div>';
+    document.getElementById("rl-intro").innerHTML = introHtml(st, false);
+  }
+  function railStart(side, cat) {
+    var u = railUi[side];
+    if (!u || u.ctl || !state || state.phase !== "secure" || !window.MiniGames || !TYPES[cat]) return;
+    if (!state.seatOwners[side]) return;
+    if (prepLeft(state, cat) <= 0) { railFlash(side, "이 종류는 재료가 다 떨어졌어요", false); return; }
+    var host = document.querySelector("#rp-" + side + " .rp-game");
+    if (!host) return;
+    var sushi = TYPES[cat].sushi[0], ik = side + ":" + sushi;
+    var o = { kind: "prep", sushi: sushi, pieces: TYPES[cat].pieces, testHooks: TEST_HOOKS, keyTarget: host,
+      onCancel: function () { railStop(side, true); },
+      onDone: function (res) {
+        var c = u.cat; railStop(side, false);
+        send({ type: "rail-prep-done", side: side, cat: c, ms: res && res.ms, mistakes: res && res.mistakes });
+      } };
+    if (!introSeen[ik]) { introSeen[ik] = true; o.intro = true; }
+    u.cat = cat; u.sel = cat; u.msg = "";
+    host.innerHTML = "";
+    u.ctl = MiniGames.start(host, o);
+    SFX.select();
+    send({ type: "rail-stage", side: side, cat: cat });
+    railRenderSecure();
+  }
+  function railStop(side, notify) {
+    var u = railUi[side];
+    if (u.ctl) { try { u.ctl.destroy(); } catch (e) { /* ignore */ } u.ctl = null; }
+    u.cat = null;
+    var host = document.querySelector("#rp-" + side + " .rp-game"); if (host) host.innerHTML = "";
+    if (notify) send({ type: "rail-stage", side: side, cat: null });
+    if (state && state.phase === "secure" && document.getElementById("rail-live")) railRenderSecure();
+  }
+  function railStopAll() {
+    ["1", "2"].forEach(function (side) { var u = railUi[side]; if (u.ctl) { try { u.ctl.destroy(); } catch (e) { /* ignore */ } u.ctl = null; u.cat = null; } });
+  }
+  function railFlash(side, text, ok) {
+    var u = railUi[side]; u.msg = text; u.ok = ok;
+    clearTimeout(u.msgT); u.msgT = setTimeout(function () { u.msg = ""; if (document.getElementById("rail-live")) railRenderSecure(); }, 3200);
+    if (document.getElementById("rail-live")) railRenderSecure();
+  }
+  // 서버의 손질 결과(내가 보낸 rail-prep-done에 대한 답)
+  function railResult(m) {
+    if (!railUi[m.side]) return;
+    if (m.ok) { SFX.ok(); railFlash(m.side, "회 완성! 내 자리 화면에서 퍼즐로 조립하세요", true); }
+    else { SFX.bad(); railFlash(m.side, m.code === "sold_out" ? "한발 늦었어요 — 이 종류 재료는 이미 다 확보됐어요" : "처리하지 못했어요", false); }
+  }
+  // 키 라우팅: 물리 키 -> (자리, 논리 키). 게임 중이면 그 패널의 게임에만 합성 키 이벤트로 전달하고, 아니면 메뉴 조작이다.
+  function railKey(e, type) {
+    if (!RAIL || !state || state.phase !== "secure" || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!e.isTrusted) return; // 우리가 게임으로 전달하려고 만든 합성 이벤트는 다시 라우팅하지 않는다 (캡처 단계에서 document도 거치므로 무한 재귀 방지)
+    if (e.target && e.target.tagName === "INPUT") return;
+    var side = null, logical = null;
+    ["1", "2"].forEach(function (sd) { if (!side && RAIL_KEYS[sd][e.code]) { side = sd; logical = RAIL_KEYS[sd][e.code]; } });
+    if (!side) return;
+    e.preventDefault(); e.stopPropagation();
+    var u = railUi[side];
+    if (u.ctl) {
+      var host = document.querySelector("#rp-" + side + " .rp-game");
+      if (host) host.dispatchEvent(new KeyboardEvent(type, { code: logical, key: logical === "Space" ? " " : logical, repeat: e.repeat, bubbles: false, cancelable: true }));
+      return;
+    }
+    if (type !== "keydown" || e.repeat) return;
+    if (logical === "ArrowLeft" || logical === "ArrowRight") { u.sel = (u.sel + (logical === "ArrowLeft" ? TYPES.length - 1 : 1)) % TYPES.length; SFX.click(); railRenderSecure(); }
+    else if (logical === "Space") railStart(side, u.sel);
+  }
+  if (RAIL) {
+    document.addEventListener("keydown", function (e) { railKey(e, "keydown"); }, true);
+    document.addEventListener("keyup", function (e) { railKey(e, "keyup"); }, true);
   }
   function railTick() {
     var c = document.getElementById("rv-clock"), b = document.getElementById("rv-bar");
@@ -2055,24 +2212,38 @@ APP_JS_TEMPLATE = r"""
     c.classList.toggle("is-low", left < 30000);
     if (b) b.style.width = Math.max(0, Math.min(100, left / SECURE_PHASE_MS * 100)) + "%";
   }
-  // 플레이어 화면(레일 모드): 버튼은 레일 화면에 있다. 여기선 내 시간, 내 쪽 위치, 종류별 남은 개수와 내가 제작한 호수만 보여 준다.
-  function renderRailWaiting(st, seat) {
+  // 플레이어 자리 화면(레일 모드): 재료함의 회를 보고 종류별로 퍼즐 조립을 시작한다. 손질은 레일 화면에서 한다.
+  function renderRailSeat(st, seat) {
     var msLeft = st.secureEndsAt ? (st.secureEndsAt - nowMs()) : SECURE_PHASE_MS;
     var pct = Math.max(0, Math.min(100, (msLeft / SECURE_PHASE_MS) * 100));
     var html = '<main class="stage stage--secure">'
       + '<div class="side-timer" id="side-timer"><span class="timer-label">초밥 제작<br>남은 시간</span><span class="timer-num">' + fmtClock(msLeft) + '</span>'
       + '<div class="timer-bar"><i style="width:' + pct + '%"></i></div></div>';
-    var mine = st.players[seat].invoices;
-    var busy = !!(railInfo.busy && railInfo.busy[seat]);
-    html += '<div class="card rw" data-rail-wait="1"><h2>' + (busy ? '게임을 푸는 중이에요' : '레일 화면에서 버튼을 눌러 주세요') + '</h2>'
-      + '<p class="rw-sub">내 버튼은 레일 화면의 <b>' + (seat === "1" ? '왼쪽' : '오른쪽') + '</b>에 있어요. 누르면 이 화면에 게임이 떠요.</p><div class="rw-list">';
+    var mine = st.players[seat].invoices, total = 0;
+    TYPES.forEach(function (t, ci) { total += stockOf(st, seat, ci); });
+    html += '<div class="card rw" data-rail-wait="1"><h2>' + (total ? ('재료함에 회가 ' + total + '개 있어요 — 퍼즐로 조립하세요') : '레일 화면에서 손질해 회를 만드세요') + '</h2>'
+      + '<p class="rw-sub">내 레일은 공용 화면의 <b>' + (seat === "1" ? '왼쪽(W A S D · SPACE)' : '오른쪽(방향키 · ENTER)') + '</b>이에요. 손질이 끝나면 여기 재료함에 회가 쌓여요.</p><div class="rw-list">';
     TYPES.forEach(function (t, catIdx) {
-      var left = boardLeft(st, catIdx);
+      var n = stockOf(st, seat, catIdx), left = boardLeft(st, catIdx);
       var chips = mine.filter(function (inv) { return inv.catIdx === catIdx; })
         .map(function (inv) { return '<span class="my-chip">' + esc(chipText(inv)) + '</span>'; }).join('');
-      html += '<div class="rw-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '" style="--c:' + t.color + '">'
-        + '<span class="rw-ico">' + CAT_ICONS[catIdx] + '</span><span class="rw-name">' + esc(t.name) + '<small>' + esc(MINI_NAME[t.mini] || '우봉고') + '</small></span>'
-        + '<span class="rw-left">남은 <b>' + left + '</b>/' + t.count + '</span><span class="rw-mine">' + (chips || '<small>아직 없음</small>') + '</span></div>';
+      var act;
+      if (t.fixedFloor) {
+        act = '<div class="floor-btns">';
+        for (var num = 0; num < t.count; num++) {
+          var cell = boardCell(st, t.key + "-" + (num + 1));
+          var gone = !cell || cell.taken;
+          act += '<button class="floor-btn' + (gone ? ' is-gone' : '') + '" data-action="open-cell" data-cell="' + t.key + '-' + (num + 1) + '"' + ((gone || n <= 0) ? ' disabled' : '') + '>' + esc(FLOORS[num]) + '</button>';
+        }
+        act += '</div>';
+      } else {
+        act = '<button class="rail-btn" data-action="open-type" data-cat="' + catIdx + '"' + (n <= 0 ? ' disabled' : '') + '><span class="rbt">' + (n > 0 ? esc(MINI_NAME[t.mini] || '조립') + ' 시작' : '회 없음') + '</span>'
+          + '<span class="rbp">팔면 ' + fmtWon(t.reward) + ' · 못 팔면 ' + fmtWon(-t.penalty) + '</span></button>';
+      }
+      html += '<div class="rw-row' + (n > 0 ? ' has-kai' : '') + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '" style="--c:' + t.color + '">'
+        + '<span class="rw-ico">' + CAT_ICONS[catIdx] + '</span><span class="rw-name">' + esc(t.name) + '<small>손질 ' + esc(PREP_LABEL[t.sushi[0]] || '') + ' → 조립 ' + esc(MINI_NAME[t.mini] || '') + '</small></span>'
+        + '<span class="rw-left">회 <b class="rw-kai">' + n + '</b> · 남음 ' + left + '/' + t.count + '</span>'
+        + '<span class="rw-mine">' + act + '<span class="rw-chips">' + (chips || '<small>아직 없음</small>') + '</span></span></div>';
     });
     return html + '</div></div></main>';
   }
@@ -2093,7 +2264,7 @@ APP_JS_TEMPLATE = r"""
     var tIdx = COURIERS.indexOf(team);
     var ready = !!(readyMap && readyMap[seatNo]);
     return '<div class="mv-seat' + (c ? ' is-on' : '') + (ready ? ' is-ready' : '') + '"' + (c ? ' style="--c:' + c.color + '"' : '') + '>'
-      + (c ? '<span class="mv-seat-icon">' + COURIER_ICONS[idx] + '</span>' + esc(c.name) : '<span class="mv-seat-icon" style="color:var(--muted)">' + COURIER_ICONS[tIdx] + '</span><span style="color:var(--muted)">' + esc(team.name) + '</span>')
+      + (c ? '<span class="mv-seat-icon">' + COURIER_ICONS[idx] + '</span>' + esc(seatName(seatNo, st)) : '<span class="mv-seat-icon" style="color:var(--muted)">' + COURIER_ICONS[tIdx] + '</span><span style="color:var(--muted)">' + esc(seatName(seatNo, st)) + '</span>')
       + '<small>' + (!c ? '입장 대기' : (readyMap ? (ready ? readyWord + ' 완료' : '대기 중') : '입장 완료')) + '</small></div>';
   }
   // 엿보기 현황 (하프타임: 획득 횟수 / 후반 벨트: 사용 횟수). 내용(무슨 주문표인지)은 보여주지 않는다.
@@ -2243,7 +2414,19 @@ APP_JS_TEMPLATE = r"""
     // 팀 컬러 테마: 내 좌석이 정해져 있으면 body[data-team]이 king/hunter가 된다 (CSS가 색을 바꾼다). 관전/메인 모니터는 중립.
     var tm = (!MAIN && !RAIL && mySeat()) ? COURIERS[Number(mySeat()) - 1] : null;
     if (tm) document.body.setAttribute("data-team", tm.key); else document.body.removeAttribute("data-team");
+    // 이름 입력칸: 한글 조합 중이면 렌더를 미루고, 아니면 값/커서/포커스를 보존한다.
+    var ae = document.activeElement, keep = null;
+    if (ae && ae.classList && ae.classList.contains("name-in")) {
+      if (nameComposing) { renderPending = true; return; }
+      keep = { id: ae.id, v: ae.value, a: ae.selectionStart, b: ae.selectionEnd };
+    }
+    if (RAIL && ROOM && state && state.phase === "secure") { railRenderSecure(); railTick(); return; }
+    if (RAIL) railStopAll();
     document.getElementById("app").innerHTML = renderBody();
+    if (keep) {
+      var ne = document.getElementById(keep.id);
+      if (ne) { ne.value = keep.v; try { ne.focus(); ne.setSelectionRange(keep.a, keep.b); } catch (e) {} }
+    }
     if (MAIN) mainAfterRender();
     if (RAIL) railTick();
   }
@@ -2258,15 +2441,16 @@ APP_JS_TEMPLATE = r"""
       // 좌석 번호는 서버가 정해서 돌려주므로(먼저 온 사람이 "1" = 초밥왕) 여기선 낙관적으로 세팅하지 않는다 --
       // 다음 "state" 브로드캐스트에서 내 clientId가 어느 좌석의 주인이 됐는지 보고 그때 확정한다
       // (connectWS의 onmessage 참고). 여기선 그냥 요청만 보낸다.
-      send({ type: "join-team" });
+      var jn = document.getElementById("name-join");
+      var jname = jn ? jn.value : (nameDraft || "");
+      saveNameDraft(jname);
+      send({ type: "join-team", name: jname });
       return;
     }
     if (action === "open-cell") { openCell(t.getAttribute("data-cell")); return; }
-    if (action === "rail-press") {
-      // 레일 화면 전용: side(1/2) 쪽 플레이어에게 그 종류 게임을 띄우라고 서버에 요청한다. 칸 선택/중복 방지는 서버가 한다.
-      var rp = { type: "rail-press", side: t.getAttribute("data-side"), cat: parseInt(t.getAttribute("data-cat"), 10) };
-      var rcell = t.getAttribute("data-cell"); if (rcell) rp.cellId = rcell;
-      send(rp);
+    if (action === "rail-start") {
+      // 레일 화면: 그 쪽 패널에서 손질 시작 (마우스/터치로도 가능 -- 키보드는 railKey가 처리)
+      railStart(t.getAttribute("data-side"), parseInt(t.getAttribute("data-cat"), 10));
       return;
     }
     if (action === "rail-join") {
@@ -2278,6 +2462,7 @@ APP_JS_TEMPLATE = r"""
       // 레일 화면의 종류 버튼: 그 종류의 아직 안 가져간 칸 중 첫 번째를 연다 (칸끼리 구별이 없는 종류 전용)
       var typeIdx = parseInt(t.getAttribute("data-cat"), 10);
       var tt = TYPES[typeIdx];
+      if (railMode() && stockOf(state, mySeat(), typeIdx) <= 0) { showToast("재료함에 회가 없어요 — 레일 화면에서 먼저 손질하세요"); return; }
       var freeCell = null, sawPending = false;
       for (var fi = 0; fi < state.board.length; fi++) {
         var bc = state.board[fi];
@@ -2337,6 +2522,7 @@ APP_JS_TEMPLATE = r"""
 
   document.addEventListener("keydown", function (e) {
     if (MAIN) return; // 메인 모니터는 입력을 받지 않는다 (스페이스/방향키가 게임에 영향 주면 안 됨)
+    if (e.target && e.target.tagName === "INPUT") return; // 이름 입력 중엔 스페이스(준비)·방향키·E가 게임 조작으로 먹히면 안 된다
     if (e.code === "Space" || e.key === " " || e.key === "Spacebar") {
       var seat = mySeat();
       if (seat && state && state.phase === "lobby" && !e.repeat && !state.ready[seat]) {
@@ -2362,6 +2548,42 @@ APP_JS_TEMPLATE = r"""
         send({ type: "vote", seat: seat2, dir: e.code === "ArrowLeft" ? "up" : "down" });   // ← = 시계 방향(서버의 up), → = 반시계(down)
       }
     }
+  });
+
+  // ---------- 팀 이름 입력 (입장 화면 #name-join / 대기실 #name-lobby) ----------
+  var nameTimer = null;
+  function sendNameNow(el) {
+    clearTimeout(nameTimer);
+    var seat = mySeat();
+    if (!seat || !state || state.phase !== "lobby") return;
+    saveNameDraft(el.value);
+    send({ type: "set-name", name: el.value });
+  }
+  document.addEventListener("compositionstart", function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains("name-in")) nameComposing = true;
+  });
+  document.addEventListener("compositionend", function (e) {
+    if (!(e.target && e.target.classList && e.target.classList.contains("name-in"))) return;
+    nameComposing = false;
+    if (e.target.id === "name-lobby") sendNameNow(e.target);
+    if (renderPending) { renderPending = false; render(); }
+  });
+  document.addEventListener("input", function (e) {
+    var el = e.target;
+    if (!(el && el.classList && el.classList.contains("name-in"))) return;
+    saveNameDraft(el.value);
+    if (el.id === "name-lobby" && !nameComposing) { clearTimeout(nameTimer); nameTimer = setTimeout(function () { sendNameNow(el); }, 450); }
+  });
+  document.addEventListener("focusout", function (e) {
+    var el = e.target;
+    if (el && el.id === "name-lobby" && !nameComposing) sendNameNow(el);
+  });
+  document.addEventListener("keydown", function (e) {
+    var el = e.target;
+    if (!(el && el.classList && el.classList.contains("name-in")) || e.key !== "Enter" || e.isComposing) return;
+    e.preventDefault();
+    if (el.id === "name-join") { var jb = document.querySelector('[data-action="join-team"]'); if (jb && !jb.disabled) jb.click(); }
+    else { sendNameNow(el); el.blur(); }
   });
 
   // 5초 이상 조작이 없으면 눌러야 할 버튼이 깜빡인다 (제작 단계). 게이트 자동 진행 카운트다운도 여기서 갱신한다.
@@ -2435,6 +2657,7 @@ APP_JS = (APP_JS_TEMPLATE
           .replace("@@COURIERS_JSON@@", COURIERS_JSON)
           .replace("@@BOX_ART_JSON@@", BOX_ART_JSON)
           .replace("@@SUSHI_IMG_JSON@@", SUSHI_IMG_JSON)
+          .replace("@@PREP_IMG_JSON@@", PREP_IMG_JSON)
           .replace("@@HERO_URL@@", HERO_URL)
           .replace("@@ELEVATOR_ROUNDS@@", str(ELEVATOR_ROUNDS))
           .replace("@@SECURE_PHASE_MS@@", str(SECURE_PHASE_MS))

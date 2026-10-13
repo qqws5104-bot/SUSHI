@@ -38,8 +38,8 @@ async function main() {
   // 셰프 key로 고른다 (game-data.js의 COURIERS 참고).
   await clickSel(p1, '[data-action="join-team"]');
   await clickSel(p2, '[data-action="join-team"]');
-  await waitFor(async () => (await bodyText(p1)).includes("내 팀 · 초밥왕"), { label: "p1 seat" });
-  await waitFor(async () => (await bodyText(p2)).includes("내 팀 · 스시헌터"), { label: "p2 seat" });
+  await waitFor(async () => (await bodyText(p1)).includes("내 팀 · 빨강팀"), { label: "p1 seat" });
+  await waitFor(async () => (await bodyText(p2)).includes("내 팀 · 남색팀"), { label: "p2 seat" });
   await pressSpace(p1);
   await pressSpace(p2);
   await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "secure phase" });

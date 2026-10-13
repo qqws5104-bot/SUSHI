@@ -57,10 +57,10 @@ async function main() {
   await p1.goto(roomUrl); await p2.goto(roomUrl);
   await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker p1" });
   await clickSel(p1, '[data-action="join-team"]');
-  await waitFor(async () => (await bodyText(p1)).includes("초밥왕"), { label: "p1 courier" });
+  await waitFor(async () => (await bodyText(p1)).includes("빨강팀"), { label: "p1 courier" });
   await clickSel(p2, '[data-action="join-team"]');
-  await waitFor(async () => (await bodyText(p2)).includes("스시헌터"), { label: "p2 courier" });
-  await waitFor(async () => { const t = await bodyText(main); return t.includes("초밥왕") && t.includes("스시헌터"); }, { label: "main shows both couriers" });
+  await waitFor(async () => (await bodyText(p2)).includes("남색팀"), { label: "p2 courier" });
+  await waitFor(async () => { const t = await bodyText(main); return t.includes("빨강팀") && t.includes("남색팀"); }, { label: "main shows both couriers" });
   // 메인에서 키를 눌러도 아무 일도 없어야 한다 (좌석이 없으니 준비 완료가 되면 안 됨)
   await pressSpace(main); await sleep(300);
   assert(!(await bodyText(main)).includes("준비 완료"), "Space on the main monitor must not ready anyone");

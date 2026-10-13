@@ -86,6 +86,9 @@ function freshBoard() {
   // 좌석이 다르면 같은 번호가 있을 수 있으니 항상 takenBy와 함께 본다).
   return CELLS.map((c) => ({ id: c.id, catIdx: c.catIdx, num: c.num, taken: false, takenBy: null, acquiredSeq: null }));
 }
+// 2026-10-12 재료함: 레일에서 손질을 끝낸 "회"의 개수(좌석 × 종류). 레일 화면이 연결돼 있을 때만 쓰인다.
+// 손질을 끝내는 순간 그 종류의 공급량(보드 빈 칸 - 이미 둘이 쌓아 둔 회)에서 1개를 선점한다. 제작 단계가 끝나면 남은 회는 버려진다.
+function freshStock() { return { "1": TYPES.map(() => 0), "2": TYPES.map(() => 0) }; }
 function freshPlayers() {
   // roomBag: 이 플레이어의 이번 하프용 "안 겹치는 호수" 셔플 가방 (drawRoom() 참고). 하프가 바뀌면
   // (freshPlayers()가 다시 호출되면) 완전히 새로 셔플돼서 이전 하프의 소진 상태를 이어받지 않는다.
@@ -149,6 +152,8 @@ function peekChargesFor(mistakes) {
   return m <= 1 ? 2 : 1; // 최대 2회 (사용자 지정 2026-10-12): 실수 0~1 = 2회, 2+ = 1회
 }
 
+const NAME_MAX = 8;
+
 function initialState() {
   return {
     phase: "lobby", // lobby -> secure -> elevator -> halftime -> secure -> elevator -> end -> (재시작 시) secure ...
@@ -158,6 +163,8 @@ function initialState() {
     // 동시에(pickCourier) 정해지고, 하프가 바뀌어도 그대로 유지된다(게임 시작 전 1회 선택 -- 리셋
     // 없음). 2026-08-27 신설.
     courierPick: { "1": null, "2": null },
+    // names: 플레이어가 직접 지은 팀 이름 (빈 문자열 = 기본 이름 "빨강팀"/"남색팀"). 로비에서만 바꿀 수 있다.
+    names: { "1": "", "2": "" },
     secureEndsAt: null,
     board: freshBoard(), // 두 플레이어가 공유하는 보드 (종류별 6칸 합계)
     acquireCounter: { "1": 0, "2": 0 },
@@ -166,6 +173,7 @@ function initialState() {
     half: 1,
     halftimeReady: { "1": false, "2": false },
     peek: freshPeek(),
+    stock: freshStock(),
     halfHistory: [], // [{half, players, scores}, ...] -- snapshot taken at the end of each half
     scores: null, // grand total across both halves, set once phase becomes "end"
     // restartReady: 종료 화면의 "다시 시작" 버튼용 준비 게이트 (2026-08-28 신설). phase가 "end"일
@@ -213,7 +221,24 @@ class GameRoom {
   // 입장 버튼을 누른 클라이언트는 자기가 몇 번 좌석이 될지 미리 모르므로 좌석 번호 없이 보내고, 서버가
   // 비어 있는 좌석("1" 우선)을 배정한다. 이미 좌석을 갖고 있으면 그 좌석을 그대로 돌려준다(중복 입장 무시).
   teamKeyForSeat(seat) { return COURIERS[Number(seat) - 1].key; }
-  joinTeam(clientId) {
+  // 팀 이름 정리: 제어문자/연속 공백 제거, 앞뒤 공백 제거, 최대 NAME_MAX(8)자. 비면 "" (= 기본 이름).
+  static cleanName(raw) {
+    if (typeof raw !== "string") return "";
+    return Array.from(raw.replace(/[\u0000-\u001f\u007f<>&"'`]/g, "").replace(/\s+/g, " ").trim()).slice(0, NAME_MAX).join("").trim();
+  }
+  setName(seat, raw) {
+    if (this.state.phase !== "lobby") return { ok: false, code: "not_lobby" };
+    if (seat !== "1" && seat !== "2") return { ok: false, code: "bad_seat" };
+    const n = GameRoom.cleanName(raw);
+    // 두 팀이 같은 이름이면 헷갈리므로 상대와 같은 이름은 거부한다.
+    const other = this.state.names[seat === "1" ? "2" : "1"];
+    if (n && other && n === other) return { ok: false, code: "name_taken" };
+    this.touch();
+    this.state.names[seat] = n;
+    this.emit();
+    return { ok: true, name: n };
+  }
+  joinTeam(clientId, name) {
     this.touch();
     const owners = this.state.seatOwners;
     let seat = ["1", "2"].find((s) => owners[s] === clientId) || null;
@@ -223,6 +248,11 @@ class GameRoom {
     }
     owners[seat] = clientId;
     this.state.courierPick[seat] = this.teamKeyForSeat(seat);
+    if (name !== undefined && this.state.phase === "lobby") {
+      const n = GameRoom.cleanName(name);
+      const other = this.state.names[seat === "1" ? "2" : "1"];
+      this.state.names[seat] = (n && n === other) ? "" : n;
+    }
     this.emit();
     return { ok: true, seat };
   }
@@ -237,6 +267,7 @@ class GameRoom {
 
   _startGame() {
     this.state.phase = "secure";
+    this.state.stock = freshStock();
     this.state.secureEndsAt = Date.now() + SECURE_PHASE_MS;
     this._scheduleAt(this.state.secureEndsAt, () => this._endSecurePhase());
     this.emit();
@@ -249,10 +280,12 @@ class GameRoom {
   //    같은 종류의 빈 칸 아무거나를 대신 준다. 종류 전체가 소진됐으면 그냥 무시(= 늦은 사람은 허탕).
   //  * 지정 초밥: 칸이 곧 서빙 접시라 서로 대체가 안 된다. 그 접시를 이미 남이 가져갔으면 무시(선점자 우선).
   // 포기(클라이언트가 이 메시지를 안 보내고 게임만 닫음)는 여기까지 오지 않으므로 보드는 그대로다.
-  secureCell(seat, cellId, sushi) {
+  // fromStock=true(레일 모드): 재료함에 그 종류 회가 1개 이상 있어야 하고, 칸을 실제로 얻었을 때 1개 소모한다.
+  secureCell(seat, cellId, sushi, fromStock) {
     if (this.state.phase !== "secure") return;
     let cell = cellById(this.state, cellId);
     if (!cell) return; // 모르는 id
+    if (fromStock && !(this.state.stock[seat] && this.state.stock[seat][cell.catIdx] > 0)) return; // 회가 없으면 조립 불가
     if (cell.taken) {
       if (cell.takenBy === seat) return; // 내가 이미 가진 칸에 대한 중복 메시지 -- 무시 (대체 칸을 또 주면 안 된다)
       if (TYPES[cell.catIdx].fixedFloor) return;
@@ -260,6 +293,7 @@ class GameRoom {
       if (!cell) return;
     }
     this.touch();
+    if (fromStock) this.state.stock[seat][cell.catIdx] -= 1;
     cell.taken = true;
     cell.takenBy = seat;
     this.state.acquireCounter[seat] += 1;
@@ -276,23 +310,21 @@ class GameRoom {
     this.emit();
   }
 
-  // 2026-10-07 레일 사이트(/rail): 공용 레일 화면에서 seat 쪽 버튼이 눌렸을 때 "그 좌석 플레이어가 풀 칸"을 정해 돌려준다.
-  // 상태는 바꾸지 않는다(칸은 플레이어가 미니게임을 끝내고 secure-cell을 보낼 때 제작됨 -- 위 secureCell 규칙 그대로).
-  //  * 일반/중급/특선 초밥: 그 종류의 아직 안 가져간 첫 칸. 없으면 null(소진).
-  //  * 지정 초밥: 레일 화면이 고른 접시(cellId)이 아직 비어 있어야 한다. 아니면 null.
-  // 좌석 주인이 없거나 제작 단계가 아니면 null.
-  railCellFor(seat, catIdx, cellId) {
-    if (this.state.phase !== "secure") return null;
-    if (seat !== "1" && seat !== "2") return null;
-    if (!this.state.seatOwners[seat]) return null;
-    const t = TYPES[catIdx];
-    if (!t) return null;
-    if (t.fixedFloor) {
-      const c = cellById(this.state, cellId);
-      return c && c.catIdx === catIdx && !c.taken ? c.id : null;
-    }
-    const free = this.state.board.find((c) => c.catIdx === catIdx && !c.taken);
-    return free ? free.id : null;
+  // 2026-10-12 레일에서 손질(회 만들기)을 끝냈다: 그 종류의 남은 공급량(빈 칸 - 둘이 쌓아 둔 회)이 있으면 내 재료함에 +1.
+  // 늦어서 공급이 이미 다 잡혔으면 { ok:false, code:"sold_out" } (그 손질은 헛수고 -- 기존 "먼저 끝낸 사람이 가져간다" 규칙과 같다).
+  prepDone(seat, catIdx) {
+    if (this.state.phase !== "secure") return { ok: false, code: "not_secure" };
+    if (seat !== "1" && seat !== "2") return { ok: false, code: "bad_seat" };
+    if (!Number.isInteger(catIdx) || !TYPES[catIdx]) return { ok: false, code: "bad_cat" };
+    if (this.prepAvailable(catIdx) <= 0) return { ok: false, code: "sold_out" };
+    this.touch();
+    this.state.stock[seat][catIdx] += 1;
+    this.emit();
+    return { ok: true };
+  }
+  prepAvailable(catIdx) {
+    const free = this.state.board.filter((c) => c.catIdx === catIdx && !c.taken).length;
+    return free - this.state.stock["1"][catIdx] - this.state.stock["2"][catIdx];
   }
 
   _endSecurePhase() {
@@ -714,7 +746,7 @@ class GameRoom {
       // 있게 한다. 게임이 이미 시작된 뒤의 연결 끊김은 courierPick을 그대로 둔다 -- 그 좌석은
       // 여전히 "그 셰프 직원"으로 진행 중인 게임의 일부이므로, 재접속하면 같은 좌석/셰프로
       // 복귀해야 한다(위 pickSeat의 재접속 경로).
-      if (this.state.phase === "lobby") this.state.courierPick[seat] = null;
+      if (this.state.phase === "lobby") { this.state.courierPick[seat] = null; this.state.names[seat] = ""; }
       this.emit();
     }
   }

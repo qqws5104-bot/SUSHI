@@ -118,25 +118,48 @@ const server = http.createServer((req, res) => {
   res.end(INDEX_HTML);
 });
 
-// ---- 레일 화면(/rail)의 버튼 처리 ----
-// side 쪽 플레이어가 풀 칸을 정해서(room.railCellFor) 그 좌석 주인의 모든 연결에 "open-game"을 보낸다.
-// 칸 제작은 여전히 플레이어가 게임을 끝내고 보내는 secure-cell 한 가지뿐이다 (서버 규칙은 그대로).
-function handleRailPress(entry, code, msg) {
+// ---- 레일 화면(/rail) 메시지 처리 (2026-10-12 개편) ----
+// 레일 화면은 공용 화면 하나에서 두 플레이어가 각자 손질(회 만들기) 미니게임을 한다. 게임은 레일 화면(브라우저)이 돌리고,
+// 서버는 두 가지만 받는다: rail-stage(손질 시작/그만 -- 메인 모니터 표시와 멈춤 시간 계측용)와 rail-prep-done(손질 완료 -> 재료함 +1).
+// 칸을 실제로 제작하는 건 여전히 플레이어 자리 화면의 secure-cell(재료함에서 회 1개 소모) 하나뿐이다.
+function handleRailMessage(entry, code, ws, msg) {
   const side = msg.side;
   if (side !== "1" && side !== "2") return;
-  if (!Number.isInteger(msg.cat)) return;
-  if (entry.busy[side]) return; // 이미 게임 중
-  const cellId = entry.room.railCellFor(side, msg.cat, typeof msg.cellId === "string" ? msg.cellId : null);
-  if (!cellId) return;
-  const owner = entry.room.state.seatOwners[side];
-  let delivered = 0;
-  const payload = JSON.stringify({ type: "open-game", cellId });
-  for (const c of entry.sockets) {
-    if (c.role !== "rail" && c.clientId === owner && c.ws.readyState === c.ws.OPEN) { c.ws.send(payload); delivered++; }
+  const room = entry.room;
+  if (msg.type === "rail-stage") {
+    if (room.state.phase !== "secure") return;
+    const cat = Number.isInteger(msg.cat) && msg.cat >= 0 && msg.cat < TYPES.length ? msg.cat : null;
+    if (cat === null) { // 손질을 그만둠(메뉴로 돌아감)
+      if (entry.making[side] && entry.making[side].rail) { entry.making[side] = null; entry.busy[side] = false; broadcast(code, room.state); }
+      return;
+    }
+    if (!entry.making[side]) {
+      // 멈춤 시간 계측(평가 G3): 직전 초밥(회)을 끝낸 시각(첫 번째는 제작 시작 시각)부터 다음 손질을 시작하기까지의 공백.
+      const base = entry.lastDoneAt[side] || (room.state.secureEndsAt ? room.state.secureEndsAt - SECURE_PHASE_MS : null);
+      if (base) {
+        const gap = Date.now() - base, a = (MINI_STATS["idle-gap"] = MINI_STATS["idle-gap"] || []);
+        a.push({ ms: gap, mistakes: 0 });
+        if (a.length > 500) a.shift();
+        if (gap > 5000) console.log("[idle] 좌석 " + side + " 다음 손질 시작까지 " + (gap / 1000).toFixed(1) + "s");
+      }
+    }
+    entry.making[side] = { catIdx: cat, stage: "prep", sushi: TYPES[cat].sushi[0], rail: true };
+    entry.busy[side] = true;
+    broadcast(code, room.state);
+    return;
   }
-  if (!delivered) return; // 그 플레이어가 지금 접속 중이 아니면 무시
-  entry.busy[side] = true;
-  broadcast(code, entry.room.state);
+  if (msg.type === "rail-prep-done") {
+    if (!Number.isInteger(msg.cat)) return;
+    if (Number.isFinite(msg.ms) && msg.ms > 0 && msg.ms < 3600000) {
+      const a = (MINI_STATS["prep"] = MINI_STATS["prep"] || []);
+      a.push({ ms: msg.ms, mistakes: Number.isFinite(msg.mistakes) ? msg.mistakes : 0 });
+      if (a.length > 500) a.shift();
+    }
+    entry.making[side] = null; entry.busy[side] = false; entry.lastDoneAt[side] = Date.now();
+    const res = room.prepDone(side, msg.cat);
+    if (!res.ok) broadcast(code, room.state); // 방송이 안 나간 경우(헛수고)에도 busy 해제를 알린다
+    ws.send(JSON.stringify({ type: "rail-result", side, cat: msg.cat, ok: res.ok, code: res.code || null }));
+  }
 }
 
 // ---- websocket layer ----
@@ -161,8 +184,8 @@ wss.on("connection", (ws, req) => {
     const { type, clientId, seat } = msg;
     if (typeof clientId === "string" && clientId) conn.clientId = clientId;
     if (conn.role === "rail") {
-      // 레일 화면은 좌석이 없고 오직 rail-press만 보낼 수 있다 (플레이어 메시지를 흉내내 게임을 건드리지 못하게).
-      if (type === "rail-press") handleRailPress(entry, code, msg);
+      // 레일 화면은 좌석이 없고 오직 rail-* 메시지만 보낼 수 있다 (플레이어 메시지를 흉내내 게임을 건드리지 못하게).
+      if (type === "rail-stage" || type === "rail-prep-done") handleRailMessage(entry, code, ws, msg);
       return;
     }
     if (seat === "1" || seat === "2") conn.seat = seat;
@@ -183,9 +206,16 @@ wss.on("connection", (ws, req) => {
       // 뒤이은 secure-cell/vote 같은 메시지들이 제대로 처리된다.
       case "join-team": {
         if (!conn.clientId) return;
-        const res = entry.room.joinTeam(conn.clientId);
+        const res = entry.room.joinTeam(conn.clientId, msg.name);
         if (res.ok) conn.seat = res.seat;
         else ws.send(JSON.stringify({ type: "error", code: res.code }));
+        break;
+      }
+      // 팀 이름 변경 (로비에서만). 거부되면(같은 이름 등) 요청자에게만 오류를 알린다.
+      case "set-name": {
+        if (!conn.seat) return;
+        const res = entry.room.setName(conn.seat, msg.name);
+        if (!res.ok) ws.send(JSON.stringify({ type: "error", code: res.code }));
         break;
       }
       case "set-ready":
@@ -210,16 +240,17 @@ wss.on("connection", (ws, req) => {
           if (a.length > 500) a.shift();
         }
         const wasBusy = entry.busy[conn.seat];
-        entry.making[conn.seat] = null;
-        entry.lastDoneAt[conn.seat] = Date.now();
-        entry.busy[conn.seat] = false; // 끝냈으니 레일 화면에서 다시 누를 수 있다 (room.secureCell의 브로드캐스트에 같이 실려 간다)
-        entry.room.secureCell(conn.seat, msg.cellId, typeof msg.sushi === "string" ? msg.sushi : null);
+        if (!(entry.making[conn.seat] && entry.making[conn.seat].rail)) entry.making[conn.seat] = null;
+        if (msg.fromStock !== true) entry.lastDoneAt[conn.seat] = Date.now();
+        if (msg.fromStock !== true) entry.busy[conn.seat] = false; // (옛 방식) 끝냈으니 busy 해제. 레일 모드의 busy는 레일 손질 중 표시라 건드리지 않는다
+        entry.room.secureCell(conn.seat, msg.cellId, typeof msg.sushi === "string" ? msg.sushi : null, msg.fromStock === true);
         if (wasBusy) broadcast(code, entry.room.state); // 중복 메시지라 room이 방송을 안 했을 때를 위해
         break;
       }
       case "game-closed":
         // 플레이어가 레일이 열어 준 게임을 포기/닫았다 -> 다시 누를 수 있게.
         if (!conn.seat) return;
+        if (entry.making[conn.seat] && entry.making[conn.seat].rail) break; // 레일에서 손질 중인 건 자리 화면의 게임 닫기와 무관
         if (entry.busy[conn.seat] || entry.making[conn.seat]) { entry.busy[conn.seat] = false; entry.making[conn.seat] = null; broadcast(code, entry.room.state); }
         break;
       case "game-stage": {

@@ -60,8 +60,8 @@ const TYPES = [
 // 배열 순서 = 좌석 번호 순서다 (COURIERS[0] = 좌석 "1"). 아이콘(SVG)은 build_client.py의 COURIER_ICONS에 같은 순서로 있다.
 // (build_client.py가 이 리터럴을 정규식+JSON으로 읽으므로 배열 안에는 주석을 넣지 않는다.)
 const COURIERS = [
-  { key: "king", name: "초밥왕", color: "#D9382E" },
-  { key: "hunter", name: "스시헌터", color: "#1F4FA8" },
+  { key: "king", name: "빨강팀", color: "#D9382E" },
+  { key: "hunter", name: "남색팀", color: "#1F4FA8" },
 ];
 
 const FLOORS = ["빨강", "주황", "노랑", "초록", "파랑", "보라"]; // 순환 벨트 위의 접시 6장 (색 이름)

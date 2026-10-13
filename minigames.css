@@ -667,3 +667,11 @@
 .ps-item { width: 92px; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px; }
 .ps-item svg { width: 34px; height: 42px; } .ps-item b { font-size: 0.9rem; } .ps-item small { font-size: 0.65rem; opacity: 0.6; }
 .ps-item.is-press { animation: pr-stir 0.16s ease; }
+
+/* 사용자 제공 재료 일러스트 (2026-10-12): 손질 게임 무대 그림 */
+.pr-art { width: 100%; height: auto; max-height: 190px; object-fit: contain; display: block; user-select: none; }
+.tm-fish:has(.pr-art), .pr-bowl:has(.pr-art), .pr-fire:has(.pr-art), .pr-fillet:has(.pr-art) { background: #fff6dc; }
+.pr-fire:has(.pr-art) { background: #3a2b20; }
+.pr-bowl:has(.pr-art) { border-radius: 22px; }
+.pr-bowl:has(.pr-art) .pr-whisk { display: none; }
+.pr-bowl.is-hit-img .pr-art { animation: pr-stir 0.16s ease; }

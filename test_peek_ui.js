@@ -99,7 +99,7 @@ async function main() {
   }
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-peek")) === 0, { label: "peek 게임 종료" });
   await waitFor(async () => (await bodyText(p1)).includes("엿보기 2회 획득"), { label: "엿보기 2회 획득 표시 (테스트 모드는 실수 0)" });
-  assert_(!(await bodyText(p1)).includes("나 · 초밥왕 · 준비 완료") && (await countSel(p1, ".ready-chip.is-ready")) === 0, "엿보기 게임 중 누른 스페이스가 준비 완료가 되면 안 됨");
+  assert_(!(await bodyText(p1)).includes("나 · 빨강팀 · 준비 완료") && (await countSel(p1, ".ready-chip.is-ready")) === 0, "엿보기 게임 중 누른 스페이스가 준비 완료가 되면 안 됨");
   assert_((await countSel(p1, '[data-action="start-peek"]')) === 0, "한 번 했으면 재도전 버튼은 사라져야 함");
   if (process.env.SHOT) await p1.screenshot({ path: process.env.SHOT + "_half.png" });
   assert_((await bodyText(p2)).includes("도전 완료"), "상대 화면에는 도전 완료만 보임");

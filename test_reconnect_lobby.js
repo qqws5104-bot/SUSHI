@@ -86,7 +86,7 @@ async function main() {
   log("waited past the 1.2s auto-reconnect delay, checking p1's state");
 
   // 재접속 후: 서버가 courierPick을 지우지 않았어야 하므로, 좌석 선택 화면(셰프 아이콘 5개)이
-  // 아니라 "내 팀 · 초밥왕" 로비 화면이 그대로 유지돼야 한다.
+  // 아니라 "내 팀 · 빨강팀" 로비 화면이 그대로 유지돼야 한다.
   await waitFor(async () => {
     const t = await bodyText(p1);
     return t.includes("내 팀 · " + COURIER_NAME.king);

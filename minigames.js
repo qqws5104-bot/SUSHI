@@ -1470,8 +1470,9 @@
       if (e.repeat && a !== "up" && a !== "down" && a !== "left" && a !== "right") return;
       onAct(a);
     }
-    document.addEventListener("keydown", onKey, true);
-    c.onCleanup(function () { document.removeEventListener("keydown", onKey, true); });
+    var kt = c.keyTarget || document;
+    kt.addEventListener("keydown", onKey, true);
+    c.onCleanup(function () { kt.removeEventListener("keydown", onKey, true); });
     Array.prototype.forEach.call(body.querySelectorAll(".mg-key[" + attr + "]"), function (b) {
       b.addEventListener("pointerdown", function (e) { e.preventDefault(); onAct(b.getAttribute(attr)); });
     });
@@ -1889,7 +1890,7 @@
     var cuts = ""; for (var i = 1; i <= pieces; i++) cuts += '<i style="left:' + (i * 100 / (pieces + 1)) + '%"></i>';
     return timingGame(body, c, {
       skin: "prep", total: total, zoneW0: 0.30, zoneMin: 0.13, zoneStep: 0.02, speed0: 0.75, speedStep: 0.035, speedMax: 1.5,
-      stageHtml: '<div class="tm-fish">' + sushiSvg(key, "tm-fish-svg") + '<div class="tm-cuts">' + cuts + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' ' + pieces + '조각 손질</div>',
+      stageHtml: '<div class="tm-fish">' + prepArt(key, "tm-fish-svg") + '<div class="tm-cuts">' + cuts + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' ' + pieces + '조각 손질</div>',
       markHtml: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20L17 4l4 3L7 21z" fill="#cfd6dc" stroke="#2b1d12" stroke-width="1.6"/><path d="M17 4l4 3" stroke="#2b1d12" stroke-width="2"/></svg>',
       btn: "썰기!", okText: function (d, t) { return d + " / " + t + " 썰었어요"; },
       hint: "칼이 초록 구간에 올 때 SPACE(또는 버튼)로 썰어요. 빗나가면 잠깐 멈춰요. 갈수록 빨라지고 구간이 좁아져요.",
@@ -1898,22 +1899,30 @@
   // ---- 손질 변형 (2026-10-12, "손질 게임이 다 똑같다"): 초밥 종류마다 다른 손놀림 ----
   //   계란 = 휘젓기(연타) / 흰살생선 = 칼질(타이밍) / 장어 = 굽기(누르고 있기로 온도 맞추기) / 연어 = 뼈 발라내기(방향 반응)
   // 테스트 모드(?mgtest=1)에서는 SPACE/방향키 한두 번이면 끝난다 (passPrep이 SPACE만 눌러도 모든 변형이 통과).
+  // 2026-10-12 사용자 제공 재료 일러스트(art/prep_*.webp): 휘젓기 = 그릇, 칼질 = 흰살생선, 굽기 = 장어, 뼈 발라내기 = 연어. 이미지가 없으면 SVG로 대체.
+  var PREP_IMG = {}, PREP_ART_KEY = { egg: "bowl", whitefish: "whitefish", eel: "eel", salmon: "salmon" };
+  function prepArt(key, cls) {
+    var u = PREP_IMG[PREP_ART_KEY[key]];
+    return u ? '<img class="' + cls + ' pr-art" src="' + u + '" alt="" draggable="false">' : sushiSvg(key, cls);
+  }
   function holdKeys(c, onDown, onUp) {
     function kd(e) { if (c.isFinished() || (e.code !== "Space" && e.key !== " ")) return; e.preventDefault(); e.stopPropagation(); if (!e.repeat) onDown(); }
     function ku(e) { if (e.code !== "Space" && e.key !== " ") return; onUp(); }
-    document.addEventListener("keydown", kd, true); document.addEventListener("keyup", ku, true);
-    c.onCleanup(function () { document.removeEventListener("keydown", kd, true); document.removeEventListener("keyup", ku, true); });
+    var kt = c.keyTarget || document;
+    kt.addEventListener("keydown", kd, true); kt.addEventListener("keyup", ku, true);
+    c.onCleanup(function () { kt.removeEventListener("keydown", kd, true); kt.removeEventListener("keyup", ku, true); });
   }
   function mashPrep(body, c) {
     var key = c.sushi || "egg", pieces = clamp(parseInt(c.opts.pieces, 10) || 2, 1, 5);
     var gain = c.testHooks ? 1 : 0.055, decay = 0.2, fill = 0, last = performance.now(), raf = 0, done = false;
-    body.innerHTML = '<div class="tm-wrap pr-mash"><div class="tm-stage"><div class="pr-bowl">' + sushiSvg(key, "tm-fish-svg") + '<i class="pr-whisk"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 풀어서 섞기</div></div>'
+    body.innerHTML = '<div class="tm-wrap pr-mash"><div class="tm-stage"><div class="pr-bowl">' + prepArt(key, "tm-fish-svg") + '<i class="pr-whisk"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 풀어서 섞기</div></div>'
       + '<div class="pr-gauge"><i class="pr-gauge-fill"></i></div><p class="tm-note">&nbsp;</p>'
       + '<button type="button" class="mg-key tm-btn" data-pr="hit">휘젓기!<small>SPACE 연타</small></button></div>';
     var fillEl = body.querySelector(".pr-gauge-fill"), note = body.querySelector(".tm-note"), whisk = body.querySelector(".pr-whisk");
     function hit() {
       if (c.isFinished() || done) return;
       fill = Math.min(1, fill + gain); whisk.classList.remove("is-hit"); void whisk.offsetWidth; whisk.classList.add("is-hit");
+      var bw = body.querySelector(".pr-bowl"); if (bw) { bw.classList.remove("is-hit-img"); void bw.offsetWidth; bw.classList.add("is-hit-img"); }
       if (fill >= 1) { done = true; cancelAnimationFrame(raf); fillEl.style.width = "100%"; note.textContent = "잘 섞였어요!"; c.later(c.finish, 250); }
     }
     function frame(now) {
@@ -1931,7 +1940,7 @@
   function grillPrep(body, c) {
     var key = c.sushi || "eel", pieces = clamp(parseInt(c.opts.pieces, 10) || 4, 1, 6);
     var need = c.testHooks ? 0.05 : 0.8 + pieces * 0.6, lo = 0.52, hi = 0.8, temp = 0.15, prog = 0, held = false, last = performance.now(), raf = 0, done = false, burn = 0;
-    body.innerHTML = '<div class="tm-wrap pr-grill"><div class="tm-stage"><div class="pr-fire">' + sushiSvg(key, "tm-fish-svg") + '<i class="pr-flame"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 알맞게 굽기</div></div>'
+    body.innerHTML = '<div class="tm-wrap pr-grill"><div class="tm-stage"><div class="pr-fire">' + prepArt(key, "tm-fish-svg") + '<i class="pr-flame"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 알맞게 굽기</div></div>'
       + '<div class="pr-heat"><span class="pr-band" style="left:' + (lo * 100) + '%;width:' + ((hi - lo) * 100) + '%"></span><i class="pr-temp"></i></div>'
       + '<div class="pr-prog"><i></i></div><p class="tm-note">&nbsp;</p>'
       + '<button type="button" class="mg-key tm-btn" data-pr="hold">불 세게!<small>SPACE 누르고 있기</small></button></div>';
@@ -1964,7 +1973,7 @@
     var lanes = ""; PIN_LANES.forEach(function (l) { lanes += '<div class="pr-lane" data-lane="' + l + '"><svg class="pr-bone" viewBox="0 0 24 40" aria-hidden="true"><path d="M12 2v36M12 8l-7 5M12 8l7 5M12 16l-7 5M12 16l7 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></div>'; });
     var btns = ""; PIN_LANES.forEach(function (l) { btns += '<button type="button" class="mg-key pr-pin" data-pr="' + l + '">' + PIN_GLYPH[l] + '</button>'; });
     var pips = ""; for (var i = 0; i < total; i++) pips += '<i class="tm-pip"></i>';
-    body.innerHTML = '<div class="tm-wrap pr-pin-wrap"><div class="tm-stage"><div class="pr-fillet">' + sushiSvg(key, "tm-fish-svg pr-fillet-svg") + '<div class="pr-lanes">' + lanes + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' 뼈 발라내기</div></div>'
+    body.innerHTML = '<div class="tm-wrap pr-pin-wrap"><div class="tm-stage"><div class="pr-fillet">' + prepArt(key, "tm-fish-svg pr-fillet-svg") + '<div class="pr-lanes">' + lanes + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' 뼈 발라내기</div></div>'
       + '<div class="pr-pins">' + btns + '</div><div class="tm-pips">' + pips + '</div><p class="tm-note">&nbsp;</p></div>';
     var laneEls = body.querySelectorAll(".pr-lane"), pipEls = body.querySelectorAll(".tm-pip"), note = body.querySelector(".tm-note");
     function next() {
@@ -2103,6 +2112,8 @@
     var tick = setInterval(function () { if (!finished && started) timeEl.textContent = fmtSec(performance.now() - t0); }, 100);
 
     var ctx = {
+      // keyTarget: 레일 화면처럼 한 문서에서 두 게임이 동시에 돌 때, 키 입력을 이 게임 전용 요소로 따로 받는다 (기본은 문서 전체).
+      keyTarget: opts.keyTarget || null,
       level: level, label: opts.label, sushi: SUSHI[opts.sushi] ? opts.sushi : null, testHooks: !!opts.testHooks, opts: opts,
       isFinished: function () { return finished || destroyed; },
       later: function (fn, ms) {
@@ -2144,11 +2155,12 @@
         + '<button type="button" class="mg-key mg-intro-go">시작<small>SPACE · <span class="mg-intro-sec">' + secs + '</span>초 뒤 자동</small></button></div>';
       var left = secs, goBtn = body.querySelector(".mg-intro-go"), secEl = body.querySelector(".mg-intro-sec");
       var iv = setInterval(function () { left--; if (secEl) secEl.textContent = Math.max(0, left); if (left <= 0) go(); }, 1000);
-      function go() { clearInterval(iv); document.removeEventListener("keydown", onIntroKey, true); begin(); }
+      var introKT = opts.keyTarget || document;
+      function go() { clearInterval(iv); introKT.removeEventListener("keydown", onIntroKey, true); begin(); }
       function onIntroKey(e) { if (e.code === "Space" || e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); go(); } }
-      document.addEventListener("keydown", onIntroKey, true);
+      introKT.addEventListener("keydown", onIntroKey, true);
       goBtn.addEventListener("click", go);
-      cleanups.push(function () { clearInterval(iv); document.removeEventListener("keydown", onIntroKey, true); });
+      cleanups.push(function () { clearInterval(iv); introKT.removeEventListener("keydown", onIntroKey, true); });
     } else begin();
     rootEl.querySelector(".mg-giveup").addEventListener("click", function () {
       if (finished || destroyed) return;
@@ -2173,6 +2185,8 @@
     sushiSvg: sushiSvg,
     LEVEL_NAME: LEVEL_NAME,
     MAP_REPLAY_AFTER_MS: MAP_REPLAY_AFTER_MS,
+    setPrepImages: function (m) { PREP_IMG = m || {}; },
+    prepImage: function (k) { return PREP_IMG[k] || null; },
     setMistakeRule: function (rule) { if (rule === "reset" || rule === "freeze" || rule === "ignore") config.mistakeRule = rule; },
     getMistakeRule: function () { return config.mistakeRule; },
   };
