@@ -4833,7 +4833,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
   // 2026-10-13 플레이 시작 전 게임 설명: 대기실(플레이어)·메인 화면·레일 화면 대기 중에 같은 4단계 카드를 먼저 보여 준다.
   function howtoHtml() {
     var steps = [
-      ['손질', '레일 화면', '레일 화면에서 손질 미니게임을 해서 <b>회</b>를 만들어요 (1번 W A S D · 2번 방향키)'],
+      ['손질', '레일 화면', '레일 화면에서 손질 미니게임을 해서 <b>회</b>를 만들어요 (1번 W A S D · 2번 방향키 + Shift)'],
       ['조립', '내 자리', '회로 퍼즐을 풀어 <b>초밥</b>을 완성해요. 주문표가 붙고 상대에겐 비밀이에요'],
       ['서빙', '회전 벨트', '접시를 맞춰 서빙해요. 벨트는 <b>메인 화면</b>에서 돌려요 (1번 A·D · 2번 4·6)'],
       ['점수', '전반 · 후반', '팔면 +, 못 팔면 원재료값 −. 전반·후반을 합산하고 후반엔 초밥도둑이 나와요']
@@ -4900,11 +4900,11 @@ body.main-view #app { height: 100vh; min-height: 0; }
   var railUi = { "1": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 }, "2": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 } };
   var RAIL_KEYS = {
     "1": { KeyA: "ArrowLeft", KeyD: "ArrowRight", KeyW: "ArrowUp", KeyS: "Space" },
-    "2": { ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", ArrowUp: "ArrowUp", ArrowDown: "Space" }
+    "2": { ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", ArrowUp: "ArrowUp", ShiftRight: "Space" }
   };
   // 레일 화면은 W A S D / 방향키만 쓴다 (2026-10-13). ←→(A D) = 고르기·좌우, ↑(W) = 위, ↓(S) = "행동" 키 한 개(시작·확인·썰기·휘젓기·굽기).
-  var RAIL_KEY_HINT = { "1": "A D 고르기 · S 시작/행동 · W 위", "2": "← → 고르기 · ↓ 시작/행동 · ↑ 위" };
-  var RAIL_ACT_LABEL = { "1": "S", "2": "↓" };
+  var RAIL_KEY_HINT = { "1": "A D 고르기 · S 시작/행동 · W 위", "2": "← → 고르기 · 오른쪽 Shift 시작/행동 · ↑ 위" };
+  var RAIL_ACT_LABEL = { "1": "S", "2": "Shift" };
   function railHead(label) {
     return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live</span><h1>레일 화면</h1></div>'
       + '<div class="rv-chips">' + (label ? '<span class="rv-chip phase">' + esc(label) + '</span>' : '') + '<span class="rv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
@@ -5062,7 +5062,7 @@ body.main-view #app { height: 100vh; min-height: 0; }
     var mine = st.players[seat].invoices, total = 0;
     TYPES.forEach(function (t, ci) { total += stockOf(st, seat, ci); });
     html += '<div class="card rw" data-rail-wait="1"><h2>' + (total ? ('재료함에 회가 ' + total + '개 있어요 — 퍼즐로 조립하세요') : '레일 화면에서 손질해 회를 만드세요') + '</h2>'
-      + '<p class="rw-sub">내 레일은 공용 화면의 <b>' + (seat === "1" ? '왼쪽(W A S D 키)' : '오른쪽(방향키)') + '</b>이에요. 손질이 끝나면 여기 재료함에 회가 쌓여요.</p><div class="rw-list">';
+      + '<p class="rw-sub">내 레일은 공용 화면의 <b>' + (seat === "1" ? '왼쪽(W A S D 키)' : '오른쪽(방향키 + 오른쪽 Shift)') + '</b>이에요. 손질이 끝나면 여기 재료함에 회가 쌓여요.</p><div class="rw-list">';
     TYPES.forEach(function (t, catIdx) {
       var n = stockOf(st, seat, catIdx), left = boardLeft(st, catIdx);
       var chips = mine.filter(function (inv) { return inv.catIdx === catIdx; })

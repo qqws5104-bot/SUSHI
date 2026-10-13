@@ -38,20 +38,20 @@ async function waitFor(fn, { timeout = 8000, label = "cond" } = {}) { const t = 
 
   await rail.keyboard.press("Space"); await rail.keyboard.press("Enter"); await sleep(200);
   assert(!(await rail.evaluate(() => document.querySelector("#rp-1").classList.contains("is-playing") || document.querySelector("#rp-2").classList.contains("is-playing"))), "SPACE/ENTER는 레일에서 쓰지 않는다");
-  // 동시에 시작: 1번 = S(흰살생선 1), 2번 = ↓(장어 2)
-  await rail.keyboard.press("KeyS"); await rail.keyboard.press("ArrowDown"); await sleep(300);
+  // 동시에 시작: 1번 = S(흰살생선 1), 2번 = 오른쪽 Shift(장어 2)
+  await rail.keyboard.press("KeyS"); await rail.keyboard.press("ShiftRight"); await sleep(300);
   assert(await rail.evaluate(() => document.querySelector("#rp-1").classList.contains("is-playing") && document.querySelector("#rp-2").classList.contains("is-playing")), "두 패널 동시에 게임 중");
   const paneText = (side) => rail.evaluate((x) => document.querySelector("#rp-" + x + " .rp-game").innerText, side);
-  assert(!(await paneText("1")).includes("SPACE") && !(await paneText("2")).includes("SPACE"), "게임 안의 SPACE 표기가 이 패널의 키(S / ↓)로 바뀜");
-  assert((await paneText("2")).includes("↓"), "2번 패널은 ↓ 표기");
+  assert(!(await paneText("1")).includes("SPACE") && !(await paneText("2")).includes("SPACE"), "게임 안의 SPACE 표기가 이 패널의 키(S / Shift)로 바뀜");
+  assert((await paneText("2")).includes("Shift"), "2번 패널은 Shift 표기");
   assert.strictEqual(st().stock["1"].concat(st().stock["2"]).reduce((a, b) => a + b, 0), 0);
   assert.deepStrictEqual(Object.keys(global.__rooms.get(room).making).map((k) => global.__rooms.get(room).making[k] && global.__rooms.get(room).making[k].catIdx), [1, 2], "메인 모니터용 making 표시");
 
-  // 키 분리: ↓만 눌러도 1번(SPACE 쪽) 게임은 안 끝난다. 2번만 완료.
-  // 장어 굽기 = 누르고 있기: ↓를 1.3초 누른다 (그동안 S는 2번 게임에 영향 없어야 한다)
-  await rail.keyboard.down("ArrowDown"); await sleep(1300); await rail.keyboard.up("ArrowDown");
+  // 키 분리: Shift만 눌러도 1번(SPACE 쪽) 게임은 안 끝난다. 2번만 완료.
+  // 장어 굽기 = 누르고 있기: 오른쪽 Shift를 1.3초 누른다 (그동안 S는 2번 게임에 영향 없어야 한다)
+  await rail.keyboard.down("ShiftRight"); await sleep(1300); await rail.keyboard.up("ShiftRight");
   await waitFor(() => st().stock["2"][2] === 1, { timeout: 6000, label: "2번 장어 회 +1" });
-  assert.strictEqual(st().stock["1"][1], 0, "↓가 1번 게임에 전달되지 않음");
+  assert.strictEqual(st().stock["1"][1], 0, "Shift가 1번 게임에 전달되지 않음");
   assert((await rail.evaluate(() => document.querySelector("#rp-1").classList.contains("is-playing"))), "1번은 아직 게임 중");
   for (let i = 0; i < 25 && st().stock["1"][1] < 1; i++) { await rail.keyboard.press("KeyS"); await sleep(40); }
   await waitFor(() => st().stock["1"][1] === 1, { timeout: 6000, label: "1번 흰살생선 회 +1" });
