@@ -48,8 +48,8 @@ async function waitFor(fn, { timeout = 8000, label = "cond" } = {}) { const t = 
   assert.deepStrictEqual(Object.keys(global.__rooms.get(room).making).map((k) => global.__rooms.get(room).making[k] && global.__rooms.get(room).making[k].catIdx), [1, 2], "메인 모니터용 making 표시");
 
   // 키 분리: Shift만 눌러도 1번(SPACE 쪽) 게임은 안 끝난다. 2번만 완료.
-  // 장어 굽기 = 누르고 있기: 오른쪽 Shift를 1.3초 누른다 (그동안 S는 2번 게임에 영향 없어야 한다)
-  await rail.keyboard.down("ShiftRight"); await sleep(1300); await rail.keyboard.up("ShiftRight");
+  // 장어 굽기 = 연타: 오른쪽 Shift를 눌러 완료 (S는 2번 게임에 영향 없어야 한다)
+  for (let i = 0; i < 6 && st().stock["2"][2] < 1; i++) { await rail.keyboard.press("ShiftRight"); await sleep(60); }
   await waitFor(() => st().stock["2"][2] === 1, { timeout: 6000, label: "2번 장어 회 +1" });
   assert.strictEqual(st().stock["1"][1], 0, "Shift가 1번 게임에 전달되지 않음");
   assert((await rail.evaluate(() => document.querySelector("#rp-1").classList.contains("is-playing"))), "1번은 아직 게임 중");

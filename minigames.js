@@ -1897,7 +1897,7 @@
     });
   }
   // ---- 손질 변형 (2026-10-12, "손질 게임이 다 똑같다"): 초밥 종류마다 다른 손놀림 ----
-  //   계란 = 휘젓기(연타) / 흰살생선 = 칼질(타이밍) / 장어 = 굽기(누르고 있기로 온도 맞추기) / 연어 = 뼈 발라내기(방향 반응)
+  //   계란 = 휘젓기(연타) / 흰살생선 = 칼질(타이밍) / 장어 = 굽기(연타) / 연어 = 뼈 발라내기(방향 반응)
   // 테스트 모드(?mgtest=1)에서는 SPACE/방향키 한두 번이면 끝난다 (passPrep이 SPACE만 눌러도 모든 변형이 통과).
   // 2026-10-12 사용자 제공 재료 일러스트(art/prep_*.webp): 휘젓기 = 그릇, 칼질 = 흰살생선, 굽기 = 장어, 뼈 발라내기 = 연어. 이미지가 없으면 SVG로 대체.
   var PREP_IMG = {}, PREP_ART_KEY = { egg: "bowl", whitefish: "whitefish", eel: "eel", salmon: "salmon" };
@@ -1938,33 +1938,30 @@
     return { hint: function () { return "SPACE(또는 버튼)를 빠르게 연타해서 계란물 게이지를 가득 채우세요. 멈추면 게이지가 줄어들어요."; } };
   }
   function grillPrep(body, c) {
+    // 2026-10-13: "너무 어렵다 -> 연타를 적당히" -- 누르고 있기/온도 균형을 없애고, SPACE 연타로 굽기 게이지를 채우는 방식(타는 실수 없음).
+    // 초당 약 4번 두드리면 5초 안쪽, 멈춰도 천천히만 식는다.
     var key = c.sushi || "eel", pieces = clamp(parseInt(c.opts.pieces, 10) || 4, 1, 6);
-    var need = c.testHooks ? 0.05 : 0.8 + pieces * 0.6, lo = 0.52, hi = 0.8, temp = 0.15, prog = 0, held = false, last = performance.now(), raf = 0, done = false, burn = 0;
-    body.innerHTML = '<div class="tm-wrap pr-grill"><div class="tm-stage"><div class="pr-fire">' + prepArt(key, "tm-fish-svg") + '<i class="pr-flame"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 알맞게 굽기</div></div>'
-      + '<div class="pr-heat"><span class="pr-band" style="left:' + (lo * 100) + '%;width:' + ((hi - lo) * 100) + '%"></span><i class="pr-temp"></i></div>'
-      + '<div class="pr-prog"><i></i></div><p class="tm-note">&nbsp;</p>'
-      + '<button type="button" class="mg-key tm-btn" data-pr="hold">불 세게!<small>SPACE 누르고 있기</small></button></div>';
-    var tempEl = body.querySelector(".pr-temp"), progEl = body.querySelector(".pr-prog i"), note = body.querySelector(".tm-note"), heat = body.querySelector(".pr-heat");
-    function setHeld(v) { held = v; }
-    holdKeys(c, function () { setHeld(true); if (c.testHooks) prog = need; }, function () { setHeld(false); });
-    var btn = body.querySelector(".tm-btn");
-    btn.addEventListener("pointerdown", function (e) { e.preventDefault(); setHeld(true); if (c.testHooks) prog = need; });
-    ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { btn.addEventListener(ev, function () { setHeld(false); }); });
+    var gain = c.testHooks ? 1 : 0.075, decay = 0.08, fill = 0, last = performance.now(), raf = 0, done = false;
+    body.innerHTML = '<div class="tm-wrap pr-grill"><div class="tm-stage"><div class="pr-fire">' + prepArt(key, "tm-fish-svg") + '<i class="pr-flame"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' ' + pieces + '조각 굽기</div></div>'
+      + '<div class="pr-gauge"><i class="pr-gauge-fill"></i></div><p class="tm-note">&nbsp;</p>'
+      + '<button type="button" class="mg-key tm-btn" data-pr="hit">굽기!<small>SPACE 연타</small></button></div>';
+    var fillEl = body.querySelector(".pr-gauge-fill"), note = body.querySelector(".tm-note"), fire = body.querySelector(".pr-fire");
+    function hit() {
+      if (c.isFinished() || done) return;
+      fill = Math.min(1, fill + gain); fire.classList.remove("is-hit-img"); void fire.offsetWidth; fire.classList.add("is-hit-img");
+      if (fill >= 1) { done = true; cancelAnimationFrame(raf); fillEl.style.width = "100%"; note.textContent = "노릇하게 구워졌어요!"; c.later(c.finish, 250); }
+    }
     function frame(now) {
       if (c.isFinished() || done) return;
-      var dt = Math.min(64, now - last) / 1000; last = now;
-      temp = clamp(temp + (held ? 0.5 : -0.4) * dt, 0, 1);
-      var inBand = temp >= lo && temp <= hi;
-      if (inBand) prog += dt;
-      if (temp >= 0.97 && now > burn) { burn = now + 700; c.addMistake(); temp = 0.3; heat.classList.add("is-miss"); setTimeout(function () { heat.classList.remove("is-miss"); }, 400); note.textContent = "탔어요! 다시 천천히"; }
-      else note.textContent = inBand ? "그대로 유지!" : (temp < lo ? "더 달궈요 (SPACE 누르기)" : "너무 뜨거워요! 살짝 떼세요");
-      tempEl.style.left = (temp * 100) + "%"; progEl.style.width = Math.min(100, prog / need * 100) + "%";
-      if (prog >= need) { done = true; note.textContent = "노릇하게 구워졌어요!"; c.later(c.finish, 250); return; }
+      var dt = Math.min(64, now - last) / 1000; last = now; fill = Math.max(0, fill - decay * dt);
+      fillEl.style.width = (fill * 100) + "%"; note.textContent = fill < 0.15 ? "SPACE를 연타해요!" : fill < 0.7 ? "잘 익고 있어요, 계속!" : "거의 다 됐어요!";
+      if (c.testHooks) body.setAttribute("data-pr", fill.toFixed(2));
       raf = requestAnimationFrame(frame);
     }
+    bindPad(body, c, "data-pr", function (a) { if (a === "space" || a === "enter" || a === "hit") hit(); });
     c.onCleanup(function () { cancelAnimationFrame(raf); });
     raf = requestAnimationFrame(frame);
-    return { hint: function () { return "SPACE(또는 버튼)를 누르고 있으면 온도가 오르고 떼면 내려가요. 온도 표시를 초록 구간에 오래 두면 구워져요. 끝까지 오르면 타서 실수예요."; } };
+    return { hint: function () { return "SPACE(또는 버튼)를 적당히 연타해서 굽기 게이지를 채우세요. 잠깐 쉬어도 천천히만 줄어들어요."; } };
   }
   var PIN_LANES = ["left", "up", "right"], PIN_GLYPH = { left: "←", up: "↑", right: "→" };
   function pinPrep(body, c) {
@@ -2077,7 +2074,7 @@
   var INTRO = {
     "prep:egg": ["손질 · 휘젓기", "계란물을 저어 게이지를 가득 채워요", "SPACE(또는 버튼)를 빠르게 연타", "멈추면 게이지가 가라앉아요"],
     "prep:whitefish": ["손질 · 칼질", "흰살생선을 조각 수만큼 썰어요", "칼이 초록 구간에 올 때 SPACE", "빗나가면 잠깐 멈춰요 · 갈수록 빨라져요"],
-    "prep:eel": ["손질 · 굽기", "장어를 노릇하게 구워요", "SPACE를 누르고 있으면 온도 상승, 떼면 하강", "초록 구간에 오래 두기 · 끝까지 오르면 타요"],
+    "prep:eel": ["손질 · 굽기", "장어를 노릇하게 구워요", "SPACE를 적당히 연타하면 게이지가 차올라요", "잠깐 쉬어도 천천히만 줄어들어요"],
     "prep:salmon": ["손질 · 뼈 발라내기", "연어의 가시를 하나씩 뽑아요", "가시가 뜬 자리의 방향키(← ↑ →)", "늦거나 틀리면 실수예요"],
     peek: ["손님 응대", "손님이 원하는 간장·와사비·생강·차를 가져다줘요", "← 간장 · ↑ 와사비 · ↓ 생강 · → 차 (1~4키/버튼도 돼요)", "틀리거나 늦으면 실수 · 실수 0~1번이어야 엿보기 1회를 얻어요"],
     ice: ["초밥 담기", "도마 위 초밥을 모두 접시 칸에 담아요", "방향키를 누르면 부딪힐 때까지 미끄러져요", "접시 칸에 정확히 멈추기 · Z 되돌리기 · R 처음부터"],

@@ -43,11 +43,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let r = await done(2000); assert(r && r.ok, "휘젓기: 연타로 완료"); console.log("[prep] 휘젓기", r.ms + "ms"); await stop();
 
   await start("eel", 4); await sleep(200);
-  await page.keyboard.down("Space"); await sleep(1300); await page.keyboard.up("Space"); await sleep(900);
-  await page.keyboard.down("Space"); await sleep(400); await page.keyboard.up("Space");
-  // 누르고/떼며 초록 구간 유지 -- 사람처럼 짧게 눌렀다 뗐다
-  for (let i = 0; i < 80 && !(await page.evaluate(() => window.__res)); i++) { await page.keyboard.down("Space"); await sleep(90); await page.keyboard.up("Space"); await sleep(70); }
-  r = await done(15000); assert(r && r.ok, "굽기: 온도 유지로 완료"); console.log("[prep] 굽기", r.ms + "ms, 실수", r.mistakes); await stop();
+  // 사람처럼 초당 약 4번 연타 (테스트 모드가 아닌 실제 난이도 측정은 별도)
+  for (let i = 0; i < 80 && !(await page.evaluate(() => window.__res)); i++) { await page.keyboard.press("Space"); await sleep(70); }
+  r = await done(15000); assert(r && r.ok, "굽기: 연타로 완료"); console.log("[prep] 굽기", r.ms + "ms, 실수", r.mistakes); await stop();
 
   await start("salmon", 3); await sleep(300);
   for (let i = 0; i < 40 && !(await page.evaluate(() => window.__res)); i++) {
