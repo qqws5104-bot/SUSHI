@@ -149,7 +149,7 @@ function freshPeek() {
 }
 function peekChargesFor(mistakes) {
   const m = Number.isFinite(mistakes) ? mistakes : 3;
-  return m <= 1 ? 2 : 1; // 최대 2회 (사용자 지정 2026-10-12): 실수 0~1 = 2회, 2+ = 1회
+  return m <= 1 ? 1 : 0; // 최대 1회 (사용자 지정 2026-10-13): 실수 0~1 = 1회, 2+ = 0회
 }
 
 const NAME_MAX = 8;

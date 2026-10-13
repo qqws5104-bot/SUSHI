@@ -143,6 +143,18 @@ async function main() {
   ei = await elevInfo();
   assert(ei.carTo === "2", "car element targets floor index 2");
   await shot(main, "main_6_elevator_moving");
+  // 메인 화면 투표 키: 1번 팀 A/D, 2번 팀 4/6 (메인 화면에서 직접 누른다). 그 밖의 키는 무시.
+  assert((await bodyText(main)).includes("시계") && (await main.evaluate(() => !!document.querySelector(".mv-votekeys"))), "메인에 투표 키 안내");
+  await main.keyboard.press("Space"); await main.keyboard.press("ArrowLeft"); await sleep(250);
+  assert((await elevInfo()).floor === "노랑", "메인에서 스페이스/방향키는 무시(그대로 노랑)");
+  await main.keyboard.press("KeyA");   // 1번 시계 -> 초록
+  await waitFor(async () => (await elevInfo()).floor === "초록", { label: "main A key = seat 1 clockwise" });
+  await main.keyboard.press("Digit6"); // 2번 반시계 -> 노랑
+  await waitFor(async () => (await elevInfo()).floor === "노랑", { label: "main 6 key = seat 2 counter-clockwise" });
+  await main.keyboard.press("Digit4"); // 2번 시계 -> 초록
+  await waitFor(async () => (await elevInfo()).floor === "초록", { label: "main 4 key" });
+  await main.keyboard.press("KeyD");   // 1번 반시계 -> 노랑
+  await waitFor(async () => (await elevInfo()).floor === "노랑", { label: "main D key" });
   log(`회전 벨트 단계: 라운드 1/5, 현재 접시 주황 -> 이동 중(${sec}초 남음) -> ArrowLeft(시계) 후 노랑로 따라감`);
 
   // 메인이 아직 좌석 없음 확인: 서버 상태의 seatOwners는 두 플레이어뿐

@@ -98,12 +98,12 @@ async function main() {
     await p1.keyboard.press("Space"); await p1.waitForTimeout(90);
   }
   await waitFor(async () => (await countSel(p1, "#mg-layer .mg-kind-peek")) === 0, { label: "peek 게임 종료" });
-  await waitFor(async () => (await bodyText(p1)).includes("엿보기 2회 획득"), { label: "엿보기 2회 획득 표시 (테스트 모드는 실수 0)" });
+  await waitFor(async () => (await bodyText(p1)).includes("엿보기 1회 획득"), { label: "엿보기 1회 획득 표시 (테스트 모드는 실수 0)" });
   assert_(!(await bodyText(p1)).includes("나 · 빨강팀 · 준비 완료") && (await countSel(p1, ".ready-chip.is-ready")) === 0, "엿보기 게임 중 누른 스페이스가 준비 완료가 되면 안 됨");
   assert_((await countSel(p1, '[data-action="start-peek"]')) === 0, "한 번 했으면 재도전 버튼은 사라져야 함");
   if (process.env.SHOT) await p1.screenshot({ path: process.env.SHOT + "_half.png" });
   assert_((await bodyText(p2)).includes("도전 완료"), "상대 화면에는 도전 완료만 보임");
-  log("하프타임: 엿보기 2회 획득, 재도전 불가, 스페이스 누수 없음");
+  log("하프타임: 엿보기 1회 획득, 재도전 불가, 스페이스 누수 없음");
 
   // ---- 후반: 2번이 칸 하나를 제작해서 주문표를 만든다 ----
   await pressSpace(p1); await pressSpace(p2);
@@ -126,9 +126,9 @@ async function main() {
   await waitFor(async () => (await countSel(p1, "#peek-pop")) === 1, { label: "엿보기 팝업" });
   assert_((await countSel(p2, "#peek-pop")) === 0, "상대 화면에는 팝업이 뜨면 안 됨");
   await waitFor(async () => (await countSel(p1, ".peek-seen")) === 1, { label: "엿본 주문표 목록" });
-  assert_((await bodyText(p1)).includes("남은 1회"), "남은 횟수 2회");
+  assert_((await bodyText(p1)).includes("남은 0회"), "남은 횟수 0회 (최대 1회를 씀)");
   if (process.env.SHOT) await p1.screenshot({ path: process.env.SHOT + "_elev.png" });
-  log("후반 벨트: 엿보기 1회 사용 -> 팝업 + 목록 + 남은 1회 (상대 화면엔 없음)");
+  log("후반 벨트: 엿보기 1회 사용 -> 팝업 + 목록 + 남은 0회 (상대 화면엔 없음)");
 
   // 도둑 배치 창에서 엿본 접시 표시
   await pressSpace(p1); await pressSpace(p2);

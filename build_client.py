@@ -736,6 +736,17 @@ HEAD_HTML = """<!doctype html>
   .name-in { width:11em; max-width:60%; padding:0.45rem 0.8rem; font:inherit; font-size:1.15rem; text-align:center; color:var(--ink); background:#fff; border:var(--pop-line) solid var(--ink); border-radius:12px; box-shadow:0 3px 0 var(--ink); }
   .name-in:focus { outline:3px solid var(--gold); outline-offset:2px; }
   .lobby-box .name-row { margin:0.4rem 0 1rem; }
+  /* 플레이 시작 전 게임 방법 카드 (2026-10-13) */
+  .lobby-box.has-howto { max-width:820px; }
+  .howto-title { font-family:var(--font-display); font-weight:800; font-size:1.05rem; margin:0.2rem 0 0.5rem; text-align:left; }
+  .howto { list-style:none; margin:0 0 0.8rem; padding:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0.6rem; text-align:left; }
+  .howto li { display:flex; gap:0.5rem; padding:0.6rem 0.7rem; border-radius:14px; border:3px solid var(--ink); background:#fff; box-shadow:0 3px 0 var(--ink); }
+  .howto i { flex:none; width:1.7rem; height:1.7rem; border-radius:50%; background:var(--gold); border:2px solid var(--ink); display:inline-flex; align-items:center; justify-content:center; font-style:normal; font-weight:800; }
+  .howto small { display:block; font-size:0.72rem; color:var(--muted); font-weight:700; }
+  .howto b { display:block; font-family:var(--font-display); font-size:1.05rem; }
+  .howto span { display:block; font-size:0.82rem; line-height:1.4; color:var(--ink); }
+  .howto span b { display:inline; font-size:inherit; color:var(--danger); }
+  @media (max-width:760px) { .howto { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .sa-king .sa-sign { left:5%; transform:rotate(-3deg); }
   .sa-hunter .sa-sign { right:5%; transform:rotate(3deg); }
   .sa-noren { position:absolute; top:7%; display:flex; gap:0.5%; }
@@ -1092,7 +1103,7 @@ APP_JS_TEMPLATE = r"""
   var ws = null;
   function wsUrl() {
     var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return proto + "//" + window.location.host + "/ws?room=" + encodeURIComponent(ROOM) + (RAIL ? "&role=rail" : "");
+    return proto + "//" + window.location.host + "/ws?room=" + encodeURIComponent(ROOM) + (RAIL ? "&role=rail" : (MAIN ? "&role=main" : ""));
   }
   // 상태가 바뀔 때의 효과음: 벨트가 다른 접시로 움직이면 그 접시 음(둘 다 듣는다), 라운드 결과가 나오면 내 서빙 결과음, 엿보기 도착음.
   function sfxOnState(prev, st) {
@@ -1312,12 +1323,11 @@ APP_JS_TEMPLATE = r"""
     var otherSeat = seat === "1" ? "2" : (seat === "2" ? "1" : null);
     var mine = seat ? !!st.ready[seat] : false;
     var other = otherSeat ? !!st.ready[otherSeat] : false;
-    return '<main class="stage"><div class="center-screen"><div class="lobby-box card">'
+    return '<main class="stage"><div class="center-screen"><div class="lobby-box card has-howto">'
       + '<h2>' + esc(seatName("1", st)) + ' VS ' + esc(seatName("2", st)) + '</h2>'
       + (seat ? '<label class="name-row"><span>우리 팀 이름</span>' + nameInput("name-lobby", st.names && st.names[seat], defaultName(seat)) + '</label>' : '')
-      + '<p class="rule-note">초밥마다 판매가가 달라요(계란 1,000 · 흰살생선 2,000 · 연어 1,500 · 장어 3,000). 만든 초밥을 라운드 안에 못 팔면(서빙 못 함 · 도둑에게 뺏김) <b>원재료값</b>만큼 점수가 깎여요.</p>'
-      + '<p>두 사람 모두 입장했으면 각자 자기 키보드의 <strong>스페이스바</strong>를 눌러 준비하세요.<br>'
-      + '둘 다 준비되면 자동으로 시작하고, 최대 3분 동안(초밥이 다 떨어지면 일찍 끝나요) 초밥을 만든 뒤 회전 벨트 라운드(총 ' + ELEVATOR_ROUNDS + '라운드)로 넘어가요. 전반·후반 두 번 하고 점수를 합산해요.</p>'
+      + '<div class="howto-title">게임 방법</div>' + howtoHtml()
+      + '<p class="rule-note">초밥마다 판매가가 달라요(계란 1,000 · 흰살생선 2,000 · 연어 1,500 · 장어 3,000). 만든 초밥을 라운드 안에 못 팔면 <b>원재료값</b>만큼 점수가 깎여요.</p>'
       + '<div class="ready-row">'
       + '<span class="ready-chip' + (mine ? ' is-ready' : '') + '">나 · ' + (seat ? seatName(seat, st) : "-") + (mine ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
       + '<span class="ready-chip' + (other ? ' is-ready' : '') + '">' + (otherSeat ? seatName(otherSeat, st) : "-") + (other ? ' · 준비 완료' : ' · 대기 중') + '</span>'
@@ -1864,13 +1874,13 @@ APP_JS_TEMPLATE = r"""
         + '<div class="chip">' + esc(seatName("2", st)) + '<span class="n">' + fmtWon(h1.scores["2"]) + '</span></div>'
         + '</div>';
     }
-    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '손님 응대를 잘하면 상대 주문표를 최대 2번 엿볼 수 있어요']);
+    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '손님 응대를 잘하면 상대 주문표를 1번 엿볼 수 있어요']);
     var pkMe = peekInfoFor(seat), pkOther = peekInfoFor(otherSeat);
     html += '<div class="peek-box">';
     if (pkMe.played) {
-      html += '<div class="pb-done"><b>엿보기 ' + pkMe.charges + '회 획득</b><span>후반 회전 벨트에서 상대 주문표를 ' + pkMe.charges + '장 몰래 볼 수 있어요</span></div>';
+      html += '<div class="pb-done"><b>엿보기 ' + pkMe.charges + '회 획득</b><span>' + (pkMe.charges > 0 ? '후반 회전 벨트에서 상대 주문표를 ' + pkMe.charges + '장 몰래 볼 수 있어요' : '실수가 많아 엿보기를 얻지 못했어요') + '</span></div>';
     } else {
-      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">손님이 원하는 간장·와사비를 재빨리 가져다주면, 손님이 후반에 상대 주문표를 귀띔해 줘요 (최대 2회 · 도전은 1번만).</div>'
+      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">손님이 원하는 간장·와사비를 재빨리 가져다주면, 손님이 후반에 상대 주문표를 귀띔해 줘요 (최대 1회 · 도전은 1번만 · 실수 0~1번이어야 얻어요).</div>'
         + '<button class="btn primary" data-action="start-peek">엿보기 도전</button>';
     }
     html += '<div class="pb-other">' + esc(seatName(otherSeat, st)) + ' · ' + (pkOther.played ? '도전 완료' : '아직 도전 안 함') + '</div></div>';
@@ -2004,6 +2014,18 @@ APP_JS_TEMPLATE = r"""
         return '<div class="cut" style="--d:' + (i * 3.34).toFixed(2) + 's"><i>' + (i + 1) + '</i><div><b>' + c[0] + '</b><span>' + c[1] + '</span></div></div>';
       }).join('') + '</div>';
   }
+  // 2026-10-13 플레이 시작 전 게임 설명: 대기실(플레이어)·메인 화면·레일 화면 대기 중에 같은 4단계 카드를 먼저 보여 준다.
+  function howtoHtml() {
+    var steps = [
+      ['손질', '레일 화면', '레일 화면에서 손질 미니게임을 해서 <b>회</b>를 만들어요 (1번 W A S D · 2번 방향키)'],
+      ['조립', '내 자리', '회로 퍼즐을 풀어 <b>초밥</b>을 완성해요. 주문표가 붙고 상대에겐 비밀이에요'],
+      ['서빙', '회전 벨트', '접시를 맞춰 서빙해요. 벨트는 <b>메인 화면</b>에서 돌려요 (1번 A·D · 2번 4·6)'],
+      ['점수', '전반 · 후반', '팔면 +, 못 팔면 원재료값 −. 전반·후반을 합산하고 후반엔 초밥도둑이 나와요']
+    ];
+    return '<ol class="howto">' + steps.map(function (s, i) {
+      return '<li><i>' + (i + 1) + '</i><div><small>' + s[1] + '</small><b>' + s[0] + '</b><span>' + s[2] + '</span></div></li>';
+    }).join('') + '</ol>';
+  }
   // 단계별 규칙은 3줄 이내 (평가 G2).
   function rules3(lines) {
     return '<ol class="rules3">' + lines.map(function (l) { return '<li>' + l + '</li>'; }).join('') + '</ol>';
@@ -2061,10 +2083,12 @@ APP_JS_TEMPLATE = r"""
   // 게임 DOM은 #app을 갈아끼우는 render() 밖(#rail-live 안의 .rp-game)에 두고 패널 머리/메뉴만 갱신한다 (진행 중인 게임이 안 사라지게).
   var railUi = { "1": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 }, "2": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 } };
   var RAIL_KEYS = {
-    "1": { KeyA: "ArrowLeft", KeyD: "ArrowRight", KeyW: "ArrowUp", KeyS: "ArrowDown", Space: "Space" },
-    "2": { ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", ArrowUp: "ArrowUp", ArrowDown: "ArrowDown", Enter: "Space", NumpadEnter: "Space" }
+    "1": { KeyA: "ArrowLeft", KeyD: "ArrowRight", KeyW: "ArrowUp", KeyS: "Space" },
+    "2": { ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", ArrowUp: "ArrowUp", ArrowDown: "Space" }
   };
-  var RAIL_KEY_HINT = { "1": "W A S D 로 조작 · SPACE 로 확인", "2": "방향키로 조작 · ENTER 로 확인 (게임 안내의 SPACE = ENTER)" };
+  // 레일 화면은 W A S D / 방향키만 쓴다 (2026-10-13). ←→(A D) = 고르기·좌우, ↑(W) = 위, ↓(S) = "행동" 키 한 개(시작·확인·썰기·휘젓기·굽기).
+  var RAIL_KEY_HINT = { "1": "A D 고르기 · S 시작/행동 · W 위", "2": "← → 고르기 · ↓ 시작/행동 · ↑ 위" };
+  var RAIL_ACT_LABEL = { "1": "S", "2": "↓" };
   function railHead(label) {
     return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live</span><h1>레일 화면</h1></div>'
       + '<div class="rv-chips">' + (label ? '<span class="rv-chip phase">' + esc(label) + '</span>' : '') + '<span class="rv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
@@ -2088,7 +2112,7 @@ APP_JS_TEMPLATE = r"""
       : st.phase === "elevator" ? ['서빙 중이에요', '다음 초밥 제작 단계에서 레일이 다시 열려요']
       : st.phase === "halftime" ? ['하프타임', '후반이 시작되면 레일이 새 초밥으로 채워져요']
       : ['게임이 끝났어요', '다시 시작하면 레일이 열려요'];
-    return '<div class="rv">' + railHead(st.phase === "lobby" ? '대기 중' : halfName) + '<div class="rv-center"><h2>' + msg[0] + '</h2><p>' + msg[1] + '</p>'
+    return '<div class="rv">' + railHead(st.phase === "lobby" ? '대기 중' : halfName) + '<div class="rv-center"><h2>' + msg[0] + '</h2><p>' + msg[1] + '</p>' + (st.phase === "lobby" ? howtoHtml() : '')
       + '<div class="rv-sides">' + railSideHead(st, "1") + railSideHead(st, "2") + '</div></div></div>';
   }
   function railBuildSecure() {
@@ -2120,7 +2144,7 @@ APP_JS_TEMPLATE = r"""
         + '<span class="rp-left">' + (left <= 0 ? '소진' : '남은 재료 <b>' + left + '</b>') + '</span></button>';
     }).join('');
     return '<div class="rp-pick">무엇을 손질할까요?</div><div class="rp-cards">' + cards + '</div>'
-      + '<p class="rp-help">' + (side === "1" ? 'A / D' : '← / →') + ' 로 고르고 ' + (side === "1" ? 'SPACE' : 'ENTER') + ' 로 시작 · 손질이 끝나면 <b>내 자리 화면</b>에서 퍼즐로 조립해요</p>';
+      + '<p class="rp-help">' + (side === "1" ? 'A / D' : '← / →') + ' 로 고르고 ' + RAIL_ACT_LABEL[side] + ' 로 시작 · 손질이 끝나면 <b>내 자리 화면</b>에서 퍼즐로 조립해요</p>';
   }
   function railRenderSecure() {
     var st = state;
@@ -2145,7 +2169,7 @@ APP_JS_TEMPLATE = r"""
     var host = document.querySelector("#rp-" + side + " .rp-game");
     if (!host) return;
     var sushi = TYPES[cat].sushi[0], ik = side + ":" + sushi;
-    var o = { kind: "prep", sushi: sushi, pieces: TYPES[cat].pieces, testHooks: TEST_HOOKS, keyTarget: host,
+    var o = { kind: "prep", sushi: sushi, pieces: TYPES[cat].pieces, testHooks: TEST_HOOKS, keyTarget: host, relabel: { space: RAIL_ACT_LABEL[side], wasd: side === "1" },
       onCancel: function () { railStop(side, true); },
       onDone: function (res) {
         var c = u.cat; railStop(side, false);
@@ -2222,7 +2246,7 @@ APP_JS_TEMPLATE = r"""
     var mine = st.players[seat].invoices, total = 0;
     TYPES.forEach(function (t, ci) { total += stockOf(st, seat, ci); });
     html += '<div class="card rw" data-rail-wait="1"><h2>' + (total ? ('재료함에 회가 ' + total + '개 있어요 — 퍼즐로 조립하세요') : '레일 화면에서 손질해 회를 만드세요') + '</h2>'
-      + '<p class="rw-sub">내 레일은 공용 화면의 <b>' + (seat === "1" ? '왼쪽(W A S D · SPACE)' : '오른쪽(방향키 · ENTER)') + '</b>이에요. 손질이 끝나면 여기 재료함에 회가 쌓여요.</p><div class="rw-list">';
+      + '<p class="rw-sub">내 레일은 공용 화면의 <b>' + (seat === "1" ? '왼쪽(W A S D 키)' : '오른쪽(방향키)') + '</b>이에요. 손질이 끝나면 여기 재료함에 회가 쌓여요.</p><div class="rw-list">';
     TYPES.forEach(function (t, catIdx) {
       var n = stockOf(st, seat, catIdx), left = boardLeft(st, catIdx);
       var chips = mine.filter(function (inv) { return inv.catIdx === catIdx; })
@@ -2305,7 +2329,8 @@ APP_JS_TEMPLATE = r"""
         + '<div class="mv-panel"><h2>참가자를 기다리고 있어요</h2>'
         + '<div class="mv-seats">' + mvSeatCard(st, "1", st.ready, "준비") + mvSeatCard(st, "2", st.ready, "준비") + '</div>'
         + '<div class="mv-join">각자 기기에서 이 주소로 들어오세요<b>' + esc(joinUrl) + '</b></div>'
-        + '<div class="mv-join mv-join-rail">레일 화면(공용)은 이 주소로<b>' + esc(location.origin + "/rail?room=" + ROOM) + '</b></div></div>'
+        + '<div class="mv-join mv-join-rail">레일 화면(공용)은 이 주소로<b>' + esc(location.origin + "/rail?room=" + ROOM) + '</b></div>'
+        + '<div class="howto-title">게임 방법</div>' + howtoHtml() + '</div>'
         + '</div></div>';
     }
     else if (st.phase === "secure") {
@@ -2347,6 +2372,7 @@ APP_JS_TEMPLATE = r"""
         + '<span class="mv-round">라운드 ' + el.round + ' / ' + ELEVATOR_ROUNDS + '</span>'
         + '<div class="mv-nowfloor"><span class="mv-label">현재 접시</span><span class="mv-floor-big">' + FLOORS[floorIdx] + '</span></div>'
         + '<div class="mv-state">' + esc(stateLabel) + '</div>'
+        + (el.state === "voting" ? '<div class="mv-votekeys"><span style="--c:' + COURIERS[0].color + '"><b>' + esc(seatName("1", st)) + '</b> <kbd>A</kbd> 시계 · <kbd>D</kbd> 반시계</span><span style="--c:' + COURIERS[1].color + '"><b>' + esc(seatName("2", st)) + '</b> <kbd>4</kbd> 시계 · <kbd>6</kbd> 반시계</span></div>' : '')
         + (ends ? mvTime(ends, 0, { sec: true }) : (wait && !((el.state === "idle" || el.state === "result") && el.gateEndsAt) ? '<div class="mv-wait">' + esc(wait) + '</div>' : ''))
         + ((el.state === "idle" || el.state === "result") && el.gateEndsAt ? '<div class="mv-wait">' + esc(wait) + ' · <b class="mv-time mv-auto" data-ends="' + el.gateEndsAt + '" data-fmt="sec">' + mvFormat(el.gateEndsAt, 'sec') + '</b> 뒤 자동 진행</div>' : '')
         + (el.state === "result" ? mvResult(st) : '')
@@ -2521,7 +2547,14 @@ APP_JS_TEMPLATE = r"""
   });
 
   document.addEventListener("keydown", function (e) {
-    if (MAIN) return; // 메인 모니터는 입력을 받지 않는다 (스페이스/방향키가 게임에 영향 주면 안 됨)
+    if (MAIN) {
+      // 메인 화면은 좌석이 없다. 벨트 이동 투표만 받는다 (2026-10-13): 1번 팀 = A(시계)/D(반시계), 2번 팀 = 4(시계)/6(반시계) (숫자 윗줄·키패드 모두).
+      // 그 밖의 키(스페이스/방향키 등)는 게임에 영향 주면 안 되므로 무시한다.
+      if (!state || state.phase !== "elevator" || state.elevator.state !== "voting" || e.metaKey || e.ctrlKey || e.altKey) return;
+      var mk = MAIN_VOTE_KEYS[e.code];
+      if (mk) { e.preventDefault(); send({ type: "main-vote", seat: mk[0], dir: mk[1] }); }
+      return;
+    }
     if (e.target && e.target.tagName === "INPUT") return; // 이름 입력 중엔 스페이스(준비)·방향키·E가 게임 조작으로 먹히면 안 된다
     if (e.code === "Space" || e.key === " " || e.key === "Spacebar") {
       var seat = mySeat();
@@ -2549,6 +2582,8 @@ APP_JS_TEMPLATE = r"""
       }
     }
   });
+
+  var MAIN_VOTE_KEYS = { KeyA: ["1", "up"], KeyD: ["1", "down"], Digit4: ["2", "up"], Numpad4: ["2", "up"], Digit6: ["2", "down"], Numpad6: ["2", "down"] };
 
   // ---------- 팀 이름 입력 (입장 화면 #name-join / 대기실 #name-lobby) ----------
   var nameTimer = null;

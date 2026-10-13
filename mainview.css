@@ -134,3 +134,13 @@ body.main-view #app { height: 100vh; min-height: 0; }
 
 .mv-elev-main .mv-wait .mv-time.mv-auto { font-size: 1.15em; display: inline; line-height: 1; }
 .mv-elev-main.is-result { gap: 1.4vh; } .mv-elev-main.is-result .mv-floor-big { font-size: min(14vh, 8vw); } .mv-elev-main.is-result .mv-nowfloor .mv-label { font-size: 3vh; }
+
+/* 메인 화면 벨트 이동 투표 키 안내 (2026-10-13) */
+.mv-votekeys { display:flex; gap:1.2rem; justify-content:center; flex-wrap:wrap; margin:0.5rem 0 0.2rem; font-weight:700; font-size:clamp(0.9rem,2.4vh,1.3rem); }
+.mv-votekeys > span { padding:0.25rem 0.9rem; border-radius:999px; border:3px solid var(--c); background:#fff; }
+.mv-votekeys b { color:var(--c); }
+.mv-votekeys kbd { display:inline-block; min-width:1.6em; text-align:center; padding:0 0.35em; border:2px solid var(--ink); border-radius:6px; background:#fff6dc; font-family:var(--font-display); font-weight:800; box-shadow:0 2px 0 var(--ink); }
+
+/* 게임 방법 카드 (메인/레일 대기 화면) */
+.mv-panel .howto { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:0.4rem; }
+.mv-panel .howto-title { color:var(--ink); }

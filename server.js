@@ -170,7 +170,7 @@ wss.on("connection", (ws, req) => {
   const code = (url.searchParams.get("room") || "").toUpperCase();
   if (!code) { ws.close(4000, "missing room"); return; }
   const entry = getOrCreateRoom(code);
-  const conn = { ws, clientId: null, seat: null, role: url.searchParams.get("role") === "rail" ? "rail" : "player" };
+  const conn = { ws, clientId: null, seat: null, role: url.searchParams.get("role") === "rail" ? "rail" : (url.searchParams.get("role") === "main" ? "main" : "player") };
   entry.sockets.add(conn);
   // 레일 화면이 붙거나 떠나면 모두에게 알린다 (플레이어 화면이 "레일 모드"로 바뀌고 돌아오도록).
   if (conn.role === "rail") broadcast(code, entry.room.state);
@@ -186,6 +186,11 @@ wss.on("connection", (ws, req) => {
     if (conn.role === "rail") {
       // 레일 화면은 좌석이 없고 오직 rail-* 메시지만 보낼 수 있다 (플레이어 메시지를 흉내내 게임을 건드리지 못하게).
       if (type === "rail-stage" || type === "rail-prep-done") handleRailMessage(entry, code, ws, msg);
+      return;
+    }
+    if (conn.role === "main") {
+      // 메인 화면(?view=main)은 좌석이 없고 벨트 이동 투표(main-vote)만 보낼 수 있다 (한 명은 A/D, 한 명은 4/6 키).
+      if (type === "main-vote" && (msg.seat === "1" || msg.seat === "2")) entry.room.vote(msg.seat, msg.dir);
       return;
     }
     if (seat === "1" || seat === "2") conn.seat = seat;

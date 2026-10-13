@@ -2008,7 +2008,7 @@
     return (key === "egg" ? mashPrep : key === "eel" ? grillPrep : key === "salmon" ? pinPrep : cutPrep)(body, c);
   }
   // ---- 엿보기 = 손님 응대 (2026-10-12, 사용자 지정): 손님이 원하는 간장·와사비·생강·차를 재빨리 가져다준다.
-  // 손님 6명(앞 4명은 1가지, 뒤 2명은 2가지 -- 순서 무관). 틀리거나 늦으면 실수. 실수 0~1 = 엿보기 2회, 2+ = 1회 (최대 2회).
+  // 손님 6명(앞 4명은 1가지, 뒤 2명은 2가지 -- 순서 무관). 틀리거나 늦으면 실수. 실수 0~1 = 엿보기 1회, 2+ = 0회 (최대 1회).
   var CONDS = [
     { name: "간장", key: "1", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><rect x="9" y="12" width="14" height="25" rx="4" fill="#3b2418" stroke="#1f120b" stroke-width="2"/><rect x="12" y="4" width="8" height="9" rx="2" fill="#d2402a" stroke="#1f120b" stroke-width="2"/><rect x="11" y="21" width="10" height="8" rx="1.5" fill="#f1e2c0"/></svg>' },
     { name: "와사비", key: "2", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M6 33c0-10 6-20 20-24 0 12-6 22-20 24z" fill="#5fae3c" stroke="#2c5a18" stroke-width="2"/><ellipse cx="16" cy="29" rx="9" ry="5" fill="#a8d86a" stroke="#2c5a18" stroke-width="2"/></svg>' },
@@ -2063,7 +2063,7 @@
     bindPad(body, c, "data-ps", act, { "1": "i0", "2": "i1", "3": "i2", "4": "i3" });
     c.onCleanup(function () { cancelAnimationFrame(timerRaf); });
     c.later(next, 300);
-    return { hint: function () { return "손님이 말한 것을 재빨리 눌러 가져다주세요 (← 간장 · ↑ 와사비 · ↓ 생강 · → 차, 또는 1~4키/버튼). 두 가지를 부탁하면 둘 다요. 틀리거나 늦으면 실수! 실수 0~1번이면 엿보기 2회, 그 이상이면 1회예요."; } };
+    return { hint: function () { return "손님이 말한 것을 재빨리 눌러 가져다주세요 (← 간장 · ↑ 와사비 · ↓ 생강 · → 차, 또는 1~4키/버튼). 두 가지를 부탁하면 둘 다요. 틀리거나 늦으면 실수! 실수 0~1번이어야 엿보기 1회를 얻어요."; } };
   }
 
   var GAMES = { prep: prepGame, peek: peekGame, pack: packGame, inspect: inspectGame, sticker: stickerGame, map: mapGame, soko: sokoGame, ice: iceGame, route: routeGame, twin: twinGame, pipe: pipeGame, hanoi: hanoiGame };
@@ -2079,7 +2079,7 @@
     "prep:whitefish": ["손질 · 칼질", "흰살생선을 조각 수만큼 썰어요", "칼이 초록 구간에 올 때 SPACE", "빗나가면 잠깐 멈춰요 · 갈수록 빨라져요"],
     "prep:eel": ["손질 · 굽기", "장어를 노릇하게 구워요", "SPACE를 누르고 있으면 온도 상승, 떼면 하강", "초록 구간에 오래 두기 · 끝까지 오르면 타요"],
     "prep:salmon": ["손질 · 뼈 발라내기", "연어의 가시를 하나씩 뽑아요", "가시가 뜬 자리의 방향키(← ↑ →)", "늦거나 틀리면 실수예요"],
-    peek: ["손님 응대", "손님이 원하는 간장·와사비·생강·차를 가져다줘요", "← 간장 · ↑ 와사비 · ↓ 생강 · → 차 (1~4키/버튼도 돼요)", "틀리거나 늦으면 실수 · 실수 0~1 = 엿보기 2회, 2+ = 1회"],
+    peek: ["손님 응대", "손님이 원하는 간장·와사비·생강·차를 가져다줘요", "← 간장 · ↑ 와사비 · ↓ 생강 · → 차 (1~4키/버튼도 돼요)", "틀리거나 늦으면 실수 · 실수 0~1번이어야 엿보기 1회를 얻어요"],
     ice: ["초밥 담기", "도마 위 초밥을 모두 접시 칸에 담아요", "방향키를 누르면 부딪힐 때까지 미끄러져요", "접시 칸에 정확히 멈추기 · Z 되돌리기 · R 처음부터"],
     map: ["주문 서빙", "주문표의 순서와 번호를 외워 손님에게 서빙해요", "주문표가 먼저 뜬 뒤 지도에서 방향키 이동 + SPACE", "비슷한 번호가 섞여 있어요 · 엉뚱한 자리는 실수"],
     soko: ["재료 정리", "재료 상자를 밀어 접시 칸에 모두 올려요", "방향키로 걸으며 밀기 (당길 수 없어요)", "구석에 끼면 Z 되돌리기 · R 처음부터"],
@@ -2146,6 +2146,26 @@
       started = true; t0 = performance.now(); body.innerHTML = "";
       game = GAMES[kind](body, ctx);
       rootEl.querySelector(".mg-hint").textContent = game.hint();
+    }
+    // 레일 화면용 키 표기 치환 (2026-10-13): 게임 안내 문구의 SPACE/방향키를 이 패널의 실제 키 이름으로 바꾼다 (게임 로직은 그대로).
+    //   opts.relabel = { space: "S", wasd: true|false } -- 텍스트 노드만 치환하고, 게임이 문구를 바꿀 때마다 다시 치환한다.
+    if (opts.relabel) {
+      var rl = opts.relabel, busyRl = false;
+      var relabelNode = function (t) {
+        var v = t.nodeValue, n = v.replace(/SPACE/g, rl.space);
+        if (rl.wasd) n = n.replace(/방향키/g, "A W D 키").replace(/←/g, "A").replace(/↑/g, "W").replace(/→/g, "D").replace(/↓/g, "S");
+        if (n !== v) t.nodeValue = n;
+      };
+      var relabelAll = function () {
+        if (busyRl) return; busyRl = true;
+        var w = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null), nd;
+        while ((nd = w.nextNode())) relabelNode(nd);
+        busyRl = false;
+      };
+      var mo = new MutationObserver(relabelAll);
+      mo.observe(rootEl, { childList: true, subtree: true, characterData: true });
+      cleanups.push(function () { mo.disconnect(); });
+      relabelAll();
     }
     var intro = opts.intro && !opts.testHooks ? introFor(kind, opts.sushi) : null;
     if (intro) {
