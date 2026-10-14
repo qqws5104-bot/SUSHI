@@ -1031,6 +1031,14 @@ APP_JS_TEMPLATE = r"""
   //   -> 먼저 투입한 사람이 공개된 2개 중 하나를 고름(← / → 또는 클릭, RACE_PICK_MS) -> 늦은 사람은 RACE_SECOND_MS 안에 투입하면 남은 것.
   // 상대의 진행 단계(송장/우봉고/투입)는 보인다 -- "같이 겨룬다"는 느낌. 상대 송장 내용은 여전히 안 보인다.
   function raceOther(seat) { return seat === "1" ? "2" : "1"; }
+  // 2026-10-14: 라운드 첫 게임은 RACE_GAME_POOL 중 무작위(r.game). 단계 이름 "sticker"는 그대로지만 화면엔 그 게임 이름을 쓴다.
+  function raceGameKind(r) { return (r && r.game && MiniGames.KINDS[r.game]) ? r.game : "sticker"; }
+  function raceGameName(r) { return MiniGames.KINDS[raceGameKind(r)].name; }
+  // 택배 쌓기 문제는 레일 화면(관전)에 하나만 -- 누군가 첫 게임을 끝낸 순간부터 결과 공개 전까지
+  function racePuzzleOpen(r) {
+    if (r.status === "reveal") return false;
+    return !!r.first || ["1", "2"].some(function (s) { return r.stage[s] === "ubongo" || r.stage[s] === "done"; });
+  }
   function raceCount(endsAt, prefix, suffix) {
     return '<b class="race-count" data-ends="' + endsAt + '" data-prefix="' + esc(prefix || '') + '" data-suffix="' + esc(suffix || '') + '">'
       + (prefix || '') + Math.max(0, Math.ceil((endsAt - nowMs()) / 1000)) + (suffix || '') + '</b>';
@@ -1076,7 +1084,7 @@ APP_JS_TEMPLATE = r"""
   }
   function raceLane(st, r, s, isMe) {
     var stg = r.stage[s];
-    var steps = [["sticker", "송장 붙이기"], ["ubongo", "택배 쌓기"], ["done", "투입"]];
+    var steps = [["sticker", raceGameName(r)], ["ubongo", "택배 쌓기"], ["done", "투입"]];
     var idx = stg === "sticker" ? 0 : (stg === "ubongo" ? 1 : (stg === "done" ? 2 : -1));
     var html = '<div class="race-lane' + (isMe ? ' me' : '') + (stg === "out" ? ' is-out' : '') + '"><span class="rl-name">' + (isMe ? '나 · ' : '') + esc(seatName(s, st))
       + (r.first === s ? ' <em>1등</em>' : '') + '</span><span class="rl-steps">';
@@ -1103,7 +1111,7 @@ APP_JS_TEMPLATE = r"""
         if (r.stage[o] === "done") return '<div class="race-msg hot">' + esc(seatName(o, st)) + ' 남은 택배 고르는 중</div>';
         return '<div class="race-msg hot">' + esc(seatName(o, st)) + ' 남은 택배를 노린다! ' + raceCount(r.secondEndsAt, '', '초') + '</div>';
       }
-      return '<div class="race-msg">송장 붙이기 → 택배 쌓기 → 투입! 먼저 끝낸 사람이 먼저 골라요</div>';
+      return '<div class="race-msg">' + esc(raceGameName(r)) + ' → 택배 쌓기 → 투입! 먼저 끝낸 사람이 먼저 골라요</div>';
     }
     var me = r.stage[seat];
     if (r.status === "picking") {
@@ -1119,8 +1127,8 @@ APP_JS_TEMPLATE = r"""
       if (me === "out") return '<div class="race-msg">이번 라운드는 탈락이에요</div>';
       return '<div class="race-msg hot">상대가 먼저 끝냈어요! ' + raceCount(r.secondEndsAt, '', '초') + ' 안에 투입하면 남은 택배 중 골라요</div>';
     }
-    if (me === "sticker") return '<div class="race-msg">송장을 붙이세요! 다 붙이면 바로 택배 쌓기예요</div>';
-    if (me === "ubongo") return '<div class="race-msg hot">실물 조각으로 <b>택배 쌓기</b>를 끝내고 <b>투입</b>하세요 (Space)</div>';
+    if (me === "sticker") return '<div class="race-msg">' + esc(raceGameName(r)) + '! 끝나면 바로 택배 쌓기예요</div>';
+    if (me === "ubongo") return '<div class="race-msg hot"><b>레일 화면</b>의 문제를 실물 조각으로 <b>택배 쌓기</b> → <b>투입</b> (Space)</div>';
     if (me === "out") return '<div class="race-msg">이번 라운드는 포기했어요. 다음 라운드를 기다려요</div>';
     return '<div class="race-msg">투입 완료!</div>';
   }
@@ -1134,13 +1142,27 @@ APP_JS_TEMPLATE = r"""
     html += raceMessage(st, r, seat);
     var order = seat ? [seat, raceOther(seat)] : ["1", "2"];
     html += '<div class="race-lanes">' + order.map(function (s, k) { return raceLane(st, r, s, !!seat && k === 0); }).join('') + '</div>';
-    return html + '</div>';
+    html += '</div>';
+    // 관전 화면(레일 화면/메인 모니터): 택배 쌓기 문제를 여기에만 크게 하나 (플레이어 화면엔 그림 없음)
+    if (!seat && racePuzzleOpen(r)) return '<div class="race-watch has-puzzle">' + html + racePuzzle(st, r) + '</div>';
+    return html;
   }
-  function racePuzzle(st, r) {
+  function racePieces(st, r) {
     var meta = cellMeta(r.puzzleId, st.half);
     var pt = meta ? TYPES[meta.catIdx] : null;
-    return '<div class="race-puzzle"><div class="rp-cap">택배 쌓기 · 조각 ' + (pt ? perHalf(pt.pieces) : '?') + '개 · 두 사람 같은 문제</div>'
-      + (meta && meta.src ? '<img src="' + meta.src + '" alt="택배 쌓기 문제">' : '')
+    return pt ? perHalf(pt.pieces) : '?';
+  }
+  // 레일 화면용 문제 그림 (하나만)
+  function racePuzzle(st, r) {
+    var meta = cellMeta(r.puzzleId, st.half);
+    return '<div class="race-puzzle"><div class="rp-cap">택배 쌓기 문제 · 조각 ' + racePieces(st, r) + '개 · 두 사람 같은 문제</div>'
+      + (meta && meta.src ? '<img src="' + meta.src + '" alt="택배 쌓기 문제">' : '') + '</div>';
+  }
+  // 플레이어 화면: 문제 그림 없이 안내 + 포기/투입 버튼만
+  function racePad(st, r) {
+    return '<div class="race-pad"><div class="rpad-ico" aria-hidden="true">⇧</div>'
+      + '<div class="rpad-t">레일 화면의 문제를 보세요</div>'
+      + '<div class="rpad-s">실물 조각 ' + racePieces(st, r) + '개로 택배 쌓기 · 두 사람 같은 문제</div>'
       + '<div class="puzzle-actions"><button class="btn danger" data-action="race-giveup">포기</button>'
       + '<button class="btn ok" data-action="race-done">투입 (Space)</button></div></div>';
   }
@@ -1150,7 +1172,7 @@ APP_JS_TEMPLATE = r"""
     var withPuzzle = r.stage[seat] === "ubongo" && r.status !== "reveal";
     var slip = withPuzzle ? '' : raceSlip(st, r, seat); // 고른 뒤: 자기 자리에서 송장이 나온다
     var html = '<main class="stage stage--race">' + cartOpen('cart--race') + '<div class="race-wrap' + (withPuzzle ? ' has-puzzle' : (slip ? ' has-slip' : '')) + '">'
-      + raceStage(st, seat) + (withPuzzle ? racePuzzle(st, r) : slip) + '</div>';
+      + raceStage(st, seat) + (withPuzzle ? racePad(st, r) : slip) + '</div>';
     html += '<div class="race-mine"><span class="rm-label">내 택배</span>' + (st.players[seat].invoices.length
       ? st.players[seat].invoices.map(function (inv) { return '<span class="my-chip fee-t' + inv.catIdx + '">' + esc(TYPES[inv.catIdx].name) + ' ' + esc(roomCode(inv.floorIdx, inv.room)) + ' ' + fmtWon(invReward(inv)) + '</span>'; }).join('')
       : '<small>아직 없음</small>') + '</div>';
@@ -1162,7 +1184,7 @@ APP_JS_TEMPLATE = r"""
     var seat = mySeat();
     var want = r && seat && r.stage[seat] === "sticker" && r.status !== "reveal";
     if (want) {
-      if (!mg || !mg.race || mg.round !== r.round) openRaceSticker(r);
+      if (!mg || !mg.race || mg.round !== r.round || mg.kind !== raceGameKind(r)) openRaceSticker(r);
       updateRaceStrip();
     } else if (mg && mg.race) closeMiniGame();
   }
@@ -1175,9 +1197,9 @@ APP_JS_TEMPLATE = r"""
     var round = r.round;
     var done = function () { closeMiniGame(); send({ type: "race-step", seat: mySeat(), step: "sticker-done", round: round }); };
     mg = {
-      race: true, round: round,
+      race: true, round: round, kind: raceGameKind(r),
       ctl: MiniGames.start(document.getElementById("mg-host"), {
-        kind: "sticker", level: perHalf(RACE_STICKER_LEVEL), testHooks: TEST_HOOKS,
+        kind: raceGameKind(r), level: perHalf(RACE_STICKER_LEVEL), testHooks: TEST_HOOKS,
         onDone: done,
         onCancel: function () { closeMiniGame(); send({ type: "race-step", seat: mySeat(), step: "give-up", round: round }); },
       }),
@@ -1191,7 +1213,7 @@ APP_JS_TEMPLATE = r"""
     if (!el || !state || !state.race) return;
     var o = raceOther(mySeat());
     var stg = state.race.stage[o];
-    el.textContent = seatName(o, state) + ' · ' + (stg === "sticker" ? '송장 붙이는 중' : stg === "ubongo" ? '택배 쌓기 중!' : stg === "done" ? '투입 완료!' : '탈락');
+    el.textContent = seatName(o, state) + ' · ' + (stg === "sticker" ? raceGameName(state.race) + ' 중' : stg === "ubongo" ? '택배 쌓기 중!' : stg === "done" ? '투입 완료!' : '탈락');
     el.className = 'race-strip' + (stg === "ubongo" || stg === "done" ? ' hot' : '');
   }
 

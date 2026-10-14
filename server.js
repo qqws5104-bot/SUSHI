@@ -28,7 +28,9 @@ function getOrCreateRoom(code) {
   let entry = rooms.get(code);
   if (!entry) {
     // 2026-10-14: RACE_MODE=0 환경변수로 띄우면 확보 단계가 예전 방식(레일에서 각자 골라 확보) -- 예전 회귀 테스트용(regress.sh).
-    const rules = process.env.RACE_MODE === "0" ? { raceMode: false } : undefined;
+    let rules = process.env.RACE_MODE === "0" ? { raceMode: false } : undefined;
+    // RACE_GAMES=sticker,tape 처럼 주면 레이스 첫 게임 후보를 그걸로 (테스트/현장 고정용)
+    if (process.env.RACE_GAMES) rules = Object.assign({}, rules || {}, { raceGamePool: process.env.RACE_GAMES.split(",").map((x) => x.trim()).filter(Boolean) });
     const room = new GameRoom(code, (state) => broadcast(code, state), rules);
     // busy: 레일 화면(/rail)이 열어 준 미니게임을 그 좌석 플레이어가 지금 하고 있는가 (레일 화면에 "플레이 중" 표시 + 중복 지시 방지).
     entry = { room, sockets: new Set(), busy: { "1": false, "2": false } };

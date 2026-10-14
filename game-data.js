@@ -132,6 +132,10 @@ const RACE_SECOND_MS = 5000;
 const RACE_REVEAL_MS = 2500;
 // 송장 붙이기 난이도 [전반, 후반] (minigames.js: 1 = 박스 4개/송장 2장, 2 = 박스 7개/송장 4장)
 const RACE_STICKER_LEVEL = [1, 1];
+// 2026-10-14 (사용자 요청): 라운드 첫 게임은 송장 붙이기 고정이 아니라 아래 5종 중 무작위. 한 라운드에서 두 사람은 같은 게임을 한다.
+//   바로 앞 라운드와 같은 게임은 안 나온다(5종을 섞은 순서대로 돌고, 다 돌면 다시 섞음). 박스 포장은 실물 택배 쌓기와 같은 퍼즐이라,
+//   지도 배달은 길어서 뺐다. 한 종류로 고정하려면 ["sticker"]처럼 하나만 두면 된다. 난이도는 RACE_STICKER_LEVEL(전반/후반)을 같이 쓴다.
+const RACE_GAME_POOL = ["sticker", "inspect", "match", "weigh", "tape"];
 // 라운드마다 띄울 우봉고 문제(퍼즐 이미지가 있는 칸 id). 내용물(택배 종류)과는 무관 -- 라운드가 갈수록 조각이 늘게(2 -> 3 -> 4조각) 배치.
 // 현장에서는 이 순서대로 두 스테이션에 같은 실물 퍼즐을 준비한다. 끝까지 가면 처음부터 다시.
 const RACE_PUZZLE_ORDER = ["normal-1", "normal-2", "fixed-floor-1", "fragile-1", "fixed-floor-2", "fragile-2", "valuable-1", "fixed-floor-3", "valuable-2", "valuable-3"];
@@ -140,5 +144,5 @@ module.exports = {
   TYPES, COURIERS, FLOORS, ROOMS, CELLS, START_FLOOR_IDX, ELEVATOR_ROUNDS, SECURE_PHASE_MS, VOTE_MS,
   PRIORITY_MULTIPLIER, SAME_FLOOR_CHOICE_MS, HALVES, THIEF_PLACE_MS, THIEF_PER_HALF, PRIORITY_PICK_MS,
   FLOOR_REWARD_MULT, START_FLOOR_CHOICES, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, SAME_FLOOR_AUTO_PICK,
-  RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_STICKER_LEVEL, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK,
+  RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_STICKER_LEVEL, RACE_GAME_POOL, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK,
 };
