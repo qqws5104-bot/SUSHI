@@ -1,4 +1,4 @@
-// 2026-10-06: 미니게임 4종(상자 포장 / 불량 검수 / 주문표 붙이기 / 주문 서빙(2026-10-07)) 시험장 검증.
+// 2026-10-06: 미니게임 4종(박스 포장 / 불량 검수 / 송장 붙이기 / 지도 배달(2026-10-07)) 시험장 검증.
 //
 // minigame_proto.html(로컬 파일)을 진짜 브라우저로 열어서 3종을 난이도 1~3 전부 실제로 "플레이"한다
 // (키보드/클릭/마우스 드래그). 정상 클리어뿐 아니라 오입력 3규칙, 잘못된 클릭 잠금, 빗나간 드래그 복귀,
@@ -44,7 +44,7 @@ async function main() {
       MiniGames.setMistakeRule(rule || "reset");
       window.__res = null;
       window.__ctl = MiniGames.start(document.getElementById("host"), Object.assign({
-        kind, level, testHooks: true, label: "주황", onDone: (r) => { window.__res = r; }, onCancel: () => { window.__cancelled = true; },
+        kind, level, testHooks: true, label: "1F", onDone: (r) => { window.__res = r; }, onCancel: () => { window.__cancelled = true; },
       }, extra || {}));
     }, { kind, level, rule, extra: extra || null });
   }
@@ -52,7 +52,7 @@ async function main() {
   const miss = async () => parseInt((await page.textContent(".mg-miss")).replace(/\D/g, ""), 10);
   async function shot(name) { if (SHOT_DIR) await page.screenshot({ path: path.join(SHOT_DIR, name + ".png") }); }
 
-  // ================= 상자 포장 (2026-10-07: 조각 채워 넣기 퍼즐) =================
+  // ================= 박스 포장 (2026-10-07: 조각 채워 넣기 퍼즐) =================
   // 테스트 훅: .mg-body[data-plan] = 칸 크기 + 조각별 {presses: 정답 방향까지 회전 횟수, x, y: 정답 위치},
   //            .mg-body[data-pk]   = "지금 고른 조각, x, y, 회전, 놓은 조각 수"
   const pkState = async () => (await page.getAttribute(".mg-body", "data-pk")).split(",").map(Number);
@@ -194,9 +194,9 @@ async function main() {
     await waitFor(result, { label: `inspect L${lv} done` });
     const r = await result();
     assert(r.ok && r.mistakes === 0, "inspect clean run: " + JSON.stringify(r));
-    log(`inspect L${lv}: 초밥 ${seq.length}개(이상 ${INSPECT[lv - 1].bad}개) 분류/폐기 클리어 (${r.ms}ms)`);
+    log(`inspect L${lv}: 택배 ${seq.length}개(이상 ${INSPECT[lv - 1].bad}개) 분류/폐기 클리어 (${r.ms}ms)`);
   }
-  // 오입력: 실수 +1, 앞 초밥은 그대로, 0.45초 잠금(그 사이 정답 키도 무시), 풀린 뒤엔 정상
+  // 오입력: 실수 +1, 앞 택배는 그대로, 0.45초 잠금(그 사이 정답 키도 무시), 풀린 뒤엔 정상
   await launch("inspect", 2);
   {
     const seq = await inspectSeq();
@@ -213,7 +213,7 @@ async function main() {
     assert((await result()).mistakes === 1, "inspect mistakes recorded");
     log("inspect: 틀린 칸=실수+0.9초 잠금(그 사이 입력 무시), 풀리면 정상 진행");
   }
-  // 이상한 초밥을 분류 키로 보내거나 멀쩡한 초밥을 폐기하면 둘 다 실수
+  // 이상한 택배를 분류 키로 보내거나 멀쩡한 택배를 폐기하면 둘 다 실수
   await launch("inspect", 3);
   {
     const seq = await inspectSeq();
@@ -223,7 +223,7 @@ async function main() {
     const first = Math.min(iBad, iOk), second = Math.max(iBad, iOk);
     for (const t of [first, second]) {
       await advanceTo(t);
-      const wrongKey = seq[t] === "space" ? "left" : "space";   // 이상한 초밥엔 분류 키, 멀쩡한 초밥엔 폐기 키
+      const wrongKey = seq[t] === "space" ? "left" : "space";   // 이상한 택배엔 분류 키, 멀쩡한 택배엔 폐기 키
       await page.keyboard.press(KEY[wrongKey]);
       expectedMiss++;
       assert((await miss()) === expectedMiss, `mistake #${expectedMiss} (${seq[t] === "space" ? "classified an anomaly" : "discarded a good package"})`);
@@ -232,7 +232,7 @@ async function main() {
     while (pos < seq.length) { await page.keyboard.press(KEY[seq[pos]]); pos++; }
     await waitFor(result, { label: "inspect mixed-mistake done" });
     assert((await result()).mistakes === 2, "both kinds of wrong action recorded");
-    log("inspect: 이상한 초밥을 분류 키로, 멀쩡한 초밥을 폐기 키로 보내면 각각 실수");
+    log("inspect: 이상한 택배를 분류 키로, 멀쩡한 택배를 폐기 키로 보내면 각각 실수");
   }
   // 터치/마우스용 칸 버튼도 같은 동작
   await launch("inspect", 1);
@@ -244,9 +244,9 @@ async function main() {
     log("inspect: 화면 버튼(포인터)으로도 클리어");
   }
 
-  // ================= 주문표 붙이기 (상자 찾아 붙이기) -- 키보드 전용 =================
-  // 구성(상자 수/코드 중복 없음/주문표가 정확히 한 상자와 맞음)을 레벨별로 확인하고, 마우스 끌기는 더 이상 동작하지 않음을 확인한다.
-  // 키보드/패드 조작 자체는 아래 "주문표 붙이기: 키보드" 블록에서 검사한다.
+  // ================= 송장 붙이기 (박스 찾아 붙이기) -- 키보드 전용 =================
+  // 구성(박스 수/코드 중복 없음/송장이 정확히 한 박스와 맞음)을 레벨별로 확인하고, 마우스 끌기는 더 이상 동작하지 않음을 확인한다.
+  // 키보드/패드 조작 자체는 아래 "송장 붙이기: 키보드" 블록에서 검사한다.
   async function stickerState() {
     return page.evaluate(() => {
       const rect = (e) => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
@@ -272,14 +272,14 @@ async function main() {
     const st0 = await stickerState();
     assert(st0.boxes.length === BOXES[lv - 1], `sticker L${lv}: ${BOXES[lv - 1]} boxes, got ${st0.boxes.length}`);
     assert(st0.boxes.every((b) => b.hole), `sticker L${lv}: every box has one hidden character in its code`);
-    assert(st0.boxes.every((b) => b.chips.length === 2), "every box has a 취급 and a 접시 slot (known or '?')");
+    assert(st0.boxes.every((b) => b.chips.length === 2), "every box has a 취급 and a 층 slot (known or '?')");
     assert(st0.l.chips.length === 2 && !st0.l.chips.includes("?"), "the invoice shows all three facts");
     assert(JSON.parse(await page.getAttribute(".mg-body", "data-plan")).seq.length === LABELS[lv - 1], `sticker L${lv}: ${LABELS[lv - 1]} invoices`);
-    if (lv >= 2) assert(st0.boxes.some((b) => b.chips.includes("?")), "from level 2 some boxes hide their 취급/접시, so the code alone is not enough");
+    if (lv >= 2) assert(st0.boxes.some((b) => b.chips.includes("?")), "from level 2 some boxes hide their 취급/층, so the code alone is not enough");
     assert((await page.$$(".mg-pad .mg-key")).length === 5, "on-screen pad (4 arrows + space) is shown");
     if (lv === 2) await shot("sticker_L2_start");
   }
-  // 생성 보장 (여러 번 뽑아서): 주문표와 보이는 정보가 전부 맞는 상자는 항상 정확히 하나, 레벨 3은 모든 주문표에 "코드만 맞는" 함정 상자가 있다
+  // 생성 보장 (여러 번 뽑아서): 송장과 보이는 정보가 전부 맞는 박스는 항상 정확히 하나, 레벨 3은 모든 송장에 "코드만 맞는" 함정 박스가 있다
   {
     const bad = await page.evaluate(() => {
       const out = { notUnique: 0, noTrap: 0, runs: 0 };
@@ -294,16 +294,16 @@ async function main() {
         const codeOk = (b) => b.code.split("").every((ch, j) => ch === "?" || ch === inv.code[j]);
         const full = boxes.filter((b) => codeOk(b) && b.chips.every((c, j) => c === "?" || c === inv.chips[j]));
         if (full.length !== 1) out.notUnique++;
-        if (lv === 3 && boxes.filter(codeOk).length < 2) out.noTrap++; // 이 주문표(첫 번째)에 코드만 맞는 상자가 따로 있어야 함
+        if (lv === 3 && boxes.filter(codeOk).length < 2) out.noTrap++; // 이 송장(첫 번째)에 코드만 맞는 박스가 따로 있어야 함
         out.runs++; ctl.destroy(); host.remove();
       }
       return out;
     });
     assert(bad.notUnique === 0, "the first invoice always matches exactly one box on everything that is visible: " + JSON.stringify(bad));
     assert(bad.noTrap === 0, "level 3 always has a code-only decoy for the first invoice: " + JSON.stringify(bad));
-    log(`sticker: 80번 뽑아서 주문표당 정답 상자 항상 1개, 레벨 3은 항상 코드만 맞는 함정 상자 있음 (${bad.runs}판)`);
+    log(`sticker: 80번 뽑아서 송장당 정답 박스 항상 1개, 레벨 3은 항상 코드만 맞는 함정 박스 있음 (${bad.runs}판)`);
   }
-  // 마우스로 주문표를 끌어다 맞는 상자 위에 놓아도 아무 일도 일어나지 않는다 (붙지도, 실수도 없음)
+  // 마우스로 송장을 끌어다 맞는 박스 위에 놓아도 아무 일도 일어나지 않는다 (붙지도, 실수도 없음)
   await launch("sticker", 1);
   {
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -315,7 +315,7 @@ async function main() {
     const st2 = await stickerState();
     assert(Math.abs(st2.l.r.x - st.l.r.x) < 2 && Math.abs(st2.l.r.y - st.l.r.y) < 2, "the label does not move when dragged");
     assert((await miss()) === 0, "mouse drag is not a mistake either, it is just ignored");
-    // 화면 패드(터치용)로는 된다: 맞는 상자까지 →, 그다음 SPACE
+    // 화면 패드(터치용)로는 된다: 맞는 박스까지 →, 그다음 SPACE
     let g = 0;
     while ((await page.evaluate(() => Array.from(document.querySelectorAll(".mg-bx")).findIndex((b) => b.classList.contains("is-cursor")))) !== st.l.want) {
       await page.dispatchEvent('.mg-key[data-k="right"]', "pointerdown"); assert(++g < 50, "pad reaches the box");
@@ -325,13 +325,13 @@ async function main() {
     log("sticker: 마우스 끌기는 무시(붙지도 실수도 없음), 화면 패드(터치) 버튼으로는 동작");
   }
 
-  // ================= 주문표 붙이기: 키보드 (2026-10-07) =================
+  // ================= 송장 붙이기: 키보드 (2026-10-07) =================
   {
     const STK_N = [4, 7, 8], STK_K = [2, 4, 5];
     const cursorIdx = () => page.evaluate(() => Array.from(document.querySelectorAll(".mg-bx")).findIndex((b) => b.classList.contains("is-cursor")));
-    // 주문표가 가리키는 정답 상자 번호 (테스트 훅 data-want). 주문표가 아직 안 나왔으면 null.
+    // 송장이 가리키는 정답 박스 번호 (테스트 훅 data-want). 송장이 아직 안 나왔으면 null.
     const labelWant = () => page.evaluate(() => { const l = document.querySelector(".mg-label[data-label]:not([data-stuck])"); return l ? parseInt(l.getAttribute("data-want"), 10) : null; });
-    // DOM에 보이는 정보만으로 "주문표와 보이는 부분이 전부 맞는 상자"를 센다 -- 재설계(2026-10-07)의 핵심 보장: 항상 정확히 하나.
+    // DOM에 보이는 정보만으로 "송장과 보이는 부분이 전부 맞는 박스"를 센다 -- 재설계(2026-10-07)의 핵심 보장: 항상 정확히 하나.
     const compatBoxes = () => page.evaluate(() => {
       const l = document.querySelector(".mg-label[data-label]:not([data-stuck])"); if (!l) return null;
       const txt = (n) => n.textContent.trim();
@@ -354,7 +354,7 @@ async function main() {
         await waitFor(async () => (await labelWant()) !== null, { label: "label ready" });
         const want = await labelWant(), cand = await compatBoxes();
         assert(cand.length === 1 && cand[0] === want, `exactly one box matches everything that is visible (got ${JSON.stringify(cand)}, want ${want})`);
-        // 목표 상자까지 ←→ 로 이동 (한 바퀴 안에 반드시 도착)
+        // 목표 박스까지 ←→ 로 이동 (한 바퀴 안에 반드시 도착)
         while ((await cursorIdx()) !== want) { await page.keyboard.press("ArrowRight"); assert(++guard < 200, "cursor should reach the matching box"); }
         await page.keyboard.press("Space");
         await waitFor(async () => (await page.$$(".mg-bx.is-done")).length === done + 1, { label: "box accepts the label by keyboard" });
@@ -363,7 +363,7 @@ async function main() {
       await waitFor(result, { label: `sticker keyboard L${lv} done` });
       const r = await result();
       assert(r.ok && r.kind === "sticker" && r.mistakes === 0, "sticker keyboard clean run: " + JSON.stringify(r));
-      log(`sticker L${lv}: 키보드(←→ 상자 고르기 + 스페이스)만으로 주문표 ${STK_K[lv - 1]}장 클리어 (실수 0)`);
+      log(`sticker L${lv}: 키보드(←→ 박스 고르기 + 스페이스)만으로 송장 ${STK_K[lv - 1]}장 클리어 (실수 0)`);
     }
     // ←→ 는 한 바퀴 돌고, ↑↓ 는 윗줄/아랫줄로 간다 (8개 = 4개+4개 두 줄)
     await launch("sticker", 3);
@@ -377,7 +377,7 @@ async function main() {
     assert((await cursorIdx()) < 4, "ArrowUp moves back to the first row, got " + (await cursorIdx()));
     await page.keyboard.press("ArrowUp");
     assert((await cursorIdx()) < 4, "ArrowUp on the first row stays put");
-    // 틀린 상자에 스페이스 = 실수 +1 + 잠깐 멈춤(연타는 또 세지 않음), 주문표는 그대로, 이후 맞는 상자엔 붙는다
+    // 틀린 박스에 스페이스 = 실수 +1 + 잠깐 멈춤(연타는 또 세지 않음), 송장은 그대로, 이후 맞는 박스엔 붙는다
     const wantW = await labelWant();
     while ((await cursorIdx()) === wantW) await page.keyboard.press("ArrowRight");
     await page.keyboard.press("Space"); await page.keyboard.press("Space");
@@ -388,12 +388,12 @@ async function main() {
     await page.keyboard.press("Space");
     await waitFor(async () => (await page.$$(".mg-bx.is-done")).length === 1, { label: "correct box after the lock" });
     assert((await miss()) === 1, "a correct attach adds no mistake");
-    log("sticker 키보드: ←→ 한 바퀴/↑↓ 줄 이동, 틀린 상자 = 실수 + 0.9초 멈춤(연타 무시), 이후 맞는 상자엔 붙음");
+    log("sticker 키보드: ←→ 한 바퀴/↑↓ 줄 이동, 틀린 박스 = 실수 + 0.9초 멈춤(연타 무시), 이후 맞는 박스엔 붙음");
   }
 
-  // ================= 주문 서빙 (2026-10-07, 특선 초밥) =================
-  // 흐름: 주문표 단계(지도 가려짐, 주문표만 붙은 초밥이 팝업으로 뜬다) -> 지도 단계(초밥 사라짐, 호실 번호가 적힌 집을 찾아 순서대로 서빙)
-  //       시작 20초 뒤부터 "주문표 다시 보기"(공짜)가 열린다
+  // ================= 지도 배달 (2026-10-07, 귀중품) =================
+  // 흐름: 송장 단계(지도 가려짐, 송장만 붙은 택배가 팝업으로 뜬다) -> 지도 단계(택배 사라짐, 호실 번호가 적힌 집을 찾아 순서대로 배달)
+  //       시작 20초 뒤부터 "송장 다시 보기"(공짜)가 열린다
   const MAPCFG = [
     { cols: 5, rows: 4, houses: 8,  targets: 2, flash: 4500, similar: 0, blocks: 0 },
     { cols: 6, rows: 4, houses: 11, targets: 3, flash: 3000, similar: 4, blocks: 2 },
@@ -407,8 +407,8 @@ async function main() {
     return { grid: b.dataset.grid.split(",").map(Number), depot: b.dataset.depot.split(",").map(Number), blocked: P(b.dataset.blocked), targets: P(b.dataset.targets) };
   });
   const courierAt = () => page.evaluate(() => { const c = document.querySelector(".mg-courier"); return [c.style.getPropertyValue("--cx"), c.style.getPropertyValue("--cy")].map(Number); });
-  const invoiceNums = () => page.$$eval(".mg-cover .mg-parcel", (els) => els.map((e) => ({ n: e.querySelector(".pn").textContent, room: e.querySelector(".pbox").getAttribute("data-label"), done: e.classList.contains("is-done") })));
-  const labelAt = (x, y) => page.evaluate(([x, y]) => { const l = document.querySelector(`.mg-tile[data-x="${x}"][data-y="${y}"] .mg-lab`); return l ? l.getAttribute("data-label") : null; }, [x, y]);
+  const invoiceNums = () => page.$$eval(".mg-cover .mg-parcel", (els) => els.map((e) => ({ n: e.querySelector(".pn").textContent, room: e.querySelector(".pl").textContent.replace("호", ""), done: e.classList.contains("is-done") })));
+  const labelAt = (x, y) => page.evaluate(([x, y]) => { const l = document.querySelector(`.mg-tile[data-x="${x}"][data-y="${y}"] .mg-lab`); return l ? l.textContent : null; }, [x, y]);
   function bfsDirs(info, from, to) {
     const [W, H] = info.grid, bl = new Set(info.blocked.map((b) => b.join(",")));
     const prev = new Map([[from.join(","), null]]); const q = [from];
@@ -443,36 +443,35 @@ async function main() {
     assert(info.targets.length === cfg.targets, `map L${lv} should have ${cfg.targets} targets`);
     assert((await page.$$(".mg-tile.is-house")).length === cfg.houses, `map L${lv} should have ${cfg.houses} houses`);
     assert(info.blocked.length === cfg.blocks && (await page.$$(".mg-tile.is-block")).length === cfg.blocks, `map L${lv} should have ${cfg.blocks} blocked tiles`);
-    const labels = await page.$$eval(".mg-lab", (els) => els.map((e) => e.getAttribute("data-label")));
-    assert(new Set(labels).size === labels.length && labels.every((t) => /^(빨강|주황|노랑|초록|파랑|보라) [1-9]번$/.test(t)), "house labels are unique order numbers (접시 색 N번): " + labels);
+    const labels = await page.$$eval(".mg-lab", (els) => els.map((e) => e.textContent));
+    assert(new Set(labels).size === labels.length && labels.every((t) => /^[1-5]0[1-9]$/.test(t)), "house labels are unique 3-digit room numbers: " + labels);
     for (const t of info.targets) assert(bfsDirs(info, info.depot, t), `target ${t} reachable (blocked tiles must never cut a house off)`);
-    // 주문표 단계: 지도는 가려져 있고(안 보임), 호실 번호가 순서(1..N)와 함께 목록으로만 뜬다
+    // 송장 단계: 지도는 가려져 있고(안 보임), 호실 번호가 순서(1..N)와 함께 목록으로만 뜬다
     assert((await page.$$(".mg-map.is-covered")).length === 1, "the map is covered while the parcels pop up");
     assert(await page.$eval(".mg-cover", (e) => getComputedStyle(e).display !== "none"), "the cover is actually displayed");
     const inv = await invoiceNums();
-    assert(inv.length === cfg.targets && inv.every((v, i) => v.n === String(i + 1) && /^(빨강|주황|노랑|초록|파랑|보라) [1-9]번$/.test(v.room) && !v.done), "N parcels with only a room number are shown in order: " + JSON.stringify(inv));
+    assert(inv.length === cfg.targets && inv.every((v, i) => v.n === String(i + 1) && /^[1-5]0[1-9]$/.test(v.room) && !v.done), "N parcels with only a room number are shown in order: " + JSON.stringify(inv));
     assert((await page.$$(".mg-cover .mg-parcel .pbox")).length === cfg.targets, "each parcel is a box carrying just the invoice");
     assert(await page.$eval(".mg-replay", (e) => e.disabled && /초 뒤/.test(e.textContent)), "replay is locked at the start and shows a countdown");
     for (let i = 0; i < info.targets.length; i++) assert((await labelAt(...info.targets[i])) === inv[i].room, `target ${i + 1} house carries invoice room ${inv[i].room}`);
     assert((await page.$$(".mg-tile.is-target")).length === 0, "no target is highlighted on the map (you must find the houses yourself)");
-    // 주문표 단계의 키 입력은 무시된다
+    // 송장 단계의 키 입력은 무시된다
     await page.keyboard.press("ArrowUp"); await page.keyboard.press("Space");
     const c0 = await courierAt();
     assert(c0[0] === info.depot[0] && c0[1] === info.depot[1] && (await miss()) === 0, "keys are ignored while the invoices are showing (no move, no mistake)");
     if (lv === 2) { await sleep(900); await shot("map_L2_invoice"); }
-    // 비슷한 번호 미끼: 목표와 같은 접시 또는 같은 호를 가진 미끼 집이 설정한 수 이상
+    // 비슷한 번호 미끼: 목표와 같은 층 또는 같은 호를 가진 미끼 집이 설정한 수 이상
     const targetRooms = new Set(inv.map((v) => v.room));
     const decoys = labels.filter((t) => !targetRooms.has(t));
-    const similarCount = decoys.filter((t) => inv.some((v) => v.room.split(" ")[0] === t.split(" ")[0] || v.room.slice(-2, -1) === t.slice(-2, -1))).length;
+    const similarCount = decoys.filter((t) => inv.some((v) => v.room[0] === t[0] || v.room[2] === t[2])).length;
     const guaranteed = Math.min(cfg.similar, cfg.targets); // 생성기는 목표 하나당 비슷한 미끼를 최대 하나씩만 보장한다(나머지는 우연)
     assert(similarCount >= guaranteed, `map L${lv}: at least ${guaranteed} decoys look like a target (same floor or same room), got ${similarCount}`);
     await waitMapShown();
     assert(await page.$eval(".mg-cover", (e) => getComputedStyle(e).display === "none"), "the parcels disappear once the map shows");
-    assert(await page.$eval(".mg-tile.is-house .mg-lab .mg-pnum", (e) => getComputedStyle(e).visibility !== "hidden" && e.textContent.length >= 1), "접시 위의 번호는 지도에서 보인다 (글자 라벨이 아니라 접시 그림 + 숫자)");
-    assert((await page.$$(".mg-tile.is-house b.mg-lab")).length === 0 && (await page.$$(".mg-parcel b.pl")).length === 0, "주문표/집에 '빨강 3번' 같은 글자 라벨은 없다 -- 접시(색) + 숫자만");
+    assert(await page.$eval(".mg-tile.is-house .mg-lab", (e) => getComputedStyle(e).visibility !== "hidden"), "house numbers stay visible on the map");
     if (lv === 2) await shot("map_L2_map");
     if (lv === 3) await shot("map_L3_map");
-    // 순서대로 서빙
+    // 순서대로 배달
     let at = info.depot;
     for (let i = 0; i < info.targets.length; i++) {
       assert(!(await result()), "must not finish before the last delivery");
@@ -486,10 +485,10 @@ async function main() {
     await waitFor(result, { label: `map L${lv} done` });
     const r = await result();
     assert(r.ok && r.kind === "map" && r.level === lv && r.mistakes === 0, "map clean run: " + JSON.stringify(r));
-    log(`map L${lv}: ${cfg.cols}x${cfg.rows} 지도, 집 ${cfg.houses}(비슷한 번호 미끼 ${similarCount}), 주문표 ${cfg.targets}장, 공사장 ${cfg.blocks} -- 초밥 팝업 후 지도가 뜨고 클리어 (${r.ms}ms, 실수 0)`);
+    log(`map L${lv}: ${cfg.cols}x${cfg.rows} 지도, 집 ${cfg.houses}(비슷한 번호 미끼 ${similarCount}), 송장 ${cfg.targets}장, 공사장 ${cfg.blocks} -- 택배 팝업 후 지도가 뜨고 클리어 (${r.ms}ms, 실수 0)`);
   }
 
-  // 오서빙 / 주문표 다시 보기(20초 뒤 해금, 공짜) / 막힌 칸
+  // 오배달 / 송장 다시 보기(20초 뒤 해금, 공짜) / 막힌 칸
   {
     await launch("map", 1, null, { replayAfterMs: 12000 });
     const info = await mapInfo();
@@ -502,7 +501,7 @@ async function main() {
     assert((await miss()) === 1, "Space on a road tile is one mistake; the repeat during the lock does not count again");
     assert((await page.textContent(".mg-freeze-note")).length > 0, "a lock note is shown");
     await sleep(900);
-    // (2) 엉뚱한 집(주문표에 없는 호실)에서 스페이스 = 실수
+    // (2) 엉뚱한 집(송장에 없는 호실)에서 스페이스 = 실수
     const targetKeys = new Set(info.targets.map((t) => t.join(",")));
     const other = await page.$$eval(".mg-tile.is-house", (els) => els.map((e) => [+e.dataset.x, +e.dataset.y]));
     const wrongHouse = other.find((h) => !targetKeys.has(h.join(",")));
@@ -511,17 +510,17 @@ async function main() {
     assert((await miss()) === 2, "Space on a house that is not on the invoice is a mistake");
     assert((await page.$$(".mg-tile.is-delivered")).length === 0, "...and nothing is delivered");
     await sleep(900);
-    // (3) 두 번째 호실을 먼저 가서 서빙 시도 = 순서 틀림 = 실수
+    // (3) 두 번째 호실을 먼저 가서 배달 시도 = 순서 틀림 = 실수
     await walkTo(info, wrongHouse, info.targets[1]);
     await page.keyboard.press("Space");
     assert((await miss()) === 3, "delivering to the 2nd invoice room first is a mistake (order matters)");
     await sleep(900);
-    // (4) 20초(테스트에선 12초) 전에는 주문표 다시 보기가 잠겨 있다 -> 해금 후 첫 호실 서빙 -> 다시 보기(공짜)
+    // (4) 20초(테스트에선 12초) 전에는 송장 다시 보기가 잠겨 있다 -> 해금 후 첫 호실 배달 -> 다시 보기(공짜)
     await walkTo(info, info.targets[1], info.targets[0]);
     await page.keyboard.press("Space");
     await sleep(60);
     assert((await page.$$(".mg-tile.is-delivered")).length === 1, "first target delivered");
-    await waitFor(() => page.$eval(".mg-replay", (e) => !e.disabled && e.textContent === "주문표 다시 보기"), { timeout: 12000, label: "replay unlocks" });
+    await waitFor(() => page.$eval(".mg-replay", (e) => !e.disabled && e.textContent === "송장 다시 보기"), { timeout: 12000, label: "replay unlocks" });
     await page.click(".mg-replay");
     assert((await miss()) === 3, "replay is free (no extra mistake)");
     assert((await page.$$(".mg-map.is-covered")).length === 1, "the map is covered again while the parcels replay");
@@ -537,7 +536,7 @@ async function main() {
     for (let i = 1; i < info.targets.length; i++) { await walkTo(info, at, info.targets[i]); at = info.targets[i]; await page.keyboard.press("Space"); await sleep(60); }
     await waitFor(result, { label: "map done after mistakes" });
     assert((await result()).mistakes === 3, "final result carries the 3 mistakes");
-    log("map: 도로/주문표에 없는 집/순서 틀린 집에서 서빙 = 실수 + 0.8초 멈춤(연타 무시), 주문표 다시 보기는 시작 후 일정 시간(실게임 20초) 뒤에 열리고 공짜, 지도를 다시 가리고 전체 초밥을 원래 번호로 재표시(서빙한 건 체크)");
+    log("map: 도로/송장에 없는 집/순서 틀린 집에서 배달 = 실수 + 0.8초 멈춤(연타 무시), 송장 다시 보기는 시작 후 일정 시간(실게임 20초) 뒤에 열리고 공짜, 지도를 다시 가리고 전체 택배를 원래 번호로 재표시(배달한 건 체크)");
   }
   {
     await launch("map", 3);
@@ -567,91 +566,6 @@ async function main() {
   await page.keyboard.press("ArrowUp"); await page.keyboard.press("Space"); // 리스너가 남아 있으면 에러/오동작
   log("destroy(): DOM 제거 + 이후 키 입력에 반응 없음 (리스너 정리됨)");
 
-  // ================= 재료 정리 (소코반, 2026-10-08 시험용) =================
-  // 테스트 훅: .mg-body[data-plan] = {rows}(판), .mg-body[data-sk] = "플레이어 x,y, 접시 칸에 들어간 상자 수, 움직임"
-  // 풀이기는 이 파일 안의 BFS (상태 = 플레이어 + 상자 위치 집합).
-  const SK_KEY = { U: "ArrowUp", D: "ArrowDown", L: "ArrowLeft", R: "ArrowRight" };
-  const { skParse, skSolve } = require("./test_soko_solver.js");
-  const skPlan = async () => JSON.parse(await page.getAttribute(".mg-body", "data-plan")).rows;
-  const skState = async () => (await page.getAttribute(".mg-body", "data-sk")).split(",").map(Number);
-  async function skPress(path) { for (const ch of path) await page.keyboard.press(SK_KEY[ch]); }
-
-  for (let lv = 1; lv <= 3; lv++) {
-    await launch("soko", lv);
-    const rows = await skPlan(), P = skParse(rows);
-    assert((await page.$$(".sk-box")).length === P.boxes.length && P.boxes.length === lv, `soko L${lv}: ${lv} boxes`);
-    assert((await page.$$(".sk-cell.is-tgt")).length === P.boxes.length, "one loading spot per box");
-    const sol = skSolve(P, P.player, P.boxes);
-    assert(sol && sol.length > 0, `soko L${lv}: pool puzzle is solvable`);
-    if (lv === 2) await shot("soko_L2_start");
-    await skPress(sol);
-    await waitFor(result, { label: `soko L${lv} done` });
-    const r = await result();
-    assert(r.ok && r.kind === "soko" && r.level === lv && r.mistakes === 0, "soko clean run: " + JSON.stringify(r));
-    log(`soko L${lv}: 상자 ${P.boxes.length}개, 최적 ${sol.length}걸음(밀기 포함) 풀이로 클리어 (${r.ms}ms, 실수 0)`);
-  }
-  // 풀 수 있는 판만 들어 있는가: 풀 전체를 검증하고 난이도 범위(최적 걸음)를 로그로 남긴다
-  {
-    const pool = await page.evaluate(() => { const out = []; for (let lv = 1; lv <= 3; lv++) { for (let k = 0; k < 40; k++) { MiniGames.start(document.getElementById("host"), { kind: "soko", level: lv, testHooks: true, onDone() {} }); out.push([lv, document.querySelector(".mg-body").getAttribute("data-plan")]); } } return out; });
-    await page.evaluate(() => { document.getElementById("host").innerHTML = ""; });
-    const seenRows = new Set(), range = { 1: [999, 0], 2: [999, 0], 3: [999, 0] };
-    for (const [lv, plan] of pool) {
-      const rows = JSON.parse(plan).rows, k = rows.join("|"); if (seenRows.has(k)) continue; seenRows.add(k);
-      const P = skParse(rows), sol = skSolve(P, P.player, P.boxes);
-      assert(sol !== null, `soko L${lv}: every pool puzzle must be solvable\n${rows.join("\n")}`);
-      assert(!P.boxes.some((b) => P.tgt[b]), "no box starts on a loading spot");
-      range[lv] = [Math.min(range[lv][0], sol.length), Math.max(range[lv][1], sol.length)];
-    }
-    log(`soko: 풀의 모든 판(${seenRows.size}개)이 풀림 -- 최적 걸음 범위 L1 ${range[1].join("~")} / L2 ${range[2].join("~")} / L3 ${range[3].join("~")}`);
-  }
-  // 조작: 벽/막힌 상자는 안 움직이고, 되돌리기(Z/Backspace)는 무료, R은 처음부터, 막다른 길 = 실수 +1
-  await launch("soko", 2);
-  {
-    const rows = await skPlan(), P = skParse(rows), W = P.W;
-    const [x0, y0] = await skState();
-    // 벽 쪽으로 계속 누르면 제자리
-    const wallDir = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].find((k, i) => { const d = [[0, -1], [0, 1], [-1, 0], [1, 0]][i]; return P.wall[(y0 + d[1]) * W + x0 + d[0]]; });
-    if (wallDir) { await page.keyboard.press(wallDir); const [x1, y1, , m1] = await skState(); assert(x1 === x0 && y1 === y0 && m1 === 0, "walking into a wall does nothing"); }
-    // 한 걸음 -> 되돌리기
-    const sol = skSolve(P, P.player, P.boxes);
-    await skPress(sol.slice(0, 3));
-    let st = await skState(); assert(st[3] === 3, "3 steps counted");
-    await page.keyboard.press("z"); st = await skState(); assert(st[3] === 2, "z undoes one step");
-    await page.keyboard.press("Backspace"); await page.keyboard.press("Backspace"); st = await skState();
-    assert(st[0] === x0 && st[1] === y0 && st[3] === 0, "undo all the way back to the start position");
-    await page.keyboard.press("Backspace"); assert((await skState())[3] === 0, "undo with empty history does nothing");
-    assert((await miss()) === 0, "walls and undo cost no mistakes");
-    // 막다른 길: 시작 상태에서 가장 짧게 "풀 수 없는 상자"를 만드는 걸음을 찾아 그대로 민다
-    const isCorner = (b) => !P.tgt[b] && (P.wall[b - W] || P.wall[b + W]) && (P.wall[b - 1] || P.wall[b + 1]);
-    const bad = skSolve(P, P.player, P.boxes, (bx) => bx.some(isCorner));
-    assert(bad !== null && bad.length > 0, "a corner trap exists in this puzzle");
-    await skPress(bad);
-    assert((await miss()) === 1, "pushing a box into a dead corner is one mistake");
-    assert((await page.textContent(".mg-freeze-note")).length > 0, "a note explains the trap");
-    assert((await page.$$(".sk-box.is-dead")).length >= 1, "the stuck box is marked");
-    await page.keyboard.press("r"); st = await skState();
-    assert(st[0] === x0 && st[1] === y0 && st[3] === 0 && (await miss()) === 1, "R restarts the puzzle (mistake count stays)");
-    assert((await page.$$(".sk-box.is-dead")).length === 0, "restart clears the stuck mark");
-    await skPress(sol);
-    await waitFor(result, { label: "soko after restart done" });
-    assert((await result()).mistakes === 1, "the single mistake is in the result");
-    log("soko: 벽은 제자리, Z/Backspace 되돌리기 무료, 막다른 길 = 실수 1회 + 안내 + 표시, R = 처음부터(실수는 유지), 이후 정상 클리어");
-  }
-  // 화면 버튼(터치): 방향/되돌리기/처음부터
-  await launch("soko", 1);
-  {
-    const P = skParse(await skPlan()), sol = skSolve(P, P.player, P.boxes);
-    const name = { U: "up", D: "down", L: "left", R: "right" };
-    const [x0, y0] = await skState();
-    const first = sol[0]; await page.dispatchEvent(`.mg-key[data-sk="${name[first]}"]`, "pointerdown");
-    assert((await skState())[3] === 1, "pad button moves");
-    await page.dispatchEvent('.mg-key[data-sk="undo"]', "pointerdown");
-    const st = await skState(); assert(st[0] === x0 && st[1] === y0 && st[3] === 0, "pad undo works");
-    for (const ch of sol) await page.dispatchEvent(`.mg-key[data-sk="${name[ch]}"]`, "pointerdown");
-    await waitFor(result, { label: "soko via pad done" });
-    log("soko: 화면 버튼(터치)으로도 이동/되돌리기/클리어");
-  }
-
   // ================= 시험장 UI 전체 흐름 (실제 버튼) =================
   await page.goto(URL + "?mgtest=1");
   await page.click('button[data-kind="pack"][data-lv="1"]');
@@ -660,7 +574,7 @@ async function main() {
   await solvePack();
   await waitFor(async () => (await page.$$("table")).length > 0, { label: "log table after done", timeout: 4000 });
   const txt = await page.textContent("#tables");
-  assert(txt.includes("상자 포장") && txt.includes("원/초"), "log shows the run and 원/초");
+  assert(txt.includes("박스 포장") && txt.includes("원/초"), "log shows the run and 원/초");
   assert((await page.$$('button[data-again]')).length === 1, "'같은 설정으로 한 번 더' button shown");
   await shot("proto_after_run");
   // Esc로 포기

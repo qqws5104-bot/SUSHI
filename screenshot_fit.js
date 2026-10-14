@@ -46,7 +46,7 @@ async function main() {
     const p2 = await ctx2.newPage();
     await p1.goto(roomUrl);
     await p2.goto(roomUrl);
-    await waitFor(async () => (await p1.locator(".splash").count()) > 0, { label: "seat picker" });
+    await waitFor(async () => (await p1.locator(".seat-pick").count()) > 0, { label: "seat picker" });
     await clickSel(p1, '[data-action="pick-seat"][data-seat="1"]');
     await clickSel(p2, '[data-action="pick-seat"][data-seat="2"]');
     await waitFor(async () => (await bodyText(p1)).includes("좌석 · 플레이어 1"), { label: "p1 seat" });

@@ -1,8 +1,8 @@
 {
-  "name": "sushi-live-game",
+  "name": "beatphobia-live-delivery-game",
   "version": "1.0.0",
   "private": true,
-  "description": "초밥 서빙 게임 — 2인 실시간 동시진행 디지털 버전 (WebSocket server)",
+  "description": "택배 배송 게임 — 2인 실시간 동시진행 디지털 버전 (WebSocket server)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

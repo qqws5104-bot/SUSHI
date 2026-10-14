@@ -1,10 +1,10 @@
 // 2026-10-06: 메인 모니터(?view=main) 검증 -- 진짜 서버 + 브라우저 3개(플레이어 2 + 메인 모니터).
 //   - /?view=main 으로 열면 새 방이 만들어지고 view=main이 유지되며, 참가 주소/방 코드가 크게 보이는가
 //   - 좌석을 잡지 않는가(플레이어 2명이 정상 입장, 메인의 키 입력은 무시)
-//   - 제작 단계: 남은 시간 + 종류별 남은 상자(6 -> 제작할 때마다 줄어듦)
-//   - 회전 벨트 단계: 큰 현재 접시 + 남은 시간, 접시가 바뀌면 따라감
+//   - 확보 단계: 남은 시간 + 종류별 남은 박스(6 -> 확보할 때마다 줄어듦)
+//   - 엘리베이터 단계: 큰 현재 층 + 남은 시간, 층이 바뀌면 따라감
 //   - 메인 모니터 기기 시계가 10분 틀어져 있어도 카운트다운이 서버 기준으로 맞는가
-//   - 플레이어의 비공개 정보(주문표 호수 등)가 메인에 안 나오는가
+//   - 플레이어의 비공개 정보(송장 호수 등)가 메인에 안 나오는가
 // 사전 준비: SECURE_PHASE_MS를 임시로 20초(`20 * 1000`)로 줄이고 build_client.py 재빌드 + 서버 재시작. 끝나면 원복 (HANDOVER 5.3).
 // SHOT_DIR=/경로 를 주면 1920x1080 스크린샷을 저장한다.
 "use strict";
@@ -55,20 +55,20 @@ async function main() {
   const p1 = await mk("p1", { width: 1100, height: 900 }), p2 = await mk("p2", { width: 1100, height: 900 });
   const roomUrl = BASE + "/?room=" + room + "&mgtest=1";
   await p1.goto(roomUrl); await p2.goto(roomUrl);
-  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker p1" });
-  await clickSel(p1, '[data-action="join-team"]');
-  await waitFor(async () => (await bodyText(p1)).includes("빨강팀"), { label: "p1 courier" });
-  await clickSel(p2, '[data-action="join-team"]');
-  await waitFor(async () => (await bodyText(p2)).includes("남색팀"), { label: "p2 courier" });
-  await waitFor(async () => { const t = await bodyText(main); return t.includes("빨강팀") && t.includes("남색팀"); }, { label: "main shows both couriers" });
+  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker p1" });
+  await clickSel(p1, '[data-action="pick-courier"][data-courier="cookbang"]');
+  await waitFor(async () => (await bodyText(p1)).includes("쿡방"), { label: "p1 courier" });
+  await clickSel(p2, '[data-action="pick-courier"][data-courier="cheonil"]');
+  await waitFor(async () => (await bodyText(p2)).includes("천일배송"), { label: "p2 courier" });
+  await waitFor(async () => { const t = await bodyText(main); return t.includes("쿡방") && t.includes("천일배송"); }, { label: "main shows both couriers" });
   // 메인에서 키를 눌러도 아무 일도 없어야 한다 (좌석이 없으니 준비 완료가 되면 안 됨)
   await pressSpace(main); await sleep(300);
   assert(!(await bodyText(main)).includes("준비 완료"), "Space on the main monitor must not ready anyone");
   await pressSpace(p1); await pressSpace(p2);
-  await waitFor(async () => (await bodyText(main)).includes("제작 남은 시간"), { label: "main enters secure view" });
-  log("플레이어 2명 정상 입장(메인은 좌석 없음), 메인 키 입력 무시, 제작 단계로 전환");
+  await waitFor(async () => (await bodyText(main)).includes("확보 남은 시간"), { label: "main enters secure view" });
+  log("플레이어 2명 정상 입장(메인은 좌석 없음), 메인 키 입력 무시, 확보 단계로 전환");
 
-  // ---- 제작 단계 ----
+  // ---- 확보 단계 ----
   const cardsText = async () => main.evaluate(() => Array.from(document.querySelectorAll(".mv-cat")).map((c) => ({
     name: c.querySelector(".mv-cat-name").textContent, left: parseInt(c.querySelector(".mv-left").childNodes[0].textContent, 10),
     total: parseInt(c.querySelector(".mv-left small").textContent.replace(/\D/g, ""), 10), pipsOpen: c.querySelectorAll(".mv-pip:not(.is-gone)").length })));
@@ -83,9 +83,9 @@ async function main() {
   const c1 = await clockSecs();
   assert(c1 < c0, `main clock should tick down (${c0} -> ${c1})`);
   await shot(main, "main_2_secure_full");
-  log(`제작 단계: 종류별 4/4/3/6 가득, 시계 ${c0}초 -> ${c1}초 (기기 시계 10분 오차 보정됨)`);
+  log(`확보 단계: 종류별 4/4/3/6 가득, 시계 ${c0}초 -> ${c1}초 (기기 시계 10분 오차 보정됨)`);
 
-  // p1이 일반 초밥 1개, p2가 일반 초밥 1개 + 특선 초밥 1개를 제작 -> 메인의 남은 수가 따라 줄어든다
+  // p1이 일반택배 1개, p2가 일반택배 1개 + 귀중품 1개를 확보 -> 메인의 남은 수가 따라 줄어든다
   async function secure(p, id) {
     const kind = id.replace(/-\d+$/, ""), CAT = { normal: 0, fragile: 1, valuable: 2 };
     await clickSel(p, kind === "fixed-floor" ? `[data-action="open-cell"][data-cell="${id}"]` : `.rail-btn[data-action="open-type"][data-cat="${CAT[kind]}"]`);
@@ -100,11 +100,11 @@ async function main() {
   await waitFor(async () => { const c = await cardsText(); return c[0].left === 2 && c[2].left === 2; }, { label: "main: normal 2, valuable 2" });
   cards = await cardsText();
   assert(cards[0].pipsOpen === 2 && cards[2].pipsOpen === 2 && cards[1].left === 4 && cards[3].left === 6, "pips follow the remaining count: " + JSON.stringify(cards));
-  // 비공개 정보(내 주문표 호수)는 메인에 안 나온다: 제작한 칸의 주문표 호수 문자열(예: "101호")이 메인 어디에도 없어야 함
+  // 비공개 정보(내 송장 호수)는 메인에 안 나온다: 확보한 칸의 송장 호수 문자열(예: "101호")이 메인 어디에도 없어야 함
   const mainTxt = await bodyText(main);
-  assert(!/(빨강|주황|노랑|초록|파랑|보라) \d번/.test(mainTxt), "main must not show order codes: " + mainTxt.match(/(빨강|주황|노랑|초록|파랑|보라) \d번/));
+  assert(!/\d{3}호|B0\d호/.test(mainTxt), "main must not show invoice room codes: " + mainTxt.match(/(\d{3}|B0\d)호/));
   await shot(main, "main_3_secure_taken");
-  log("제작할 때마다 종류별 남은 수/칸 표시가 따라 줄어듦 (일반 4 -> 2, 특선 초밥 3 -> 2), 주문표 호수는 안 보임");
+  log("확보할 때마다 종류별 남은 수/칸 표시가 따라 줄어듦 (일반 4 -> 2, 귀중품 3 -> 2), 송장 호수는 안 보임");
 
   // 한 종류를 소진시키면 '소진' 표시
   for (const id of ["fragile-1", "fragile-2", "fragile-3", "fragile-4"]) await secure(p1, id);
@@ -113,49 +113,41 @@ async function main() {
   await shot(main, "main_4_secure_exhausted");
   log("한 종류가 소진되면 '소진' 표시");
 
-  // ---- 회전 벨트 단계 ----
-  await waitFor(async () => (await bodyText(main)).includes("현재 접시"), { timeout: 30000, label: "main enters elevator view" });
+  // ---- 엘리베이터 단계 ----
+  await waitFor(async () => (await bodyText(main)).includes("현재 층"), { timeout: 30000, label: "main enters elevator view" });
   const elevInfo = () => main.evaluate(() => ({
     floor: document.querySelector(".mv-floor-big").textContent, state: document.querySelector(".mv-state").textContent,
     round: document.querySelector(".mv-round").textContent, carTo: document.getElementById("mv-car").getAttribute("data-to"),
     time: document.querySelector(".mv-elev-main .mv-time") ? document.querySelector(".mv-elev-main .mv-time").textContent : null,
   }));
   let ei = await elevInfo();
-  assert(ei.floor === "주황" && /라운드 1 \/ 7/.test(ei.round) && ei.state.includes("출발 준비"), "elevator starts at 주황, round 1/7, waiting: " + JSON.stringify(ei));
+  // 2026-10-13 (P1-2): 시작 층은 2F/3F 중 무작위 (START_FLOOR_CHOICES)
+  const FLOORS_ = ["B1", "1F", "2F", "3F", "4F", "5F"];
+  const { START_FLOOR_CHOICES } = require("./game-data.js");
+  const s0 = FLOORS_.indexOf(ei.floor);
+  assert(START_FLOOR_CHOICES.includes(s0) && /라운드 1 \/ 7/.test(ei.round) && ei.state.includes("출발 준비"), "elevator starts at 2F/3F, round 1/7, waiting: " + JSON.stringify(ei));
   await shot(main, "main_5_elevator_idle");
   await pressSpace(p1); await pressSpace(p2);
-  // 2026-10-06: 준비가 끝나면 우선 초밥 지정 10초 창이 먼저 -- 메인에도 상태 이름과 남은 시간(~10초)이 보인다.
-  await waitFor(async () => (await elevInfo()).state.includes("우선 초밥 지정"), { label: "main shows priority-pick window" });
+  // 2026-10-06: 준비가 끝나면 우선 택배 지정 10초 창이 먼저 -- 메인에도 상태 이름과 남은 시간(~10초)이 보인다.
+  await waitFor(async () => (await elevInfo()).state.includes("우선 택배 지정"), { label: "main shows priority-pick window" });
   await sleep(250);
   ei = await elevInfo();
   const pSec = parseInt(ei.time, 10);
   assert(pSec >= 8 && pSec <= 10, `priority window timer should show ~10s (server time), got "${ei.time}"`);
   await shot(main, "main_5b_priority");
   await clickSel(p1, '[data-action="confirm-priority"]'); await clickSel(p2, '[data-action="confirm-priority"]');
-  log(`우선 초밥 지정 시간: 메인에 "우선 초밥 지정 시간" + ${pSec}초 표시, 둘 다 확정하면 이동 단계로`);
+  log(`우선 택배 지정 시간: 메인에 "우선 택배 지정 시간" + ${pSec}초 표시, 둘 다 확정하면 이동 단계로`);
   await waitFor(async () => (await elevInfo()).state.includes("이동 중"), { label: "main shows moving state" });
   await sleep(250);
   ei = await elevInfo();
   const sec = parseInt(ei.time, 10);
   assert(sec >= 3 && sec <= 5, `moving timer should show the remaining ~5 seconds (server time), got "${ei.time}"`);
-  await p1.keyboard.press("ArrowLeft");
-  await waitFor(async () => (await elevInfo()).floor === "노랑", { label: "main follows the car to 노랑" });
+  await p1.keyboard.press("ArrowUp");
+  await waitFor(async () => (await elevInfo()).floor === FLOORS_[s0 + 1], { label: "main follows the car up one floor" });
   ei = await elevInfo();
-  assert(ei.carTo === "2", "car element targets floor index 2");
+  assert(ei.carTo === String(s0 + 1), "car element targets the new floor index");
   await shot(main, "main_6_elevator_moving");
-  // 메인 화면 투표 키: 1번 팀 A/D, 2번 팀 4/6 (메인 화면에서 직접 누른다). 그 밖의 키는 무시.
-  assert((await bodyText(main)).includes("시계") && (await main.evaluate(() => !!document.querySelector(".mv-votekeys"))), "메인에 투표 키 안내");
-  await main.keyboard.press("Space"); await main.keyboard.press("ArrowLeft"); await sleep(250);
-  assert((await elevInfo()).floor === "노랑", "메인에서 스페이스/방향키는 무시(그대로 노랑)");
-  await main.keyboard.press("KeyA");   // 1번 시계 -> 초록
-  await waitFor(async () => (await elevInfo()).floor === "초록", { label: "main A key = seat 1 clockwise" });
-  await main.keyboard.press("Digit6"); // 2번 반시계 -> 노랑
-  await waitFor(async () => (await elevInfo()).floor === "노랑", { label: "main 6 key = seat 2 counter-clockwise" });
-  await main.keyboard.press("Digit4"); // 2번 시계 -> 초록
-  await waitFor(async () => (await elevInfo()).floor === "초록", { label: "main 4 key" });
-  await main.keyboard.press("KeyD");   // 1번 반시계 -> 노랑
-  await waitFor(async () => (await elevInfo()).floor === "노랑", { label: "main D key" });
-  log(`회전 벨트 단계: 라운드 1/5, 현재 접시 주황 -> 이동 중(${sec}초 남음) -> ArrowLeft(시계) 후 노랑로 따라감`);
+  log(`엘리베이터 단계: 라운드 1/7, 시작 층 ${FLOORS_[s0]} -> 이동 중(${sec}초 남음) -> ArrowUp 후 ${FLOORS_[s0 + 1]}로 따라감`);
 
   // 메인이 아직 좌석 없음 확인: 서버 상태의 seatOwners는 두 플레이어뿐
   const owners = await main.evaluate(() => window.__bpOwners || null);

@@ -1,12 +1,11 @@
-// 2026-10-08 (배치 v2): 라이브 게임에서 종류별 난이도가 사용자 지정대로 적용되는지.
-//   일반 초밥 = 초밥 담기(보통, L2) / 중급 = 주문 서빙(어려움, L3: 7x5·주문표 4·공사장 6) / 지정 접시 = 도마 닦기(어려움: 6x5·막힘 3) /
-//   특선 초밥 = 재료 정리(어려움: 상자 3). miniLevel이 숫자 하나라 전반과 후반의 난이도는 같다 (후반 보드에서 확인).
+// 2026-10-06: 전반/후반 난이도가 라이브 게임에서 실제로 다르게 적용되는지 (사용자 요청 수치):
+//   일반택배(박스 포장) 키 6 -> 8 / 깨지기 쉬운(이상 확인) 8 -> 10 / 확정 층수(송장 붙이기) 송장 3 -> 4, 박스 5 -> 7
+//   후반(L3) 난이도: 박스 포장 키 10개 / 이상 확인 11개 / 송장 붙이기 박스 8·송장 5 / 지도 7x5·송장 4·공사장 6 (2026-10-07 난이도 상향).
 // 전반 7라운드를 빠르게 흘려보낸 뒤(test_theft_e2e.js와 같은 흐름) 후반 보드에서 각 종류 칸을 열어 직접 센다.
 // 사전 준비: SECURE_PHASE_MS를 임시로 단축(예: 10 * 1000) + build_client.py 재빌드 + 서버 재시작. 끝나면 원복.
 "use strict";
 const { chromium } = require("playwright");
 const { COURIERS } = require("./game-data.js");
-const { iceSolve } = require("./test_puzzle_solvers.js");
 const COURIER_NAME = {};
 COURIERS.forEach((c) => { COURIER_NAME[c.key] = c.name; });
 
@@ -38,24 +37,13 @@ async function waitFor(fn, { timeout = 15000, interval = 100, label = "condition
   }
 }
 
-// 2026-10-06: 라운드 준비(스페이스) 직후 우선 초밥 지정 10초 창이 열린다 -- 지정할 초밥이 있는 쪽은 "확정"으로 통과시킨다.
+// 2026-10-06: 라운드 준비(스페이스) 직후 우선 택배 지정 10초 창이 열린다 -- 지정할 택배가 있는 쪽은 "확정"으로 통과시킨다.
 async function passPriority(p1, p2, nextSel) {
   await waitFor(async () => (await countSel(p1, ".priority-window")) > 0 || (await countSel(p1, nextSel)) > 0, { label: "priority window (or straight on)", timeout: 8000 });
   if ((await countSel(p1, ".priority-window")) === 0) return;
   if (await countSel(p1, '[data-action="confirm-priority"]')) await clickSel(p1, '[data-action="confirm-priority"]');
   if (await countSel(p2, '[data-action="confirm-priority"]')) await clickSel(p2, '[data-action="confirm-priority"]');
   await waitFor(async () => (await countSel(p1, ".priority-window")) === 0, { label: "priority window closes", timeout: 4000 });
-}
-
-// 2026-10-12: 초밥 하나 = 손질(타이밍 액션) -> 제작 퍼즐. 테스트 모드에서는 초록 구간이 막대 전체라 SPACE만 눌러도 통과한다.
-async function passPrep(page) {
-  for (let i = 0; i < 80; i++) {
-    const prep = await page.$("#mg-layer .mg-kind-prep");
-    if (!prep) { if (i > 5 && (await page.$("#mg-layer .mg-root"))) return; await page.waitForTimeout(100); continue; }
-    if (!(await page.$("#mg-layer .mg-kind-prep .mg-done.is-on"))) await page.keyboard.press("Space");
-    await page.waitForTimeout(90);
-  }
-  throw new Error("passPrep: 손질 단계를 통과하지 못함");
 }
 
 async function main() {
@@ -77,26 +65,28 @@ async function main() {
 
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
-  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker" });
+  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
 
-  await clickSel(p1, '[data-action="join-team"]');
-  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.king), { label: "p1 picks haru" });
-  await clickSel(p2, '[data-action="join-team"]');
-  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.hunter), { label: "p2 picks pado" });
+  await clickSel(p1, '[data-action="pick-courier"][data-courier="cookbang"]');
+  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.cookbang), { label: "p1 picks cookbang" });
+  await clickSel(p2, '[data-action="pick-courier"][data-courier="cheonil"]');
+  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.cheonil), { label: "p2 picks cheonil" });
 
   await pressSpace(p1); await pressSpace(p2);
-  await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "전반 secure phase" });
-  log("전반 secure phase 진입 -- 아무것도 제작하지 않음(전반 결과는 이 테스트와 무관)");
+  await waitFor(async () => (await bodyText(p1)).includes("택배 확보"), { label: "전반 secure phase" });
+  log("전반 secure phase 진입 -- 아무것도 확보하지 않음(전반 결과는 이 테스트와 무관)");
 
   await waitFor(async () => {
     const t1 = await bodyText(p1), t2 = await bodyText(p2);
-    return t1.includes("회전 벨트") && t2.includes("회전 벨트");
-  }, { label: "전반 elevator phase (idle gate) 도달", timeout: 60000 });
+    return t1.includes("엘리베이터") && t2.includes("엘리베이터");
+  }, { label: "전반 elevator phase (idle gate) 도달", timeout: 15000 });
   log("전반 elevator phase 진입");
 
-  // 전반 5라운드: 제작한 게 없어 서빙도 없다 -- idle/result 게이트만 통과시키며 흘려보낸다.
+  // 전반 5라운드: 확보한 게 없어 배송도 없다 -- idle/result 게이트만 통과시키며 흘려보낸다.
   for (let round = 1; round <= 7; round++) {
-    await pressSpace(p1); await pressSpace(p2); // idle 또는 이전 라운드의 result 게이트 통과
+    // 2026-10-13: 결과 화면은 자동 진행 -- 스페이스는 1라운드 전 idle 게이트에서만 (자동 진행 뒤 누르면 다음 창의 "확정"이 된다)
+    if (round === 1) { await pressSpace(p1); await pressSpace(p2); }
+    else await waitFor(async () => (await bodyText(p1)).includes(`라운드 ${round} / 7`), { label: `전반 round ${round} 자동 진행`, timeout: 8000 });
     await passPriority(p1, p2, '[data-action="vote-up"]');
     await waitFor(async () => (await countSel(p1, '[data-action="vote-up"]')) > 0, { label: `전반 round ${round} voting 시작`, timeout: 8000 });
     await clickSel(p1, '[data-action="vote-up"]');
@@ -104,22 +94,19 @@ async function main() {
     await waitFor(async () => (await bodyText(p1)).includes(`라운드 ${round} 결과`), { label: `전반 round ${round} 결과`, timeout: 8000 });
   }
   log("전반 7라운드 통과");
-  // 7라운드 결과 게이트도 다른 라운드와 동일하게 "둘 다 스페이스"로 넘겨야 half가 끝난다
-  // (setElevatorReady: el.state==="result"이고 round>=ELEVATOR_ROUNDS일 때 비로소 _finishHalf 호출).
-  await pressSpace(p1); await pressSpace(p2);
+  // (2026-10-13) 7라운드 결과도 자동으로 하프타임까지 넘어간다.
 
   await waitFor(async () => (await bodyText(p1)).includes("전반 종료"), { label: "halftime 화면", timeout: 8000 });
   await pressSpace(p1); await pressSpace(p2);
-  await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "후반 secure phase", timeout: 8000 });
+  await waitFor(async () => (await bodyText(p1)).includes("택배 확보"), { label: "후반 secure phase", timeout: 8000 });
   log("후반 secure phase 진입");
 
   // ---- 후반 보드에서 종류별 게임 열어서 난이도 확인 ----
   const CAT_IDX = { normal: 0, fragile: 1, valuable: 2 };
-  const openCell = async (id) => { // 레일 화면: 지정 접시는 접시 버튼(open-cell), 나머지는 종류 버튼(open-type)
+  const openCell = async (id) => { // 레일 화면: 확정 층수는 층 버튼(open-cell), 나머지는 종류 버튼(open-type)
     const kind = id.replace(/-\d+$/, "");
     await clickSel(p1, kind === "fixed-floor" ? '[data-action="open-cell"][data-cell="' + id + '"]' : '.rail-btn[data-action="open-type"][data-cat="' + CAT_IDX[kind] + '"]');
     await p1.waitForTimeout(500);
-    await passPrep(p1);
   };
   const giveUp = async () => {
     // 미니게임의 포기 버튼(텍스트 '포기')을 누른다
@@ -127,36 +114,39 @@ async function main() {
     await p1.waitForTimeout(300);
   };
 
-  // 2026-10-08 배치 v2: miniLevel이 숫자 하나라 후반도 전반과 같은 난이도다 (일반 = 초밥 담기 보통 / 나머지 어려움).
   await openCell("normal-1");
-  const iceRows = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan")).rows;
-  const iceLen = iceSolve(iceRows).length;
-  assert_(await countSel(p1, "#mg-layer .mg-kind-ice") === 1 && iceLen >= 10 && iceLen <= 13, `일반 초밥 초밥 담기은 보통(L2, 최적 10~13번 미끄러짐)이어야 함, got ${iceLen}`);
-  log(`후반 일반 초밥(초밥 담기, 보통): 최적 ${iceLen}번 미끄러짐`);
+  const packInfo = await p1.evaluate(() => {
+    const b = document.querySelector("#mg-layer .mg-body");
+    let plan = null; try { plan = JSON.parse(b.dataset.plan); } catch (e) {}
+    return { cells: document.querySelectorAll("#mg-layer .pk-box .pk-cell").length, pieces: document.querySelectorAll("#mg-layer .pk-piece").length, plan: plan && { cols: plan.cols, rows: plan.rows, n: plan.pieces.length } };
+  });
+  assert_(packInfo.plan && packInfo.plan.cols * packInfo.plan.rows === 20 && packInfo.plan.n === 5 && packInfo.cells === 20, `후반 박스 포장: 5x4 상자 / 조각 5개여야 함, got ${JSON.stringify(packInfo)}`);
+  log("후반 일반택배(박스 포장): 5x4 상자, 조각 5개");
   await giveUp();
 
   await openCell("fragile-1");
+  const inspTxt = await bodyText(p1);
+  assert_(/\/\s*11\s*개/.test(inspTxt), `후반 이상 확인: 택배 11개여야 함, got: ${inspTxt.match(/처리[^\n]*/)}`);
+  log("후반 깨지기 쉬운 택배(이상 확인): 판단 11회");
+  await giveUp();
+
+  await openCell("fixed-floor-3");
+  const boxes = await countSel(p1, "#mg-layer .mg-bx");
+  const stuckTotal = await p1.evaluate(() => { const st = document.querySelector("#mg-layer .mg-stage"); return st ? st.getAttribute("data-total") : null; });
+  assert_(boxes === 8 && stuckTotal === "5", `후반 송장 붙이기: 박스 8개 / 송장 5장이어야 함, got 박스 ${boxes} / 송장 ${stuckTotal}`);
+  log("후반 확정 층수 택배(송장 붙이기): 송장 5장, 박스 8개");
+  await giveUp();
+
+  await openCell("valuable-1");
   const mapInfo = await p1.evaluate(() => {
     const b = document.querySelector("#mg-layer .mg-body");
     return b ? { grid: b.dataset.grid, targets: b.dataset.targets.split(";").length, blocked: b.dataset.blocked.split(";").filter(Boolean).length } : null;
   });
-  assert_(mapInfo && mapInfo.grid === "7,5" && mapInfo.targets === 4 && mapInfo.blocked === 6, `중급 주문 서빙(어려움): 7x5 지도 / 목표 4개 / 공사장 6칸이어야 함, got ${JSON.stringify(mapInfo)}`);
-  assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 1 && (await countSel(p1, "#mg-layer .mg-parcel")) === 4, "주문 서빙은 주문표 초밥 4개가 먼저 뜨고 지도는 가려져 있어야 함");
-  await p1.waitForTimeout(3100); // 주문표 단계(2.5초)가 끝나면 지도가 뜬다
-  assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 0, "주문표 단계가 끝나면 지도가 떠야 함");
-  log("후반 중급(주문 서빙, 어려움): 7x5 지도, 주문표 4장, 공사장 6칸, 주문표 -> 지도 순서");
-  await giveUp();
-
-  await openCell("fixed-floor-3");
-  const rt = JSON.parse(await p1.getAttribute("#mg-layer .mg-body", "data-plan"));
-  assert_(await countSel(p1, "#mg-layer .mg-kind-route") === 1 && rt.rows.length === 5 && rt.rows[0].length === 6 && rt.rows.join("").split("#").length - 1 === 3, `지정 접시 도마 닦기(어려움): 6x5 / 막힌 칸 3이어야 함, got ${rt.rows.join("/")}`);
-  log("후반 지정 접시(도마 닦기, 어려움): 6x5, 막힌 칸 3");
-  await giveUp();
-
-  await openCell("valuable-1");
-  const skBoxes = await countSel(p1, "#mg-layer .sk-box");
-  assert_(skBoxes === 3, `특선 초밥 재료 정리(어려움): 상자 3개여야 함, got ${skBoxes}`);
-  log("후반 특선 초밥(재료 정리, 어려움): 상자 3개");
+  assert_(mapInfo && mapInfo.grid === "7,5" && mapInfo.targets === 4 && mapInfo.blocked === 6, `후반 지도 배달: 7x5 지도 / 목표 4개 / 공사장 6칸이어야 함, got ${JSON.stringify(mapInfo)}`);
+  assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 1 && (await countSel(p1, "#mg-layer .mg-parcel")) === 4, "후반 지도 배달은 송장 택배 4개가 먼저 뜨고 지도는 가려져 있어야 함");
+  await p1.waitForTimeout(3100); // 송장 단계(2.5초)가 끝나면 지도가 뜬다
+  assert_((await countSel(p1, "#mg-layer .mg-map.is-covered")) === 0, "송장 단계가 끝나면 지도가 떠야 함");
+  log("후반 귀중품(지도 배달): 7x5 지도, 송장 4장, 공사장 6칸, 송장 -> 지도 순서");
   await giveUp();
 
   if (errors.length) throw new Error("page errors: " + errors.join(" | "));

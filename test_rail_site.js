@@ -3,7 +3,7 @@
 //   - 레일 화면이 붙으면 플레이어 화면이 "레일 모드"(대기 카드, 버튼 없음)로 바뀌고, 떠나면 원래 보드로 돌아온다
 //   - 왼쪽(1번)/오른쪽(2번) 버튼은 각각 그 자리 플레이어 화면에만 게임을 띄운다 (상대 화면엔 안 뜸)
 //   - 게임 중에는 그 쪽 버튼이 잠기고(플레이 중 표시), 끝내거나 포기하면 다시 풀린다
-//   - 지정 초밥은 접시 버튼 6개: 제작된 접시는 양쪽에서 잠긴다
+//   - 확정 층수 택배는 층 버튼 6개: 확보된 층은 양쪽에서 잠긴다
 //   - 종류가 소진되면 양쪽 버튼이 잠기고 "소진"이 보인다
 //   - 레일 화면은 플레이어 메시지(secure-cell 등)를 보내도 게임에 영향이 없다 (ws 직접 접속으로 확인)
 // 사전 준비: SECURE_PHASE_MS를 임시로 40초(`40 * 1000`)로 줄이고 build_client.py 재빌드 + 서버 재시작. 끝나면 원복 (HANDOVER 5.3).
@@ -51,10 +51,10 @@ async function main() {
   const room = new URL(p1.url()).searchParams.get("room");
   const roomUrl = BASE + "/?room=" + room + "&mgtest=1";
   await p1.goto(roomUrl); await p2.goto(roomUrl);
-  await waitFor(() => count(p1, ".splash").then((n) => n > 0), { label: "seat picker" });
-  await click(p1, '[data-action="join-team"]');
-  await waitFor(async () => (await p1.evaluate(() => document.body.innerText)).includes("초밥왕"), { label: "p1 courier" });
-  await click(p2, '[data-action="join-team"]');
+  await waitFor(() => count(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
+  await click(p1, '[data-action="pick-courier"][data-courier="cookbang"]');
+  await waitFor(async () => (await p1.evaluate(() => document.body.innerText)).includes("쿡방"), { label: "p1 courier" });
+  await click(p2, '[data-action="pick-courier"][data-courier="cheonil"]');
   await sleep(300);
   await space(p1); await space(p2);
   await waitFor(() => count(p1, '[data-action="open-type"]').then((n) => n > 0), { label: "secure phase (fallback board)" });
@@ -75,11 +75,11 @@ async function main() {
   // 플레이어가 레일 모드로
   await waitFor(() => count(p1, "[data-rail-wait]").then((n) => n === 1), { label: "p1 rail mode" });
   await waitFor(() => count(p2, "[data-rail-wait]").then((n) => n === 1), { label: "p2 rail mode" });
-  assert((await count(p1, ".rail-btn, .floor-btn")) === 0 && (await count(p2, ".rail-btn, .floor-btn")) === 0, "레일 모드의 플레이어 화면엔 제작 버튼이 없다");
+  assert((await count(p1, ".rail-btn, .floor-btn")) === 0 && (await count(p2, ".rail-btn, .floor-btn")) === 0, "레일 모드의 플레이어 화면엔 확보 버튼이 없다");
   assert((await text(p1, "[data-rail-wait] .rw-sub b")) === "왼쪽" && (await text(p2, "[data-rail-wait] .rw-sub b")) === "오른쪽", "1번=왼쪽, 2번=오른쪽 안내");
-  // 레일: 양쪽 버튼 존재 (일반 3종 x 2쪽 + 지정 접시 6x2)
+  // 레일: 양쪽 버튼 존재 (일반 3종 x 2쪽 + 확정 층수 6x2)
   assert((await count(rail, ".rail-btn")) === 6, "레일 일반 3종 x 양쪽 = 6개 버튼, got " + (await count(rail, ".rail-btn")));
-  assert((await count(rail, ".floor-btn")) === 12, "접시 버튼 6개 x 양쪽");
+  assert((await count(rail, ".floor-btn")) === 12, "층 버튼 6개 x 양쪽");
   assert((await text(rail, leftOf(0))) === "4", "남은 4개");
   await shot(rail, "rail_1_open");
   log("플레이어 화면은 레일 모드(버튼 없음, 내 쪽 안내), 레일 화면엔 양쪽 버튼이 있음");
@@ -105,11 +105,11 @@ async function main() {
   assert(!(await disabled(rail, railBtn(2, 0))), "2번 쪽 버튼은 그대로 눌림");
   log("왼쪽 버튼 -> 1번 플레이어 화면에만 게임, 그 쪽 버튼 잠금(플레이 중 표시)");
 
-  // ---- 끝내면 제작 + 잠금 해제 ----
+  // ---- 끝내면 확보 + 잠금 해제 ----
   assert(await finish(p1), "p1 finish");
   await waitFor(async () => (await text(rail, leftOf(0))) === "3", { label: "남은 3개" });
   await waitFor(async () => (await disabled(rail, railBtn(1, 0))) === false, { label: "1번 버튼 풀림" });
-  assert((await count(p1, "[data-rail-wait] .rw-row[data-cat='0'] .my-chip")) === 1, "p1 대기 카드에 내가 제작한 호수 칩");
+  assert((await count(p1, "[data-rail-wait] .rw-row[data-cat='0'] .my-chip")) === 1, "p1 대기 카드에 내가 확보한 호수 칩");
   assert((await count(p2, "[data-rail-wait] .rw-row[data-cat='0'] .my-chip")) === 0, "p2에겐 p1의 호수가 안 보임");
   assert(!(await rail.evaluate(() => /\d0\d호/.test(document.body.innerText))), "레일 화면엔 누구의 호수도 안 나온다");
   log("끝내면 남은 개수 4 -> 3, 1번 버튼 풀림, 호수는 본인 화면에만");
@@ -135,16 +135,16 @@ async function main() {
   assert((await text(rail, leftOf(1))) === "4", "포기하면 개수는 그대로");
   log("포기 버튼 -> 버튼 풀림, 남은 개수 그대로");
 
-  // ---- 지정 초밥: 접시 버튼 ----
-  await click(rail, floorBtn(1, 3, 3)); // 3번째 칸 = 노랑
+  // ---- 확정 층수 택배: 층 버튼 ----
+  await click(rail, floorBtn(1, 3, 3)); // 3번째 칸 = 2F
   await waitFor(() => hasGame(p1), { label: "p1 sticker game" });
   assert(await finish(p1), "p1 finish sticker");
-  await waitFor(async () => (await text(rail, leftOf(3))) === "5", { label: "지정 접시 남은 5" });
-  assert(await disabled(rail, floorBtn(1, 3, 3)) && await disabled(rail, floorBtn(2, 3, 3)), "제작된 접시는 양쪽에서 잠긴다");
-  assert((await disabled(rail, floorBtn(2, 3, 4))) === false, "다른 접시는 열려 있다");
-  log("접시 버튼: 제작된 접시(노랑)은 양쪽 모두 잠기고 남은 개수 5");
+  await waitFor(async () => (await text(rail, leftOf(3))) === "5", { label: "확정 층수 남은 5" });
+  assert(await disabled(rail, floorBtn(1, 3, 3)) && await disabled(rail, floorBtn(2, 3, 3)), "확보된 층은 양쪽에서 잠긴다");
+  assert((await disabled(rail, floorBtn(2, 3, 4))) === false, "다른 층은 열려 있다");
+  log("층 버튼: 확보된 층(2F)은 양쪽 모두 잠기고 남은 개수 5");
 
-  // ---- 소진: 일반 초밥 2개 더 ----
+  // ---- 소진: 일반택배 2개 더 ----
   for (let i = 0; i < 2; i++) {
     const side = i % 2 === 0 ? 1 : 2, pg = side === 1 ? p1 : p2;
     await click(rail, railBtn(side, 0));
@@ -155,7 +155,7 @@ async function main() {
   assert(await disabled(rail, railBtn(1, 0)) && await disabled(rail, railBtn(2, 0)), "소진되면 양쪽 버튼 잠김");
   assert((await rail.evaluate(() => document.querySelector('.board-row[data-cat="0"]').innerText)).includes("소진"), "소진 표시");
   await shot(rail, "rail_2_exhausted");
-  log("일반 초밥 4개 모두 제작 -> 양쪽 버튼 잠김 + 소진 표시");
+  log("일반택배 4개 모두 확보 -> 양쪽 버튼 잠김 + 소진 표시");
 
   // ---- 레일 화면의 ws는 플레이어 메시지를 못 보낸다 ----
   const before = await text(rail, leftOf(1));

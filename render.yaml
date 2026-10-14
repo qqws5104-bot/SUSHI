@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: sushi
+    name: beatphobia-live-delivery-game
     runtime: node
     plan: free
     buildCommand: npm install
