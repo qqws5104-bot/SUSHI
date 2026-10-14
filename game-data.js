@@ -105,6 +105,10 @@ const FLOOR_REWARD_MULT = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 // P1-2 엘리베이터 시작 층: 하프마다 이 목록에서 무작위 (FLOORS 인덱스. 2 = 2F, 3 = 3F). 고정 시작층 공짜 배송 방지.
 //   [1]로 두면 예전처럼 항상 1F에서 시작.
 const START_FLOOR_CHOICES = [2, 3];
+// 2026-10-14 (사용자 결정, 실패의 재미): 엘리베이터 "덜컹". 이동 시간 동안 두 사람이 모두 눌렀는데 엘리베이터가 시작 층 그대로면
+//   (팽팽하게 비김) 결과 직전에 무작위로 한 층 떨어지거나 튀어 오른다(맨 아래/맨 위에선 가능한 쪽으로). 배송은 덜컹한 뒤의 층에서.
+//   아무도 안 눌렀거나 한 사람만 눌렀으면 덜컹하지 않는다(둘 다 그 층을 원한 것일 수 있으니까). 0이면 끔.
+const ELEVATOR_JOLT = 1;
 // P2-1 라운드 결과 화면 자동 진행(ms). 결과를 이만큼 보여준 뒤 다음 라운드(또는 하프 종료)로 넘어간다.
 //   둘 다 스페이스를 누르면 더 일찍 넘어간다. 0이면 예전처럼 "둘 다 스페이스"를 눌러야만 넘어간다.
 const RESULT_AUTO_ADVANCE_MS = 3000;
@@ -148,6 +152,6 @@ const RACE_PUZZLE_ORDER = ["normal-1", "normal-2", "fixed-floor-1", "fragile-1",
 module.exports = {
   TYPES, COURIERS, FLOORS, ROOMS, CELLS, START_FLOOR_IDX, ELEVATOR_ROUNDS, SECURE_PHASE_MS, VOTE_MS,
   PRIORITY_MULTIPLIER, SAME_FLOOR_CHOICE_MS, HALVES, THIEF_PLACE_MS, THIEF_PER_HALF, PRIORITY_PICK_MS,
-  FLOOR_REWARD_MULT, START_FLOOR_CHOICES, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, SAME_FLOOR_AUTO_PICK,
+  FLOOR_REWARD_MULT, START_FLOOR_CHOICES, ELEVATOR_JOLT, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, SAME_FLOOR_AUTO_PICK,
   RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_STICKER_LEVEL, RACE_GAME_POOL, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK, RACE_AUTO_PICK_MODE,
 };

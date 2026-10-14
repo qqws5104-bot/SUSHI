@@ -78,6 +78,14 @@ async function main() {
   const p2 = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector(".mg-tp-box")).getPropertyValue("--p")));
   assert(p2 < p1, `테이프가 떨어져야 함: ${p1} -> ${p2}`);
   log("테이프 봉하기: 손을 멈추면 테이프가 떨어짐");
+  // 송장 붙이기 쉬움(박스 4개)은 2x2 -- 두 줄, 줄마다 2개 (3+1로 깨지면 안 됨)
+  for (const vw of [900, 1280]) {
+    await page.setViewportSize({ width: vw, height: 1000 });
+    await start("sticker", 1);
+    const rows = await page.evaluate(() => { const t = {}; document.querySelectorAll("#t-host .mg-bx").forEach((e) => { const y = Math.round(e.getBoundingClientRect().top / 4); t[y] = (t[y] || 0) + 1; }); return Object.values(t); });
+    assert(rows.length === 2 && rows.every((n) => n === 2), "송장 붙이기 박스 4개는 2x2: " + JSON.stringify(rows));
+  }
+  log("송장 붙이기 쉬움: 박스 4개 2x2");
   if (errors.length) throw new Error("page errors: " + errors.join(" | "));
   await browser.close();
   log("ALL CHECKS PASSED");

@@ -67,6 +67,7 @@ def load_shared_constants():
         "RACE_PICK_MS": eval(grab("RACE_PICK_MS")),
         "RACE_SECOND_MS": eval(grab("RACE_SECOND_MS")),
         "RACE_STICKER_LEVEL": json.loads(grab("RACE_STICKER_LEVEL")),
+        "ELEVATOR_JOLT": eval(grab("ELEVATOR_JOLT")),
     }
 
     # TYPES uses plain (unquoted) JS object keys -- not valid JSON as-is. Quote bare
@@ -691,6 +692,7 @@ APP_JS_TEMPLATE = r"""
   var RACE_PICK_MS = @@RACE_PICK_MS@@;
   var RACE_SECOND_MS = @@RACE_SECOND_MS@@;
   var RACE_STICKER_LEVEL = @@RACE_STICKER_LEVEL@@;
+  var ELEVATOR_JOLT = @@ELEVATOR_JOLT@@; // 2026-10-14 덜컹 (game-data.js)
   // 송장 하나의 배송 성공 금액 (서버가 확보 순간 층 배율을 적용해 inv.reward에 박아 둔다 -- 예전 형식이면 종류 금액)
   function invReward(inv) { return typeof inv.reward === "number" ? inv.reward : TYPES[inv.catIdx].reward; }
   function floorMult(i) { return FLOOR_REWARD_MULT[i] == null ? 1 : FLOOR_REWARD_MULT[i]; }
@@ -1526,7 +1528,7 @@ APP_JS_TEMPLATE = r"""
   function elevDir(el) {
     var f = el.floorIdx;
     if (el.state === "voting") return f > el.roundStartFloorIdx ? "up" : (f < el.roundStartFloorIdx ? "down" : "");
-    if (el.state === "result" && el.log && el.log.length) return el.log[el.log.length - 1].dir || "";
+    if (el.state === "result" && el.log && el.log.length) { var lg = el.log[el.log.length - 1]; return lg.jolt ? lg.jolt.dir : (lg.dir === "tie" ? "" : (lg.dir || "")); }
     return "";
   }
 
@@ -1536,6 +1538,21 @@ APP_JS_TEMPLATE = r"""
   // 테스트 호환: 층마다 .floor-stop (현재 층은 .current, 글자는 층 이름 + .floor-mult 배지) -- 글자는 투명.
   // 카트 애니메이션: 직전 층(bldPrevFloor)에서 출발한 모습으로 그렸다가 그린 직후 새 층으로 옮긴다(bldAfterRender).
   var bldPrevFloor = null;
+  // 덜컹(결과 화면, 이번 라운드 log.jolt): 처음 그릴 때만 흔들림 애니메이션 (상태가 올 때마다 다시 그리므로)
+  var joltSeen = null;
+  function elevJolt(el) {
+    if (el.state !== "result" || !el.log || !el.log.length) return null;
+    var last = el.log[el.log.length - 1];
+    return last.round === el.round && last.jolt ? last.jolt : null;
+  }
+  function joltClass(el, who) {
+    var j = elevJolt(el);
+    if (!j) return '';
+    var key = who + ':' + el.round + ':' + j.to;
+    var fresh = !joltSeen || joltSeen.indexOf(key) < 0;
+    if (fresh) joltSeen = (joltSeen || []).concat([key]);
+    return ' has-jolt' + (fresh ? ' is-jolt' : '');
+  }
   function renderBuilding(el) {
     var f = el.floorIdx, dir = elevDir(el);
     var from = bldPrevFloor === null ? f : bldPrevFloor;
@@ -1545,7 +1562,9 @@ APP_JS_TEMPLATE = r"""
         + (m !== 1 ? '<span class="floor-mult' + (m > 1 ? ' hi' : ' lo') + '">' + multLabel(i) + '</span>' : '') + '</div>';
     }).join('');
     bldPrevFloor = f;
-    return '<div class="bld' + (dir ? ' is-' + dir : '') + '" aria-label="엘리베이터 위치 ' + esc(FLOORS[f]) + '">' + stops
+    var jc = joltClass(el, 'bld');
+    return '<div class="bld' + (dir ? ' is-' + dir : '') + jc + '" aria-label="엘리베이터 위치 ' + esc(FLOORS[f]) + '">' + stops
+      + (jc ? '<span class="jolt-pop">덜컹!</span>' : '')
       + '<div class="bld-car" id="mv-car" data-to="' + f + '" style="--i:' + from + '">'
       + '<i class="bld-arw up"><b></b><b></b><b></b></i><i class="bld-arw down"><b></b><b></b><b></b></i>'
       + '<span class="bld-cab"></span><span class="bld-wheels"></span></div>'
@@ -1567,7 +1586,7 @@ APP_JS_TEMPLATE = r"""
         return i === null ? '<span class="ea-gap"></span>' : '<span class="ea-btn' + (i === f ? ' on' : '') + '" data-floor="' + i + '">' + eaLabel(i) + '</span>';
       }).join('');
     }).join('');
-    return '<div class="elev-art" aria-label="엘리베이터 ' + esc(FLOORS[f]) + '">'
+    return '<div class="elev-art' + joltClass(el, 'art') + '" aria-label="엘리베이터 ' + esc(FLOORS[f]) + '">'
       + '<div class="ea-ind"><i class="ea-up' + (dir === "up" ? ' on' : '') + '"></i><b>' + eaLabel(f) + '</b><i class="ea-down' + (dir === "down" ? ' on' : '') + '"></i></div>'
       + '<div class="ea-panel">' + panel + '</div>'
       + (floorMult(f) !== 1 ? '<span class="ea-mult' + (floorMult(f) > 1 ? ' hi' : '') + '">배송비 ' + multLabel(f) + '</span>' : '')
@@ -1691,7 +1710,7 @@ APP_JS_TEMPLATE = r"""
     // per-click counts (mine or the opponent's) are never shown -- the real floor position, shown
     // live in the shaft (whichever row carries .current), is the only movement feedback either
     // player gets during voting.
-    html += '<div class="key-hint">' + (voting ? '키보드 ↑ / ↓ 화살표로도 누를 수 있어요' : '이번 라운드 투표가 끝났어요') + '</div>';
+    html += '<div class="key-hint">' + (voting ? '키보드 ↑ / ↓ 화살표로도 누를 수 있어요' + (ELEVATOR_JOLT ? ' · <b>둘 다 눌렀는데 제자리면 덜컹!</b>' : '') : '이번 라운드 투표가 끝났어요') + '</div>';
 
     if (voting) {
       html += '<div class="time-left-big" id="round-clock">남은 시간 계산 중...</div>';
@@ -1703,7 +1722,8 @@ APP_JS_TEMPLATE = r"""
       var myDelivered = (last.delivered || []).filter(function (d) { return d.seat === seat; });
       html += '<div class="round-result">'
         + '<div>라운드 ' + last.round + ' 결과 — '
-        + (last.dir === "tie" ? "동률, 유지" : (last.dir === "up" ? "상승" : "하강"))
+        + (last.jolt ? '팽팽! <b class="jolt-word">덜컹!</b> ' + FLOORS[last.jolt.from] + '에서 ' + (last.jolt.dir === "up" ? "튀어 올랐어요" : "떨어졌어요")
+          : (last.dir === "tie" ? "동률, 유지" : (last.dir === "up" ? "상승" : "하강")))
         + ' (현재 ' + FLOORS[last.floorIdx] + ')</div>'
         + renderDeliveredCallout(myDelivered)
         + '</div>';
@@ -1906,6 +1926,30 @@ APP_JS_TEMPLATE = r"""
     }
     return html + '</div>';
   }
+  // 엘리베이터 단계의 상태 문구/마감 (메인 모니터와 레일 화면 공용)
+  function elevStateInfo(st) {
+    var el = st.elevator, r = { label: "", ends: null, wait: "" };
+    if (el.state === "idle") { r.label = "출발 준비 중"; r.wait = "두 플레이어가 준비하면 출발해요"; }
+    else if (el.state === "priority") { r.label = (MERGE_PRIORITY_THIEF && st.half === 2) ? "우선 택배 지정 · 택배도둑 배치 시간" : "우선 택배 지정 시간"; r.ends = el.priorityWindowEndsAt; }
+    else if (el.state === "thief") { r.label = "택배도둑 배치 시간"; r.ends = el.thiefWindowEndsAt; }
+    else if (el.state === "voting") { r.label = "엘리베이터 이동 중!"; r.ends = el.votingEndsAt; }
+    else if (el.state === "choosing") { r.label = "같은 층 택배 선택 중"; r.ends = el.pendingChoice && el.pendingChoice.endsAt; }
+    else if (el.state === "result") { r.label = elevJolt(el) ? "팽팽! 덜컹! 엘리베이터가 " + (elevJolt(el).dir === "up" ? "튀어 올랐어요" : "떨어졌어요") : "라운드 결과 확인 중"; if (el.resultEndsAt) r.ends = el.resultEndsAt; else r.wait = "다음 라운드 준비 대기"; }
+    else { r.label = "배송 종료"; }
+    return r;
+  }
+  // 2026-10-14 (사용자 요청): 레일 화면도 엘리베이터 단계엔 엘리베이터 그림 -- 건물 단면도(움직임) + 엘리베이터 안 그림 + 라운드/상태/남은 시간
+  function renderRailElevator(st, head, halfName) {
+    var el = st.elevator, esi = elevStateInfo(st);
+    return '<div class="rv">' + head("엘리베이터 · " + halfName) + '<div class="rv-elev">'
+      + '<div class="rv-elev-bld">' + renderBuilding(el) + '</div>'
+      + '<div class="rv-elev-main">' + renderElevArt(el)
+      + '<div class="rv-elev-info"><span class="round-pill">라운드 ' + el.round + ' / ' + ELEVATOR_ROUNDS + '</span>'
+      + '<span class="rv-elev-floor">현재 층 <b>' + esc(FLOORS[el.floorIdx]) + '</b></span>'
+      + '<span class="rv-elev-state">' + esc(esi.label) + '</span>'
+      + (esi.ends ? raceCount(esi.ends, '', '초') : (esi.wait ? '<span class="rv-elev-wait">' + esc(esi.wait) + '</span>' : ''))
+      + '</div></div></div></div>';
+  }
   function renderRail() {
     var st = state;
     var head = function (label) {
@@ -1914,6 +1958,7 @@ APP_JS_TEMPLATE = r"""
     };
     if (!st) return '<div class="rv">' + head('') + '<div class="rv-center"><h2>연결 중...</h2></div></div>';
     var halfName = st.half === 2 ? "후반" : "전반";
+    if (st.phase === "elevator" && st.elevator) return renderRailElevator(st, head, halfName);
     if (st.phase !== "secure") {
       var msg = st.phase === "lobby" ? ['참가자를 기다리고 있어요', '두 플레이어가 준비하면 이 화면에 레일이 열려요']
         : st.phase === "elevator" ? ['배송 중이에요', '다음 택배 확보 단계에서 레일이 다시 열려요']
@@ -2047,14 +2092,7 @@ APP_JS_TEMPLATE = r"""
     }
     else if (st.phase === "elevator") {
       var el = st.elevator, floorIdx = el.floorIdx;
-      var stateLabel = "", ends = null, wait = "";
-      if (el.state === "idle") { stateLabel = "출발 준비 중"; wait = "두 플레이어가 준비하면 출발해요"; }
-      else if (el.state === "priority") { stateLabel = (MERGE_PRIORITY_THIEF && st.half === 2) ? "우선 택배 지정 · 택배도둑 배치 시간" : "우선 택배 지정 시간"; ends = el.priorityWindowEndsAt; }
-      else if (el.state === "thief") { stateLabel = "택배도둑 배치 시간"; ends = el.thiefWindowEndsAt; }
-      else if (el.state === "voting") { stateLabel = "엘리베이터 이동 중!"; ends = el.votingEndsAt; }
-      else if (el.state === "choosing") { stateLabel = "같은 층 택배 선택 중"; ends = el.pendingChoice && el.pendingChoice.endsAt; }
-      else if (el.state === "result") { stateLabel = "라운드 결과 확인 중"; if (el.resultEndsAt) ends = el.resultEndsAt; else wait = "다음 라운드 준비 대기"; }
-      else { stateLabel = "배송 종료"; }
+      var esi = elevStateInfo(st), stateLabel = esi.label, ends = esi.ends, wait = esi.wait;
       html = head("엘리베이터 · " + halfName) + '<div class="mv-body"><div class="mv-elev">'
         + '<div class="mv-bld">' + renderBuilding(el) + '</div>'
         + '<div class="mv-elev-main">'
@@ -2348,6 +2386,7 @@ APP_JS = (APP_JS_TEMPLATE
           .replace("@@RACE_PICK_MS@@", str(RACE_CONST["RACE_PICK_MS"]))
           .replace("@@RACE_SECOND_MS@@", str(RACE_CONST["RACE_SECOND_MS"]))
           .replace("@@RACE_STICKER_LEVEL@@", json.dumps(RACE_CONST["RACE_STICKER_LEVEL"]))
+          .replace("@@ELEVATOR_JOLT@@", str(RACE_CONST["ELEVATOR_JOLT"]))
           .replace("@@SAME_FLOOR_CHOICE_MS@@", str(SAME_FLOOR_CHOICE_MS))
           .replace("@@HALVES@@", str(HALVES))
           .replace("@@THIEF_PLACE_MS@@", str(THIEF_PLACE_MS))

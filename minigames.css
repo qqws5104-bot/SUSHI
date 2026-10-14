@@ -210,7 +210,8 @@
   display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: var(--ggap, 2.6cqw 3.4cqw);
 }
 /* 박스 4개(쉬움): 한 줄 2개씩 2x2 -- 상자 두 개 폭 + 간격만큼으로 줄을 좁혀서 줄바꿈을 2개 단위로 */
-.mg-stage.is-2x2 .mg-bxs { left: 50%; right: auto; width: calc(var(--bw) * 2 + 3.4cqw + 2px); transform: translateX(-50%); }
+/* 2026-10-14: 폭 계산으로 줄바꿈시키던 방식은 브라우저 확대/반올림에 따라 3+1로 깨질 수 있어서 격자로 고정 */
+.mg-stage.is-2x2 .mg-bxs { display: grid; grid-template-columns: repeat(2, var(--bw)); justify-content: center; align-content: center; }
 /* --- 골판지 박스: 뚜껑(위) + 앞면 + 세로 테이프 + 송장 자리 --- */
 .mg-bx {
   position: relative; width: calc(26 * var(--u)); height: calc(18.4 * var(--u)); transition: transform 0.14s ease;

@@ -11,7 +11,7 @@ const SECURE_EARLY_END_MS = 1500;
 const {
   TYPES, COURIERS, FLOORS, ROOMS, CELLS, START_FLOOR_IDX, ELEVATOR_ROUNDS, SECURE_PHASE_MS, VOTE_MS,
   PRIORITY_MULTIPLIER, SAME_FLOOR_CHOICE_MS, HALVES, THIEF_PLACE_MS, THIEF_PER_HALF, PRIORITY_PICK_MS,
-  FLOOR_REWARD_MULT, START_FLOOR_CHOICES, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, SAME_FLOOR_AUTO_PICK,
+  FLOOR_REWARD_MULT, START_FLOOR_CHOICES, ELEVATOR_JOLT, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, SAME_FLOOR_AUTO_PICK,
   RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK, RACE_GAME_POOL, RACE_AUTO_PICK_MODE,
 } = require("./game-data");
 
@@ -33,6 +33,7 @@ const DEFAULT_RULES = {
   raceAutoPick: !!RACE_AUTO_PICK,
   raceGamePool: RACE_GAME_POOL,
   raceAutoPickMode: RACE_AUTO_PICK_MODE,
+  elevatorJolt: !!ELEVATOR_JOLT,
 };
 // 2026-10-12까지의 동작과 똑같이 만드는 규칙 (1F 시작, 배율 없음, 스페이스 게이트, 도둑 창 별도, 같은 층 선택 창).
 const LEGACY_RULES = {
@@ -42,6 +43,7 @@ const LEGACY_RULES = {
   mergePriorityThief: false,
   sameFloorAutoPick: false,
   raceMode: false,
+  elevatorJolt: false,
 };
 
 // 2026-10-06: 보드는 두 플레이어가 "같이 쓰는" 하나다 (종류별 6칸 = 두 사람 합쳐서 6개). 한 사람이 확보하면
@@ -776,13 +778,29 @@ class GameRoom {
     return { "1": totalScore("1", this.state), "2": totalScore("2", this.state) };
   }
 
+  // 2026-10-14 덜컹 (ELEVATOR_JOLT): 두 사람 모두 눌렀는데 시작 층 그대로면 무작위로 한 층 위/아래. el.jolt = { from, to, dir }.
+  _maybeJolt() {
+    const el = this.state.elevator;
+    el.jolt = null;
+    if (!this.rules.elevatorJolt || el.floorIdx !== el.roundStartFloorIdx) return;
+    const pressed = (s) => (el.votes[s].up + el.votes[s].down) > 0;
+    if (!pressed("1") || !pressed("2")) return;
+    const from = el.floorIdx;
+    let d = Math.random() < 0.5 ? -1 : 1;
+    if (from + d < 0 || from + d >= FLOORS.length) d = -d;
+    el.floorIdx = from + d;
+    el.jolt = { from, to: el.floorIdx, dir: d > 0 ? "up" : "down" };
+  }
+
   _finishRound(round, forcedChoice) {
     const el = this.state.elevator;
     const v1 = el.votes["1"], v2 = el.votes["2"];
     const totalUp = v1.up + v2.up, totalDown = v1.down + v2.down;
-    const dir = el.floorIdx > el.roundStartFloorIdx ? "up" : (el.floorIdx < el.roundStartFloorIdx ? "down" : "tie");
+    // 덜컹했으면 줄다리기 결과는 "동률"이고, 실제 층은 덜컹한 층이다 (log.jolt)
+    const dir = el.jolt ? "tie" : (el.floorIdx > el.roundStartFloorIdx ? "up" : (el.floorIdx < el.roundStartFloorIdx ? "down" : "tie"));
     const delivered = this._applyDeliveries(round, forcedChoice);
-    el.log.push({ round, up: totalUp, down: totalDown, dir, floorIdx: el.floorIdx, delivered });
+    el.log.push({ round, up: totalUp, down: totalDown, dir, floorIdx: el.floorIdx, delivered, jolt: el.jolt || null });
+    el.jolt = null;
     el.pendingChoice = null;
     // 이번 라운드의 우선 택배 지정은 이번 라운드 배송에만 유효했다 -- 다음 라운드 게이트에서는
     // 다시 비어 있는 상태로 새로 골라야 한다 ("매 라운드마다 지정").
@@ -830,6 +848,7 @@ class GameRoom {
   _resolveRound() {
     if (this.state.phase !== "elevator" || this.state.elevator.state !== "voting") return;
     const el = this.state.elevator;
+    this._maybeJolt();
     const floorIdx = el.floorIdx;
     if (this.rules.sameFloorAutoPick) { this._finishRound(el.round, null); return; }
     const conflicts = {};
