@@ -12,7 +12,7 @@ const {
   TYPES, COURIERS, FLOORS, ROOMS, CELLS, START_FLOOR_IDX, ELEVATOR_ROUNDS, SECURE_PHASE_MS, VOTE_MS,
   PRIORITY_MULTIPLIER, SAME_FLOOR_CHOICE_MS, HALVES, THIEF_PLACE_MS, THIEF_PER_HALF, PRIORITY_PICK_MS,
   FLOOR_REWARD_MULT, START_FLOOR_CHOICES, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, SAME_FLOOR_AUTO_PICK,
-  RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK, RACE_GAME_POOL,
+  RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK, RACE_GAME_POOL, RACE_AUTO_PICK_MODE,
 } = require("./game-data");
 
 // 2026-10-13 개선 1단계(P1+P2) 규칙 묶음. 기본값은 game-data.js. GameRoom 생성자의 세 번째 인자로 일부를 덮어쓸 수 있다
@@ -32,6 +32,7 @@ const DEFAULT_RULES = {
   raceLeftoverReturn: !!RACE_LEFTOVER_RETURN,
   raceAutoPick: !!RACE_AUTO_PICK,
   raceGamePool: RACE_GAME_POOL,
+  raceAutoPickMode: RACE_AUTO_PICK_MODE,
 };
 // 2026-10-12까지의 동작과 똑같이 만드는 규칙 (1F 시작, 배율 없음, 스페이스 게이트, 도둑 창 별도, 같은 층 선택 창).
 const LEGACY_RULES = {
@@ -403,15 +404,16 @@ class GameRoom {
     r.invoiceIds[seat] = this.state.players[seat].invoices[this.state.players[seat].invoices.length - 1].id;
   }
 
-  // 안 고르고 마감이 지나면: 남은 것 중 "기본 금액"이 가장 비싼 종류 (층·금액은 고르기 전엔 모르는 정보라 그걸로 고르지 않는다)
+  // 안 고르고 마감이 지나면: 남은 것 중 무작위(기본, raceAutoPickMode "random") 또는 "기본 금액"이 가장 비싼 종류("best").
+  //   (층·금액은 고르기 전엔 모르는 정보라 그걸로 고르지 않는다)
   _raceAutoPick(seat) {
     const r = this.state.race;
-    let best = -1;
-    r.pair.forEach((it, i) => {
-      if (r.picks["1"] === i || r.picks["2"] === i) return;
-      if (best < 0 || TYPES[it.catIdx].reward > TYPES[r.pair[best].catIdx].reward) best = i;
-    });
-    if (best >= 0) this._raceGrant(seat, best);
+    const rest = r.pair.map((_, i) => i).filter((i) => r.picks["1"] !== i && r.picks["2"] !== i);
+    if (!rest.length) return;
+    if (this.rules.raceAutoPickMode !== "best") { this._raceGrant(seat, rest[Math.floor(Math.random() * rest.length)]); return; }
+    let best = rest[0];
+    rest.forEach((i) => { if (TYPES[r.pair[i].catIdx].reward > TYPES[r.pair[best].catIdx].reward) best = i; });
+    this._raceGrant(seat, best);
   }
 
   // 상태를 한 단계씩 진행시키고 다음 마감 타이머를 건다. 모든 액션/타이머가 여기를 거친다.

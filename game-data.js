@@ -99,7 +99,9 @@ const PRIORITY_PICK_MS = 10000;
 // P1-1 층별 배송비 배율 (FLOORS 순서: B1, 1F, 2F, 3F, 4F, 5F). 끝층은 쉽지만 싸고, 가운데 층은 비싸지만 격전지.
 //   송장이 만들어질 때(확보 순간) 층이 정해지므로, 그때 inv.reward = round(TYPES[].reward x 배율)로 송장에 박아 둔다.
 //   미배송/도난 감점(penalty)은 층과 무관하게 그대로. 전부 1.0이면 예전과 같다.
-const FLOOR_REWARD_MULT = [0.7, 1.0, 1.3, 1.3, 1.0, 0.7];
+// 2026-10-14 (사용자 결정: "층별 비용을 적으면 어려워진다"): 일단 끔(전부 1.0) -- 화면의 배율 배지·층별 금액도 같이 사라진다.
+//   다시 켜려면 [0.7, 1.0, 1.3, 1.3, 1.0, 0.7].
+const FLOOR_REWARD_MULT = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 // P1-2 엘리베이터 시작 층: 하프마다 이 목록에서 무작위 (FLOORS 인덱스. 2 = 2F, 3 = 3F). 고정 시작층 공짜 배송 방지.
 //   [1]로 두면 예전처럼 항상 1F에서 시작.
 const START_FLOOR_CHOICES = [2, 3];
@@ -124,10 +126,13 @@ const SAME_FLOOR_AUTO_PICK = 1;
 const RACE_MODE = 1;
 const RACE_PARCELS = 3;
 const RACE_LEFTOVER_RETURN = 1;
-const RACE_PICK_MS = 3000;
-// 2026-10-14 (사용자 요청: "너무 자동으로 선택된다"): 0이면 고르기에 시간 제한이 없다 -- 직접 고를 때까지 기다린다(1등·2등 모두).
-//   1이면 RACE_PICK_MS 안에 안 고를 때 기본 금액이 비싼 종류를 자동으로 고른다. (늦은 사람의 "투입" 마감 RACE_SECOND_MS는 그대로)
-const RACE_AUTO_PICK = 0;
+// 2026-10-14 (사용자 요청): 투입(Space) 순간부터 20초 안에 고른다. 20초가 지나도 안 고르면 남은 것 중 무작위.
+//   늦은 사람의 20초는 "내 투입"과 "1등이 고른 순간" 중 늦은 쪽부터 센다(1등이 고르기 전엔 고를 수 없으니까).
+//   RACE_AUTO_PICK = 0이면 시간 제한 없이 직접 고를 때까지 기다린다. RACE_AUTO_PICK_MODE "best"면 무작위 대신 기본 금액이 비싼 종류.
+//   (늦은 사람의 "투입" 마감 RACE_SECOND_MS는 그대로)
+const RACE_PICK_MS = 20000;
+const RACE_AUTO_PICK = 1;
+const RACE_AUTO_PICK_MODE = "random";
 const RACE_SECOND_MS = 5000;
 const RACE_REVEAL_MS = 2500;
 // 송장 붙이기 난이도 [전반, 후반] (minigames.js: 1 = 박스 4개/송장 2장, 2 = 박스 7개/송장 4장)
@@ -144,5 +149,5 @@ module.exports = {
   TYPES, COURIERS, FLOORS, ROOMS, CELLS, START_FLOOR_IDX, ELEVATOR_ROUNDS, SECURE_PHASE_MS, VOTE_MS,
   PRIORITY_MULTIPLIER, SAME_FLOOR_CHOICE_MS, HALVES, THIEF_PLACE_MS, THIEF_PER_HALF, PRIORITY_PICK_MS,
   FLOOR_REWARD_MULT, START_FLOOR_CHOICES, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, SAME_FLOOR_AUTO_PICK,
-  RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_STICKER_LEVEL, RACE_GAME_POOL, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK,
+  RACE_MODE, RACE_PICK_MS, RACE_SECOND_MS, RACE_REVEAL_MS, RACE_STICKER_LEVEL, RACE_GAME_POOL, RACE_PUZZLE_ORDER, RACE_PARCELS, RACE_LEFTOVER_RETURN, RACE_AUTO_PICK, RACE_AUTO_PICK_MODE,
 };

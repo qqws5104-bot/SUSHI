@@ -1057,7 +1057,7 @@ APP_JS_TEMPLATE = r"""
     var t = TYPES[it.catIdx];
     var cls = 'race-parcel is-open fee-t' + it.catIdx + (owner ? ' is-owned' : '') + (left ? ' is-gone' : '') + (canPick ? ' can-pick' : '') + (owner && owner === seat ? ' is-mine' : '');
     var inner = '<span class="rp-ico">' + CAT_ICONS[it.catIdx] + '</span><span class="rp-name">' + esc(t.name) + '</span>'
-      + '<span class="rp-amt">기본 ' + fmtWon(t.reward) + '</span><span class="rp-hint">층은 송장에서</span>';
+      + '<span class="rp-amt">' + (multsVary() ? '기본 ' : '') + fmtWon(t.reward) + '</span><span class="rp-hint">층은 송장에서</span>';
     if (owner) inner += '<span class="rp-owner seat-' + owner + '">' + esc(seatName(owner, st)) + ' 획득</span>';
     else if (left) inner += '<span class="rp-owner gone">레일로 돌아감</span>';
     else if (canPick) inner += '<span class="rp-owner pick">' + (RACE_KEYS[i] || '') + ' 고르기</span>';
@@ -1078,7 +1078,7 @@ APP_JS_TEMPLATE = r"""
     return '<div class="race-slip fee-t' + inv.catIdx + (isNew ? ' is-new' : '') + '"><div class="rs-bar">송장 출력</div>'
       + '<div class="rs-name"><span class="rp-ico">' + CAT_ICONS[inv.catIdx] + '</span>' + esc(t.name) + '</div>'
       + '<div class="rs-room">' + esc(roomCode(inv.floorIdx, inv.room)) + '</div>'
-      + '<div class="rs-floor">' + esc(FLOORS[inv.floorIdx]) + ' <small>' + multLabel(inv.floorIdx) + '</small></div>'
+      + '<div class="rs-floor">' + esc(FLOORS[inv.floorIdx]) + (floorMult(inv.floorIdx) !== 1 ? ' <small>' + multLabel(inv.floorIdx) + '</small>' : '') + '</div>'
       + '<div class="rs-amt">' + fmtWon(invReward(inv)) + '</div>'
       + '<div class="rs-code">||| ||||| || |||| ||| |||||</div></div>';
   }
@@ -1117,7 +1117,7 @@ APP_JS_TEMPLATE = r"""
     if (r.status === "picking") {
       if (raceCanPick(r, seat)) {
         var ends = f === seat ? r.pickEndsAt : r.secondPickEndsAt; // 자동 선택이 꺼져 있으면(기본) 마감 없음 -- 고를 때까지 기다린다
-        return '<div class="race-msg hot">' + (f === seat ? '먼저 끝냈어요! ' : '남은 택배 중 ') + '<b>← ↑ →</b> 로 고르세요' + (ends ? ' ' + raceCount(ends, '', '초') : '') + '</div>';
+        return '<div class="race-msg hot">' + (f === seat ? '먼저 끝냈어요! ' : '남은 택배 중 ') + '<b>← ↑ →</b> 로 고르세요' + (ends ? ' ' + raceCount(ends, '', '초') + ' <small>안 고르면 무작위</small>' : '') + '</div>';
       }
       if (f === seat) {
         if (r.stage[raceOther(seat)] === "done") return '<div class="race-msg">상대가 남은 택배를 고르는 중</div>';
