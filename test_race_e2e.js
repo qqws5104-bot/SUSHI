@@ -51,32 +51,34 @@ async function main() {
   await shot(p1, "race_1_sticker");
   log("확보 시작 -> 두 사람 모두 같은 첫 게임(" + g1name + ") 자동 시작, 상대 진행 띠 표시");
   assert((await count(rail, ".race-puzzle")) === 0, "첫 게임 중엔 레일에 문제 없음");
+  await waitFor(async () => (await text(rail)).includes(g1name + " 중"), { label: "rail waiting screen" });
+  assert((await count(p1, ".race-parcel")) === 0, "첫 게임 중 플레이어 화면엔 택배 없음");
   // 레일/메인: 택배 3개, 종류만
-  await waitFor(() => count(rail, ".race-parcel").then((n) => n === 3), { label: "rail shows 3 parcels" });
   await waitFor(() => count(mainv, ".race-parcel").then((n) => n === 3), { label: "main shows 3 parcels" });
-  assert((await text(rail)).includes("층은 송장에서"), "레일 화면엔 층 대신 안내");
   await shot(rail, "race_r_rail_playing"); await shot(mainv, "race_m_main_playing");
 
   // p1 송장 끝 -> 우봉고
   await p1.evaluate(() => window.__mgFinish());
-  await waitFor(() => count(p1, ".race-pad").then((n) => n === 1), { label: "p1 ubongo pad shows" });
-  assert((await count(p1, ".race-puzzle")) === 0, "플레이어 화면엔 문제 그림 없음");
+  await waitFor(() => count(p1, ".race-blank [data-action=\"race-done\"]").then((n) => n === 1), { label: "p1 blank during ubongo" });
+  assert((await count(p1, ".race-puzzle")) === 0 && (await count(p1, ".race-parcel")) === 0, "택배 쌓기 중 플레이어 화면엔 문제도 택배도 없음");
   await waitFor(() => count(rail, ".race-puzzle img").then((n) => n === 1), { label: "rail shows the single puzzle" });
+  assert((await count(rail, ".race-parcel")) === 0 && (await count(rail, ".race-lane")) === 0, "레일 화면엔 택배 쌓기 문제만");
   await waitFor(() => count(mainv, ".race-puzzle img").then((n) => n === 1), { label: "main shows the puzzle" });
   await shot(rail, "race_r_rail_puzzle");
   assert((await count(p1, "#mg-layer .mg-root")) === 0, "송장 게임 닫힘");
   await waitFor(async () => (await p2.evaluate(() => document.getElementById("race-strip") && document.getElementById("race-strip").textContent)).includes("택배 쌓기"), { label: "p2 strip shows p1 on ubongo" });
   await shot(p1, "race_2_ubongo");
   await p2.evaluate(() => window.__mgFinish());
-  await waitFor(() => count(p2, ".race-pad").then((n) => n === 1), { label: "p2 ubongo pad" });
+  await waitFor(() => count(p2, ".race-blank [data-action=\"race-done\"]").then((n) => n === 1), { label: "p2 blank during ubongo" });
   assert((await count(p2, ".race-puzzle")) === 0 && (await count(rail, ".race-puzzle img")) === 1, "문제는 레일 화면에 하나만");
   log("첫 게임 -> 택배 쌓기: 문제는 레일 화면(과 메인 모니터)에만 하나, 플레이어 화면엔 투입/포기만");
 
   // p1 Space로 투입 -> 고르기
   await key(p1, "Space", " ");
-  await waitFor(() => count(p1, "button.race-parcel.can-pick").then((n) => n === 3), { label: "p1 can pick 3" });
+  await waitFor(() => count(p1, "button.race-parcel.can-pick").then((n) => n === 3), { label: "p1 can pick 3 (투입 뒤에야 택배가 보임)" });
   assert((await count(p2, "button.race-parcel.can-pick")) === 0, "p2는 아직 못 고름");
   assert((await text(p2)).includes("안에 투입하면 남은 택배"), "p2에게 남은 시간 안내");
+  assert((await count(p2, ".race-parcel")) === 0, "늦은 사람은 투입 전까지 택배가 안 보임");
   await shot(p1, "race_3_pick_first"); await shot(p2, "race_3_pick_second"); await shot(rail, "race_r_rail_picking");
   log("먼저 투입 -> 1등만 고르기(3개), 늦은 사람에게 마감 안내");
 
@@ -101,12 +103,12 @@ async function main() {
   // ---- 라운드 2: 늦은 사람이 마감을 넘김 ----
   await waitFor(() => count(p1, "#mg-layer .mg-root").then((n) => n === 1), { label: "round 2 first game", timeout: 8000 });
   assert((await text(p1)).includes("레이스 2"), "라운드 2");
-  assert((await count(rail, ".race-puzzle")) === 0, "새 라운드 시작하면 레일 문제 내려감");
+  await waitFor(() => count(rail, ".race-puzzle").then((n) => n === 0), { label: "새 라운드 시작하면 레일 문제 내려감" });
   const g2 = await gameKind(p1);
   assert(g2 !== g1, "바로 앞 라운드와 다른 게임: " + g1 + " -> " + g2);
   log("라운드 2 게임: " + g2 + " (라운드 1과 다름)");
   await p1.evaluate(() => window.__mgFinish()); await p2.evaluate(() => window.__mgFinish());
-  await waitFor(() => count(p2, ".race-pad").then((n) => n === 1), { label: "p2 ubongo r2" });
+  await waitFor(() => count(p2, ".race-blank [data-action=\"race-done\"]").then((n) => n === 1), { label: "p2 ubongo r2" });
   await click(p2, '[data-action="race-done"]');
   await waitFor(() => count(p2, "button.race-parcel.can-pick").then((n) => n >= 1), { label: "p2 can pick r2" });
   await key(p2, "ArrowLeft", "ArrowLeft");

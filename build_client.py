@@ -693,6 +693,7 @@ APP_JS_TEMPLATE = r"""
   var RACE_SECOND_MS = @@RACE_SECOND_MS@@;
   var RACE_STICKER_LEVEL = @@RACE_STICKER_LEVEL@@;
   var ELEVATOR_JOLT = @@ELEVATOR_JOLT@@; // 2026-10-14 덜컹 (game-data.js)
+  var BUILD_TAG = "@@BUILD_TAG@@"; // 배포 확인용 빌드 표시 (build_client.py가 빌드 시각을 넣는다 -- 화면 왼쪽 위 작은 글씨)
   // 송장 하나의 배송 성공 금액 (서버가 확보 순간 층 배율을 적용해 inv.reward에 박아 둔다 -- 예전 형식이면 종류 금액)
   function invReward(inv) { return typeof inv.reward === "number" ? inv.reward : TYPES[inv.catIdx].reward; }
   function floorMult(i) { return FLOOR_REWARD_MULT[i] == null ? 1 : FLOOR_REWARD_MULT[i]; }
@@ -983,7 +984,7 @@ APP_JS_TEMPLATE = r"""
     if (st.half && (st.phase === "secure" || st.phase === "elevator")) {
       phaseLabel += " · " + (st.half === 1 ? "전반" : "후반");
     }
-    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live</span><h1>택배 배송 게임 — ' + phaseLabel + '</h1></div>'
+    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>택배 배송 게임 — ' + phaseLabel + '</h1></div>'
       + '<div class="right"><span class="room-chip">방 ' + esc(ROOM) + '</span>'
       + '<span class="seat-badge">' + (seat ? ("내 좌석 · " + seatName(seat, st)) : "택배사 미선택") + '</span></div></div>';
   }
@@ -1170,11 +1171,20 @@ APP_JS_TEMPLATE = r"""
   }
   function renderRace(st, seat) {
     var r = st.race;
-    // 우봉고 중에는 퍼즐을 오른쪽에 크게 (넓은 화면) -- 레일/진행 단계와 한눈에 같이 보이게
-    var withPuzzle = r.stage[seat] === "ubongo" && r.status !== "reveal";
-    var slip = withPuzzle ? '' : raceSlip(st, r, seat); // 고른 뒤: 자기 자리에서 송장이 나온다
-    var html = '<main class="stage stage--race">' + cartOpen('cart--race') + '<div class="race-wrap' + (withPuzzle ? ' has-puzzle' : (slip ? ' has-slip' : '')) + '">'
-      + raceStage(st, seat) + (withPuzzle ? racePad(st, r) : slip) + '</div>';
+    var me = r.stage[seat];
+    // 2026-10-14 (사용자 요청): 첫 게임·택배 쌓기 중에는 플레이어 화면에 아무것도 없다 (문제는 레일 화면에만).
+    //   택배 3개는 내가 택배 쌓기를 끝내고 투입한 뒤에야 나온다. 화면엔 지금 할 일 한 줄(늦은 사람은 투입 마감)과 작은 투입/포기 버튼만.
+    if (r.status !== "reveal" && (me === "sticker" || me === "ubongo")) {
+      return '<main class="stage stage--race">' + cartOpen('cart--race') + '<div class="race-blank">'
+        + '<div class="race-head"><span class="round-pill">레이스 ' + r.round + '</span>'
+        + '<span class="race-clock">확보 남은 시간 <b id="race-secure-clock">' + fmtClock((st.secureEndsAt || nowMs()) - nowMs()) + '</b></span></div>'
+        + '<div class="rb-center">' + raceMessage(st, r, seat)
+        + (me === "ubongo" ? '<div class="rb-actions"><button class="btn danger" data-action="race-giveup">포기</button><button class="btn ok" data-action="race-done">투입 (Space)</button></div>' : '')
+        + '</div></div>' + cartClose() + '</main>';
+    }
+    var slip = raceSlip(st, r, seat); // 고른 뒤: 자기 자리에서 송장이 나온다
+    var html = '<main class="stage stage--race">' + cartOpen('cart--race') + '<div class="race-wrap' + (slip ? ' has-slip' : '') + '">'
+      + raceStage(st, seat) + slip + '</div>';
     html += '<div class="race-mine"><span class="rm-label">내 택배</span>' + (st.players[seat].invoices.length
       ? st.players[seat].invoices.map(function (inv) { return '<span class="my-chip fee-t' + inv.catIdx + '">' + esc(TYPES[inv.catIdx].name) + ' ' + esc(roomCode(inv.floorIdx, inv.room)) + ' ' + fmtWon(invReward(inv)) + '</span>'; }).join('')
       : '<small>아직 없음</small>') + '</div>';
@@ -1879,7 +1889,7 @@ APP_JS_TEMPLATE = r"""
     return body;
   }
   function renderTopbarShell() {
-    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live</span><h1>택배 배송 게임</h1></div>'
+    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>택배 배송 게임</h1></div>'
       + '<div class="right"><span class="room-chip">방 ' + esc(ROOM) + '</span></div></div>';
   }
 
@@ -1950,10 +1960,24 @@ APP_JS_TEMPLATE = r"""
       + (esi.ends ? raceCount(esi.ends, '', '초') : (esi.wait ? '<span class="rv-elev-wait">' + esc(esi.wait) + '</span>' : ''))
       + '</div></div></div></div>';
   }
+  // 2026-10-14 (사용자 요청): 레이스 중 레일 화면엔 택배 쌓기 문제만. 누군가 첫 게임을 끝내면 문제가 화면 가득,
+  //   그 전엔 "곧 문제가 나와요" 대기 화면. 택배·진행 단계·송장은 그리지 않는다 (택배 고르기는 각자 플레이어 화면).
+  function railPuzzleOn(r) { return !!r.first || ["1", "2"].some(function (s) { return r.stage[s] === "ubongo" || r.stage[s] === "done"; }); }
+  function renderRailRace(st) {
+    var r = st.race;
+    if (!railPuzzleOn(r)) {
+      return '<div class="rv rv-race-wait"><div class="rv-center"><span class="round-pill">레이스 ' + r.round + '</span>'
+        + '<h2>' + esc(raceGameName(r)) + ' 중</h2><p>먼저 끝낸 사람이 나오면 여기에 택배 쌓기 문제가 떠요</p></div></div>';
+    }
+    var meta = cellMeta(r.puzzleId, st.half);
+    return '<div class="rv rv-puzzle-only"><div class="race-puzzle">'
+      + '<div class="rp-cap">레이스 ' + r.round + ' · 택배 쌓기 · 조각 ' + racePieces(st, r) + '개</div>'
+      + (meta && meta.src ? '<img src="' + meta.src + '" alt="택배 쌓기 문제">' : '') + '</div></div>';
+  }
   function renderRail() {
     var st = state;
     var head = function (label) {
-      return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live</span><h1>레일 화면</h1></div>'
+      return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>레일 화면</h1></div>'
         + '<div class="rv-chips">' + (label ? '<span class="rv-chip phase">' + esc(label) + '</span>' : '') + '<span class="rv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
     };
     if (!st) return '<div class="rv">' + head('') + '<div class="rv-center"><h2>연결 중...</h2></div></div>';
@@ -1967,7 +1991,7 @@ APP_JS_TEMPLATE = r"""
       return '<div class="rv">' + head(st.phase === "lobby" ? '대기 중' : halfName) + '<div class="rv-center"><h2>' + msg[0] + '</h2><p>' + msg[1] + '</p>'
         + '<div class="rv-sides">' + railSideHead(st, "1") + railSideHead(st, "2") + '</div></div></div>';
     }
-    if (st.race) return '<div class="rv">' + head('택배 확보 · ' + halfName) + raceStage(st, null) + '</div>';
+    if (st.race) return renderRailRace(st);
     var endsAt = st.secureEndsAt || nowMs();
     var html = '<div class="rv">' + head('택배 확보 · ' + halfName);
     html += '<div class="rv-clockrow"><span class="rv-clock-label">남은 시간</span><b id="rv-clock" data-ends="' + endsAt + '">' + fmtClock(endsAt - nowMs()) + '</b>'
@@ -2051,7 +2075,7 @@ APP_JS_TEMPLATE = r"""
   function renderMain() {
     var st = state;
     var head = function (label) {
-      return '<header class="mv-head"><div><span class="mv-eyebrow">BeatPhobia · Live</span><h1>택배 배송 게임</h1></div>'
+      return '<header class="mv-head"><div><span class="mv-eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>택배 배송 게임</h1></div>'
         + '<div class="mv-chips">' + (label ? '<span class="mv-chip phase">' + esc(label) + '</span>' : '')
         + '<span class="mv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
     };
@@ -2387,6 +2411,7 @@ APP_JS = (APP_JS_TEMPLATE
           .replace("@@RACE_SECOND_MS@@", str(RACE_CONST["RACE_SECOND_MS"]))
           .replace("@@RACE_STICKER_LEVEL@@", json.dumps(RACE_CONST["RACE_STICKER_LEVEL"]))
           .replace("@@ELEVATOR_JOLT@@", str(RACE_CONST["ELEVATOR_JOLT"]))
+          .replace("@@BUILD_TAG@@", "v" + __import__("datetime").datetime.now(__import__("datetime").timezone(__import__("datetime").timedelta(hours=9))).strftime("%m%d-%H%M"))
           .replace("@@SAME_FLOOR_CHOICE_MS@@", str(SAME_FLOOR_CHOICE_MS))
           .replace("@@HALVES@@", str(HALVES))
           .replace("@@THIEF_PLACE_MS@@", str(THIEF_PLACE_MS))

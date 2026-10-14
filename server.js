@@ -10,6 +10,7 @@ const { GameRoom } = require("./game-room");
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
 const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, "index.html"), "utf-8");
+const BUILD_TAG = ((INDEX_HTML.match(/var BUILD_TAG = "([^"]*)"/) || [])[1]) || "unknown";
 // 클라이언트의 자동 재접속 지연(1.2초, build_client.py의 connectWS)보다 넉넉히 길게 잡아서, 순간적인
 // 연결 끊김 정도는 "진짜로 나감"으로 오인하지 않도록 하는 유예 시간. ws.on("close")에서 사용.
 const SEAT_RELEASE_GRACE_MS = 5000;
@@ -75,7 +76,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://" + req.headers.host);
   if (url.pathname === "/health") {
     res.writeHead(200, { "content-type": "text/plain" });
-    res.end("ok");
+    res.end("ok " + BUILD_TAG); // 2026-10-14: 배포된 빌드 확인용 (화면 왼쪽 위 작은 글씨와 같은 값)
     return;
   }
   // 2026-10-07: /rail 은 레일 사이트(공용 레일 화면). 방 코드가 없으면 화면이 코드 입력칸을 보여 주므로(새 방을 만들지 않는다 --
