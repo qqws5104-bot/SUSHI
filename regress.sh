@@ -1,14 +1,14 @@
 #!/bin/bash
 # 전체 회귀 테스트 (2026-10-08 저장소에 편입). 오래 걸린다(약 10분) -- 백그라운드로: nohup bash regress.sh > /tmp/regress.out 2>&1 &
-# 필요: playwright (NODE_PATH에 전역 node_modules), /opt/pw-browsers/chromium. 끝나면 game-data.js(SECURE_PHASE_MS는 3분, mini는 ubongo = 2026-10-13부터 기본)와 빌드를 원복한다.
+# 필요: playwright (NODE_PATH에 전역 node_modules), /opt/pw-browsers/chromium. 끝나면 game-data.js(SECURE_PHASE_MS는 3분, mini는 digital = 2026-10-14부터 다시 기본)와 빌드를 원복한다.
 cd "$(dirname "$0")"
 export NODE_PATH="$(npm root -g):$PWD/node_modules"
 setsec(){ sed -i -E "s/const SECURE_PHASE_MS = .*;/const SECURE_PHASE_MS = $1;/" game-data.js; python3 build_client.py >/dev/null; pkill -x node; sleep 0.5; (nohup node server.js >/tmp/server.log 2>&1 &); sleep 1.5; }
-restore(){ sed -i -E "s/const SECURE_PHASE_MS = .*;/const SECURE_PHASE_MS = 3 * 60 * 1000;/" game-data.js; python3 set_mini.py ubongo >/dev/null; python3 build_client.py >/dev/null; pkill -x node; }
+restore(){ sed -i -E "s/const SECURE_PHASE_MS = .*;/const SECURE_PHASE_MS = 3 * 60 * 1000;/" game-data.js; python3 set_mini.py digital >/dev/null; python3 build_client.py >/dev/null; pkill -x node; }
 trap restore EXIT
 run(){ echo "== $1"; timeout 400 node $1 2>&1 | tail -3; echo "exit=${PIPESTATUS[0]}"; }
 
-echo "######## 실물 우봉고 모드 (기본, 2026-10-13~ -- python3 set_mini.py ubongo)"
+echo "######## 실물 우봉고 모드 (예비 -- python3 set_mini.py ubongo)"
 python3 build_minigame_proto.py >/dev/null
 python3 set_mini.py ubongo >/dev/null
 setsec "3 * 60 * 1000"
@@ -18,7 +18,7 @@ for t in test_hosted.js test_theft_e2e.js test_nudge.js; do run $t; done
 setsec "20 * 1000"; run test_mainview.js
 setsec "40 * 1000"; run test_half_difficulty.js; run test_rail_ubongo.js
 
-echo "######## 디지털 최종 배치 모드 (예비 -- python3 set_mini.py digital)"
+echo "######## 디지털 최종 배치 모드 (기본, 2026-10-14~ -- python3 set_mini.py digital)"
 python3 set_mini.py digital >/dev/null
 setsec "40 * 1000"; run test_half_difficulty_digital.js; run test_peek_ui.js; run test_sfx.js; run test_prep_variants.js
 setsec "40 * 1000"; run test_minigames_live.js; run test_rail_prep.js

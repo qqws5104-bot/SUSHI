@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """game-data.js의 TYPES[].mini를 한 번에 바꾼다 (2026-10-08).
 
-  python3 set_mini.py digital   # 최종 배치 v2(2026-10-08; 2026-10-13부터는 예비 -- 사용자 피드백 "우봉고가 더 재밌다"로 기본이 우봉고로 복귀): 일반 ice(빙판 배송) / 깨지기 map(지도 배달) / 귀중품 soko(창고 정리) / 확정 층수 route(배달 경로). miniLevel은 건드리지 않는다
-  python3 set_mini.py ubongo    # 2026-10-13~ 커밋되는 기본 상태: 네 종류 모두 실물 우봉고 (mini: null) -- 퍼즐 이미지 + 완료 버튼(이미지 원본 폴더 필요, HANDOVER 9.8)
+  python3 set_mini.py digital   # 최종 배치 v2(2026-10-08; 10-13에 우봉고로 바꿨다가 10-14 사용자가 "만들어 둔 미니게임 버전으로" 다시 요청해 현재 커밋되는 기본 상태): 일반 ice(빙판 배송) / 깨지기 map(지도 배달) / 귀중품 soko(창고 정리) / 확정 층수 route(배달 경로). miniLevel은 건드리지 않는다
+  python3 set_mini.py ubongo    # 예비: 네 종류 모두 실물 우봉고 (mini: null) -- 퍼즐 이미지 + 완료 버튼(이미지 원본 폴더 필요, HANDOVER 9.8)
 
 바꾼 뒤에는 `python3 build_client.py`로 클라이언트를 다시 빌드하고 서버도 재시작해야 한다.
-regress.sh는 두 모드를 모두 돌린 뒤 `ubongo`(기본)로 되돌려 둔다.
+regress.sh는 두 모드를 모두 돌린 뒤 `digital`(기본)로 되돌려 둔다.
 """
 import re, sys
 

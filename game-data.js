@@ -38,13 +38,13 @@
 // 2026-10-12 메뉴판 (사용자 참고 일러스트): 종류마다 초밥이 하나씩 -- 계란 / 흰살생선 / 연어(지정 접시) / 장어. 점수는 바로 위 점수표 참고.
 const TYPES = [
   { key: "normal", sushi: ["egg"], name: "계란 초밥", count: 4, pieces: 2, reward: 1000, penalty: 500,
-    color: "#C9A576", ink: "#16233F", mini: null, miniLevel: 2 },
+    color: "#C9A576", ink: "#16233F", mini: "ice", miniLevel: 2 },
   { key: "fragile", sushi: ["whitefish"], name: "흰살생선 초밥", count: 4, pieces: 3, reward: 2000, penalty: 1000,
-    color: "#C7E29A", ink: "#16233F", mini: null, miniLevel: 3 },
+    color: "#C7E29A", ink: "#16233F", mini: "map", miniLevel: 3 },
   { key: "valuable", sushi: ["eel"], name: "장어 초밥", count: 3, pieces: 4, reward: 3000, penalty: 1500,
-    color: "#F0B84A", ink: "#16233F", mini: null, miniLevel: 3 },
+    color: "#F0B84A", ink: "#16233F", mini: "soko", miniLevel: 3 },
   { key: "fixed-floor", sushi: ["salmon"], name: "연어 초밥", count: 6, pieces: 3, fixedFloor: true, reward: 1500, penalty: 1000,
-    color: "#6DBBFD", ink: "#16233F", mini: null, miniLevel: 3 },
+    color: "#6DBBFD", ink: "#16233F", mini: "route", miniLevel: 3 },
 ];
 
 // 2026-08-27 신설: 좌석 선택 화면에서 "플레이어 1/2" 대신 고르는 가상 셰프 5종 (사용자 요청 --
