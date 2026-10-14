@@ -1,5 +1,5 @@
-// 2026-10-08: 실물 우봉고 복귀 후 확보 단계 검증 (전반/후반 퍼즐 이미지 + 조각 수 + 완료/포기).
-//   종류별 조각(색) 수 = 일반 2 / 깨지기 3 / 귀중품 4 / 확정 층수 3 (사용자: "2~4개가 제일 적당").
+// 2026-10-08: 실물 우봉고 복귀 후 제작 단계 검증 (전반/후반 퍼즐 이미지 + 조각 수 + 완료/포기).
+//   종류별 조각(색) 수 = 일반 2 / 중급 3 / 특선 초밥 4 / 지정 접시 3 (사용자: "2~4개가 제일 적당").
 //   전반과 후반은 서로 다른 이미지 세트를 쓴다. "완료"는 자기 신고(서버는 이미지를 모른다), "포기"는 아무 일도 안 일어난다.
 // 사전 준비: SECURE_PHASE_MS를 임시로 단축(40 * 1000 -- 전반에 칸을 여러 번 열어 보므로 너무 짧으면 안 됨) + build_client.py 재빌드 + 서버 재시작. 끝나면 원복.
 // (디지털 미니게임 버전은 test_half_difficulty_digital.js -- python3 set_mini.py digital 상태에서 돈다.)
@@ -37,7 +37,7 @@ async function waitFor(fn, { timeout = 15000, interval = 100, label = "condition
   }
 }
 
-// 2026-10-06: 라운드 준비(스페이스) 직후 우선 택배 지정 10초 창이 열린다 -- 지정할 택배가 있는 쪽은 "확정"으로 통과시킨다.
+// 2026-10-06: 라운드 준비(스페이스) 직후 우선 초밥 지정 10초 창이 열린다 -- 지정할 초밥이 있는 쪽은 "확정"으로 통과시킨다.
 async function passPriority(p1, p2, nextSel) {
   await waitFor(async () => (await countSel(p1, ".priority-window")) > 0 || (await countSel(p1, nextSel)) > 0, { label: "priority window (or straight on)", timeout: 8000 });
   if ((await countSel(p1, ".priority-window")) === 0) return;
@@ -65,18 +65,18 @@ async function main() {
 
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
-  await waitFor(() => countSel(p1, ".seat-pick").then((n) => n > 0), { label: "seat picker" });
+  await waitFor(() => countSel(p1, ".splash").then((n) => n > 0), { label: "seat picker" });
 
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="cookbang"]');
-  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.cookbang), { label: "p1 picks cookbang" });
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="cheonil"]');
-  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.cheonil), { label: "p2 picks cheonil" });
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes(COURIER_NAME.king), { label: "p1 picks haru" });
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes(COURIER_NAME.hunter), { label: "p2 picks pado" });
 
   await pressSpace(p1); await pressSpace(p2);
-  await waitFor(async () => (await bodyText(p1)).includes("택배 확보"), { label: "전반 secure phase" });
-  log("전반 secure phase 진입 -- 아무것도 확보하지 않음(전반 결과는 이 테스트와 무관)");
+  await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "전반 secure phase" });
+  log("전반 secure phase 진입 -- 아무것도 제작하지 않음(전반 결과는 이 테스트와 무관)");
   const PIECES = { normal: 2, fragile: 3, valuable: 4, "fixed-floor": 3 };
-  const NAME = { normal: "일반택배", fragile: "깨지기 쉬운 택배", valuable: "귀중품", "fixed-floor": "확정 층수 택배" };
+  const NAME = { normal: "계란 초밥", fragile: "흰살생선 초밥", valuable: "장어 초밥", "fixed-floor": "연어 초밥" };
   const CAT = { normal: 0, fragile: 1, valuable: 2 };
   const openOverlay = async (id) => {
     const kind = id.replace(/-\d+$/, "");
@@ -94,29 +94,27 @@ async function main() {
       imgs[half][kind] = o.src;
       await closeOverlay();
     }
-    log(`${half === 1 ? "전반" : "후반"} 우봉고: 일반 2 / 깨지기 3 / 귀중품 4 / 확정 층수 3 조각 표시`);
+    log(`${half === 1 ? "전반" : "후반"} 우봉고: 일반 2 / 중급 3 / 특선 초밥 4 / 지정 접시 3 조각 표시`);
   }
-  await waitFor(async () => (await bodyText(p1)).includes("택배 쌓기"), { label: "board names the game 택배 쌓기 (2026-10-14: 게임 안 이름 우봉고 -> 택배 쌓기)" });
+  await waitFor(async () => (await bodyText(p1)).includes("우봉고"), { label: "board names the game 우봉고" });
   await checkHalf(1);
-  // 포기 = 확보 안 됨, 완료 = 확보됨(자기 신고)
+  // 포기 = 제작 안 됨, 완료 = 제작됨(자기 신고)
   await openOverlay("normal-1"); await closeOverlay();
-  assert_((await countSel(p1, '.board-row[data-cat="0"] .my-chip')) === 0, "포기하면 확보되지 않는다");
+  assert_((await countSel(p1, '.board-row[data-cat="0"] .my-chip')) === 0, "포기하면 제작되지 않는다");
   await openOverlay("normal-1");
   await clickSel(p1, '[data-action="complete-cell"]');
-  await waitFor(async () => (await countSel(p1, '.board-row[data-cat="0"] .my-chip')) === 1, { label: "완료 -> 확보 (my-chip)" });
-  log("포기 -> 미확보, 완료 -> 확보(호수 칩 생김)");
+  await waitFor(async () => (await countSel(p1, '.board-row[data-cat="0"] .my-chip')) === 1, { label: "완료 -> 제작 (my-chip)" });
+  log("포기 -> 미제작, 완료 -> 제작(호수 칩 생김)");
 
   await waitFor(async () => {
     const t1 = await bodyText(p1), t2 = await bodyText(p2);
-    return t1.includes("엘리베이터") && t2.includes("엘리베이터");
+    return t1.includes("회전 벨트") && t2.includes("회전 벨트");
   }, { label: "전반 elevator phase (idle gate) 도달", timeout: 50000 });
   log("전반 elevator phase 진입");
 
-  // 전반 5라운드: 확보한 게 없어 배송도 없다 -- idle/result 게이트만 통과시키며 흘려보낸다.
+  // 전반 5라운드: 제작한 게 없어 서빙도 없다 -- idle/result 게이트만 통과시키며 흘려보낸다.
   for (let round = 1; round <= 7; round++) {
-    // 2026-10-13: 결과 화면은 자동 진행 -- 스페이스는 1라운드 전 idle 게이트에서만 (자동 진행 뒤 누르면 다음 창의 "확정"이 된다)
-    if (round === 1) { await pressSpace(p1); await pressSpace(p2); }
-    else await waitFor(async () => (await bodyText(p1)).includes(`라운드 ${round} / 7`), { label: `전반 round ${round} 자동 진행`, timeout: 8000 });
+    await pressSpace(p1); await pressSpace(p2); // idle 또는 이전 라운드의 result 게이트 통과
     await passPriority(p1, p2, '[data-action="vote-up"]');
     await waitFor(async () => (await countSel(p1, '[data-action="vote-up"]')) > 0, { label: `전반 round ${round} voting 시작`, timeout: 8000 });
     await clickSel(p1, '[data-action="vote-up"]');
@@ -124,11 +122,13 @@ async function main() {
     await waitFor(async () => (await bodyText(p1)).includes(`라운드 ${round} 결과`), { label: `전반 round ${round} 결과`, timeout: 8000 });
   }
   log("전반 7라운드 통과");
-  // (2026-10-13) 7라운드 결과도 자동으로 하프타임까지 넘어간다.
+  // 7라운드 결과 게이트도 다른 라운드와 동일하게 "둘 다 스페이스"로 넘겨야 half가 끝난다
+  // (setElevatorReady: el.state==="result"이고 round>=ELEVATOR_ROUNDS일 때 비로소 _finishHalf 호출).
+  await pressSpace(p1); await pressSpace(p2);
 
   await waitFor(async () => (await bodyText(p1)).includes("전반 종료"), { label: "halftime 화면", timeout: 8000 });
   await pressSpace(p1); await pressSpace(p2);
-  await waitFor(async () => (await bodyText(p1)).includes("택배 확보"), { label: "후반 secure phase", timeout: 8000 });
+  await waitFor(async () => (await bodyText(p1)).includes("초밥 제작"), { label: "후반 secure phase", timeout: 8000 });
   log("후반 secure phase 진입");
 
   // ---- 후반 보드: 같은 조각 수, 다른 이미지 ----

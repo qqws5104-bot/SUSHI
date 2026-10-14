@@ -25,9 +25,9 @@ body.main-view #app { height: 100vh; min-height: 0; }
 .mv-bar > i { display: block; height: 100%; width: 100%; background: var(--gold); border-radius: 999px; transition: width 0.25s linear; }
 .mv-bar > i.is-low { background: var(--danger); }
 
-/* ---------- 확보 단계 ---------- */
+/* ---------- 제작 단계 ---------- */
 .mv-secure-top { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 1.2vh; }
-.mv-secure-top .mv-time { font-size: min(27vh, 22vw); }
+.mv-secure-top .mv-time { font-size: min(19vh, 16vw); }
 .mv-secure-top .mv-bar { width: 100%; }
 .mv-cats { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6vw; }
 .mv-cat { --c: #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 1vh; padding: 2.4vh 1vw 2.6vh; border-radius: 2.6vh; background: var(--c); color: var(--ink); border: 0.5vh solid rgba(22, 35, 63, 0.18); box-shadow: 0 1vh 2.4vh rgba(43, 29, 18, 0.16); position: relative; overflow: hidden; }
@@ -36,25 +36,23 @@ body.main-view #app { height: 100vh; min-height: 0; }
 .mv-cat-icon svg { width: 100%; height: 100%; display: block; }
 .mv-cat-name { font-size: min(3.4vh, 1.9vw); font-weight: 800; letter-spacing: -0.01em; }
 .mv-cat-game { font-size: 2vh; font-weight: 700; opacity: 0.7; }
-.mv-left { font-family: var(--font-display); font-weight: 700; font-size: min(20vh, 11vw); line-height: 0.9; font-variant-numeric: tabular-nums; }
+.mv-left { font-family: var(--font-display); font-weight: 700; font-size: min(14vh, 9vw); line-height: 0.9; font-variant-numeric: tabular-nums; }
 .mv-left small { font-size: 0.24em; margin-left: 0.2em; opacity: 0.65; font-weight: 600; }
 .mv-pips { display: flex; gap: 0.7vw; }
-.mv-pip { width: min(3.6vh, 1.6vw); height: min(3.6vh, 1.6vw); border-radius: 0.8vh; background: var(--ink); opacity: 0.85; border: 0.35vh solid var(--ink); transition: opacity 0.3s, background 0.3s; }
-.mv-pip.is-gone { background: transparent; opacity: 0.35; border-style: dashed; }
+.mv-pip { width: min(5.6vh, 2.5vw); height: min(3.2vh, 1.4vw); opacity: 0.9; transition: opacity 0.3s; }
+.mv-pip svg { width: 100%; height: 100%; display: block; overflow: visible; fill: var(--c, var(--ink)); stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; transition: fill 0.3s; }
+.mv-pip svg .eye { fill: var(--ink); stroke: none; }
+.mv-pip.is-gone { opacity: 0.4; }
+.mv-pip.is-gone svg { fill: transparent; stroke-dasharray: 2.4 2; }
+.mv-pip.is-gone svg .eye { fill: transparent; }
 .mv-cat.is-empty { filter: grayscale(0.7); opacity: 0.6; }
 .mv-cat.is-empty::after { content: "소진"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-12deg); padding: 0.6vh 2vw; border: 0.8vh solid var(--danger); color: var(--danger); font-family: var(--font-display); font-size: min(9vh, 4.4vw); font-weight: 800; letter-spacing: 0.08em; border-radius: 1.4vh; background: rgba(255, 252, 244, 0.85); white-space: nowrap; }
 .mv-cat.is-few .mv-left { color: var(--danger); }
 
-/* ---------- 엘리베이터 단계 ---------- */
+/* ---------- 회전 벨트 단계 ---------- */
 .mv-elev { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 4vw; }
-.mv-shaft { position: relative; height: 100%; border-radius: 2.4vh; background: rgba(43, 29, 18, 0.07); border: 0.5vh solid rgba(43, 29, 18, 0.22); padding: 1vh 1vh; }
-.mv-floors { height: 100%; display: flex; flex-direction: column-reverse; gap: 0.8vh; }
-.mv-floor-row { flex: 1 1 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 2vw; border-bottom: 0.3vh dashed rgba(43, 29, 18, 0.18); font-family: var(--font-display); font-weight: 700; font-size: 5.4vh; color: var(--muted); }
-.mv-floor-row:first-child { border-bottom: 0; }
-.mv-floor-row.is-current { color: var(--ink); }
-.mv-car { position: absolute; left: 2vh; width: calc(100% - 22vh); height: calc((100% - 2vh - 4vh) / 6); bottom: calc(1vh + var(--i, 0) * ((100% - 2vh - 4vh) / 6 + 0.8vh));
-  transition: bottom 0.55s cubic-bezier(.4, .1, .2, 1); border-radius: 1.4vh; background: linear-gradient(90deg, #d9d2c3 0 49%, #b9b19f 49% 51%, #d9d2c3 51%); border: 0.5vh solid var(--ink); box-shadow: 0 0.8vh 2vh rgba(43, 29, 18, 0.3); display: flex; align-items: center; justify-content: center; }
-.mv-car span { font-family: var(--font-display); font-weight: 800; font-size: 5vh; color: var(--ink); background: var(--gold); color: var(--gold-ink); padding: 0.2vh 1.2vw; border-radius: 0.8vh; }
+.mv-shaft { position: relative; align-self: center; border-radius: 2.4vh; background: rgba(43, 29, 18, 0.07); border: 0.5vh solid rgba(43, 29, 18, 0.22); padding: 1.6vh; container-type: inline-size; max-height: 100%; }
+.mv-shaft .belt-ring { transition-duration: 0.7s; }
 .mv-elev-main { display: flex; flex-direction: column; justify-content: center; gap: 2.6vh; min-width: 0; }
 .mv-round { align-self: flex-start; padding: 0.8vh 1.6vw; border-radius: 999px; background: var(--ink); color: var(--bg); font-family: var(--font-display); font-weight: 700; font-size: 3.4vh; letter-spacing: 0.06em; }
 .mv-nowfloor { display: flex; align-items: baseline; gap: 2vw; }
@@ -79,10 +77,70 @@ body.main-view #app { height: 100vh; min-height: 0; }
 .mv-score { min-width: 24vw; padding: 3vh 2vw; border-radius: 2.4vh; background: var(--panel); border: 0.5vh solid var(--panel-line); font-size: 3.6vh; font-weight: 800; }
 .mv-score b { display: block; margin-top: 1vh; font-family: var(--font-display); font-size: 9vh; color: var(--gold); }
 .mv-winner { font-size: 9vh; font-weight: 800; color: var(--gold); }
-@media (prefers-reduced-motion: reduce) { .mv-car, .mv-bar > i { transition: none; } .mv-time.is-low { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .belt-ring, .mv-bar > i { transition: none; } .mv-time.is-low { animation: none; } }
 .mv-join-rail { margin-top: 1.2vh; font-size: 2.4vh; }
 .mv-join-rail b { font-size: 3.2vh; }
 
-/* 2026-10-13 개선 1단계: 층별 배송비 배율 배지 (관전자도 어느 층이 비싼지 보이게) */
-.mv-floor-row .mv-mult { font-size:0.55em; font-weight:800; opacity:0.75; margin-left:0.3em; }
-.mv-floor-row .mv-mult.hi { color:#2F9E6E; opacity:1; }
+/* ---------- 2026-10-12 POP 테마 (메인 모니터) ---------- */
+.mv { background: var(--pop-cream); }
+.mv-head h1, .mv-center h2, .mv-winner, .mv-label, .mv-time, .mv-left, .mv-round, .mv-floor-big, .mv-state, .mv-chip, .mv-cat-name { font-family: var(--font-pop); font-weight: 400; }
+.mv-eyebrow { color: var(--gold); }
+.mv-chip.phase { background: var(--pop-yellow); border: 0.4vh solid var(--ink); color: var(--ink); box-shadow: 0 0.5vh 0 var(--ink); }
+.mv-chip.room { background: #fff; border: 0.4vh solid var(--ink); color: var(--ink); box-shadow: 0 0.5vh 0 var(--ink); }
+.mv-splash { position: relative; background: #f3e7c9; overflow: hidden; }
+.mv-splash > .mv-body { position: relative; z-index: 2; }
+.mv-splash .mv-head { display: none; }
+.mv-splash .mv-body { justify-content: flex-end; padding-bottom: 19vh; }
+.mv-splash .mv-center { flex: 0 0 auto; }
+.mv-panel { width: min(74vw, 1180px); padding: 1.6vh 2vw 2vh; background: rgba(255, 255, 255, 0.94); border: 0.5vh solid var(--ink); border-radius: 2.6vh; box-shadow: 0 1vh 0 var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1.2vh; }
+.mv-panel h2 { font-size: 4vh; }
+.mv-panel .mv-seats { margin-top: 0; gap: 2vw; }
+.mv-panel .mv-seat { min-width: 18vw; padding: 1.2vh 1.2vw; font-size: 3.2vh; flex-direction: row; gap: 1.2vw; }
+.mv-panel .mv-seat .mv-seat-icon { width: 5vh; height: 5vh; }
+.mv-panel .mv-join { margin-top: 0; font-size: 2.2vh; }
+.mv-panel .mv-join b { font-size: 3.2vh; margin-top: 0.4vh; }
+.mv-panel .mv-join-rail { font-size: 1.9vh; }
+.mv-panel .mv-join-rail b { font-size: 2.4vh; }
+.mv-seat, .mv-score { border: 0.5vh solid var(--ink); border-radius: 2.4vh; background: #fff; box-shadow: 0 1vh 0 var(--ink); }
+.mv-seat.is-on { background: color-mix(in srgb, var(--c, var(--gold)) 14%, #fff); }
+.mv-seat.is-ready { background: #b9f0c6; }
+.mv-join b { background: var(--pop-yellow); border: 0.4vh solid var(--ink); border-radius: 1.4vh; padding: 0.2vh 1.2vw; display: inline-block; }
+.mv-bar { background: #fff; border: 0.4vh solid var(--ink); }
+.mv-bar > i { background: var(--gold); }
+.mv-cat { border: 0.6vh solid var(--ink); border-radius: 2.6vh; box-shadow: 0 1vh 0 var(--ink); }
+.mv-round { background: var(--ink); color: var(--pop-yellow); }
+.mv-shaft { background: #ffe9b0; border: 0.6vh solid var(--ink); box-shadow: 0 1vh 0 var(--ink); }
+.mv-floor-big { color: var(--ink); text-shadow: 0.5vh 0.5vh 0 var(--pop-yellow); }
+.mv-winner { color: var(--ink); background: var(--pop-yellow); border: 0.6vh solid var(--ink); border-radius: 2.4vh; padding: 0.6vh 3vw; box-shadow: 0 1vh 0 var(--ink); font-size: 7vh; }
+.mv-score b { color: var(--gold); }
+
+/* 엿보기 현황 (2026-10-12) */
+.mv-peek { display:flex; gap:0.8rem; justify-content:center; flex-wrap:wrap; margin-top:1.1rem; }
+.mv-peek-chip { padding:0.35rem 0.9rem; border-radius:999px; border:2px solid currentColor; font-size:1.05rem; opacity:0.9; }
+
+/* 평가 보강 (2026-10-12): 메인 모니터 실시간 현황 / 서빙 결과 / 3컷 설명 / 자동 진행 */
+.mv-live { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 1.6vw; margin-top: 1.6vh; }
+.mv-live-card { display: flex; flex-direction: column; gap: 0.4vh; padding: 1.4vh 1.6vw; border-radius: 2vh; border: 0.5vh solid var(--ink); background: rgba(255, 255, 255, 0.7); }
+.mv-live-card b { font-size: 2.6vh; } .mv-live-now { font-size: 3.2vh; font-weight: 800; } .mv-live-card small { font-size: 2vh; opacity: 0.7; }
+.mv-live-card.is-active { background: var(--gold); }
+.mv-res { display: flex; flex-direction: column; gap: 1.2vh; margin-top: 1vh; }
+.mv-res-row { display: grid; grid-template-columns: auto 1fr; column-gap: 1.4vw; row-gap: 0.2vh; align-items: baseline; padding: 1.2vh 1.6vw; border-radius: 1.8vh; border: 0.5vh solid var(--ink); background: rgba(255, 255, 255, 0.75); }
+.mv-res-row b { font-size: 3vh; } .mv-res-row span { font-size: 3vh; font-weight: 700; } .mv-res-row small { grid-column: 2; font-size: 2vh; opacity: 0.65; }
+.mv-res-row.is-ok { background: #d8f2dc; } .mv-res-row.is-bad { background: #ffd9d3; } .mv-res-row.is-none { opacity: 0.8; }
+.mv-auto { font-size: 1em; display: inline; line-height: 1; } .mv-auto small { font-size: 0.7em; }
+.intro3.big { position: fixed; left: 3vw; right: 3vw; top: auto; bottom: 3.4vh; transform: none; width: auto; height: 14vh; }
+.intro3.big .cut { padding: 1.4vh 2vw; border-radius: 2.4vh; gap: 1.6vw; } .intro3.big .cut i { width: 7vh; height: 7vh; font-size: 3.6vh; }
+.intro3.big .cut b { font-size: 3.6vh; } .intro3.big .cut span { font-size: 2.4vh; }
+
+.mv-elev-main .mv-wait .mv-time.mv-auto { font-size: 1.15em; display: inline; line-height: 1; }
+.mv-elev-main.is-result { gap: 1.4vh; } .mv-elev-main.is-result .mv-floor-big { font-size: min(14vh, 8vw); } .mv-elev-main.is-result .mv-nowfloor .mv-label { font-size: 3vh; }
+
+/* 메인 화면 벨트 이동 투표 키 안내 (2026-10-13) */
+.mv-votekeys { display:flex; gap:1.2rem; justify-content:center; flex-wrap:wrap; margin:0.5rem 0 0.2rem; font-weight:700; font-size:clamp(0.9rem,2.4vh,1.3rem); }
+.mv-votekeys > span { padding:0.25rem 0.9rem; border-radius:999px; border:3px solid var(--c); background:#fff; }
+.mv-votekeys b { color:var(--c); }
+.mv-votekeys kbd { display:inline-block; min-width:1.6em; text-align:center; padding:0 0.35em; border:2px solid var(--ink); border-radius:6px; background:#fff6dc; font-family:var(--font-display); font-weight:800; box-shadow:0 2px 0 var(--ink); }
+
+/* 게임 방법 카드 (메인/레일 대기 화면) */
+.mv-panel .howto { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:0.4rem; }
+.mv-panel .howto-title { color:var(--ink); }

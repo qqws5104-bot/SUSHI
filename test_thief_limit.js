@@ -1,20 +1,20 @@
-// 2026-10-07: 엘리베이터 7라운드 + 택배도둑 후반 2회 -- GameRoom 직접 구동(브라우저/WS 불필요)
+// 2026-10-07: 회전 벨트 7라운드 + 초밥도둑 후반 2회 -- GameRoom 직접 구동(브라우저/WS 불필요)
 //   - 후반 라운드 1~6에만 thief 창이 열리고, 마지막(7) 라운드엔 안 열린다
 //   - 1인당 후반 통틀어 2번까지 배치 가능(라운드당 1개), 3번째부터는 자동으로 넘김 처리, 둘 다 다 쓰면 창 자체가 안 열림
 //   - 스킵은 횟수를 소진하지 않는다
 //   - 6라운드에 놓은 도둑은 7라운드에 작동한다
 "use strict";
 const assert = require("assert");
-const { GameRoom, LEGACY_RULES } = require("./game-room.js"); // 2026-10-13: 예전 흐름 회귀용. 새 규칙은 test_p1p2.js
+const { GameRoom } = require("./game-room.js");
 const { ELEVATOR_ROUNDS, THIEF_PER_HALF } = require("./game-data.js");
 function log(...a) { console.log("[test-thief-limit]", ...a); }
 assert.strictEqual(ELEVATOR_ROUNDS, 7, "전/후반 각각 7라운드");
 assert.strictEqual(THIEF_PER_HALF, 2, "후반 도둑 1인당 2회");
 
 function newRoomInHalf2() {
-  const room = new GameRoom("TEST", () => {}, LEGACY_RULES);
-  room.pickCourier("cookbang", "clientA");
-  room.pickCourier("cheonil", "clientB");
+  const room = new GameRoom("TEST", () => {});
+  room.joinTeam("clientA");
+  room.joinTeam("clientB");
   room.setReady("1"); room.setReady("2");
   room._endSecurePhase();
   const el = room.state.elevator;

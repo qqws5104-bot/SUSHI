@@ -1,5 +1,5 @@
 """
-택배 배송 게임 — 자체 호스팅(WebSocket 서버) 버전의 클라이언트(public/index.html) 생성 스크립트.
+초밥 서빙 게임 — 자체 호스팅(WebSocket 서버) 버전의 클라이언트(public/index.html) 생성 스크립트.
 
 Claude Artifact의 publish/reload 구조를 걷어내고, 실제 Node WebSocket 서버(server.js +
 game-room.js)가 상태를 소유한다. 클라이언트는 이제 순수 렌더러 + WS 클라이언트일 뿐이라
@@ -26,7 +26,7 @@ REF_DIR_2 = "/home/claude/project/quiz_board/ref_2"
 COMPRESSED_DIR = "/tmp/compressed"
 GAME_DATA_JS = os.path.join(os.path.dirname(__file__), "game-data.js")
 OUT_HTML = os.path.join(os.path.dirname(__file__), "public", "index.html")
-# 2026-08-27: 종류별 보드 칸 배경으로 쓰는 박스 일러스트 (사용자 제공, ref/box_art/<key>.webp --
+# 2026-08-27: 종류별 보드 칸 배경으로 쓰는 상자 일러스트 (사용자 제공, ref/box_art/<key>.webp --
 # 알파 채널 있는 투명 배경 PNG를 크롭해 webp로 저장해둔 것). CELLS의 퍼즐 이미지(칸마다 다름)와는
 # 별개로, 종류(TYPES)당 딱 1장씩만 있고 그 종류의 21칸 전부가 공유해서 쓴다.
 BOX_ART_DIR = os.path.join(os.path.dirname(__file__), "box_art")
@@ -57,18 +57,6 @@ def load_shared_constants():
     halves = eval(grab("HALVES"))
     thief_place_ms = eval(grab("THIEF_PLACE_MS"))
     priority_pick_ms = eval(grab("PRIORITY_PICK_MS"))
-    # 2026-10-13 개선 1단계(P1+P2)
-    floor_reward_mult = json.loads(grab("FLOOR_REWARD_MULT"))
-    result_auto_advance_ms = eval(grab("RESULT_AUTO_ADVANCE_MS"))
-    merge_priority_thief = eval(grab("MERGE_PRIORITY_THIEF"))
-    # 2026-10-14 확보 단계 레이스 라운드
-    race = {
-        "RACE_MODE": eval(grab("RACE_MODE")),
-        "RACE_PICK_MS": eval(grab("RACE_PICK_MS")),
-        "RACE_SECOND_MS": eval(grab("RACE_SECOND_MS")),
-        "RACE_STICKER_LEVEL": json.loads(grab("RACE_STICKER_LEVEL")),
-        "ELEVATOR_JOLT": eval(grab("ELEVATOR_JOLT")),
-    }
 
     # TYPES uses plain (unquoted) JS object keys -- not valid JSON as-is. Quote bare
     # identifier keys before parsing (FLOORS/ROOMS are already flat string arrays, so this
@@ -84,15 +72,13 @@ def load_shared_constants():
     floors = json.loads(js_object_to_json(floors_js))
     rooms = json.loads(js_object_to_json(rooms_js))
     return (types, couriers, floors, rooms, elevator_rounds, secure_phase_ms, vote_ms,
-            priority_multiplier, same_floor_choice_ms, halves, thief_place_ms, priority_pick_ms,
-            floor_reward_mult, result_auto_advance_ms, merge_priority_thief, race)
+            priority_multiplier, same_floor_choice_ms, halves, thief_place_ms, priority_pick_ms)
 
 
 (TYPES, COURIERS, FLOORS, ROOMS, ELEVATOR_ROUNDS, SECURE_PHASE_MS, VOTE_MS,
- PRIORITY_MULTIPLIER, SAME_FLOOR_CHOICE_MS, HALVES, THIEF_PLACE_MS, PRIORITY_PICK_MS,
- FLOOR_REWARD_MULT, RESULT_AUTO_ADVANCE_MS, MERGE_PRIORITY_THIEF, RACE_CONST) = load_shared_constants()
+ PRIORITY_MULTIPLIER, SAME_FLOOR_CHOICE_MS, HALVES, THIEF_PLACE_MS, PRIORITY_PICK_MS) = load_shared_constants()
 
-# 2026-08-27 개편: 보드가 20칸(4종류x5개 고정)에서 21칸(종류별 count가 다름, 확정 층수 택배만 6개)으로
+# 2026-08-27 개편: 보드가 20칸(4종류x5개 고정)에서 21칸(종류별 count가 다름, 지정 초밥만 6개)으로
 # 바뀌면서, 예전의 스와치 개수(2/3/4조각) 기준 이미지 그룹핑은 더 이상 종류별 칸 수와 맞물리지 않는다
 # (그 그룹핑은 애초에 시각적 편의였을 뿐 게임 로직과는 무관했다). 이제는 CELLS 순서대로 이미지 파일을
 # 그냥 하나씩 배정한다. 21칸에 맞는 원본 PNG가 REF_DIR_1/REF_DIR_2에 없다면, 마지막 이미지를 재사용해
@@ -132,19 +118,19 @@ def data_uri_for(png_name):
     return f"data:image/jpeg;base64,{b64}"
 
 
-# 2026-10-06: 우봉고 퍼즐 이미지는 "귀중품" 칸에만 필요하다(나머지 종류는 미니게임). 퍼즐의 색(조각) 개수는 하프마다
+# 2026-10-06: 우봉고 퍼즐 이미지는 "특선 초밥" 칸에만 필요하다(나머지 종류는 미니게임). 퍼즐의 색(조각) 개수는 하프마다
 # 다르다 -- 전반 3색, 후반 4색(사용자 요청, game-data.js의 valuable.pieces = [3, 4]와 맞출 것). 원본 이미지 세트는
 # 예전 21칸 배치(1~5: 2색, 6~10: 3색, 11~15: 4색, 16~21: 3색)로 번호가 매겨져 있으므로, 색 개수에 맞는 이미지를 골라
 # 명시적으로 지정한다. (세트, 번호): 세트 1 = REF_DIR_1(전반 원본), 2 = REF_DIR_2(후반 원본), 번호는 1부터.
-#   * 전반 귀중품 6칸 = 3색짜리 6장 (전반 세트의 6~10번 + 16번) -- 더는 안 쓰는 깨지기/확정 층수용 이미지를 재활용.
-#   * 후반 귀중품 6칸 = 4색짜리 6장 (후반 세트의 11~15번 + 전반 세트의 11번). 후반용 4색 이미지는 5장뿐이라 6번째는
+#   * 전반 특선 초밥 6칸 = 3색짜리 6장 (전반 세트의 6~10번 + 16번) -- 더는 안 쓰는 중급/지정 접시용 이미지를 재활용.
+#   * 후반 특선 초밥 6칸 = 4색짜리 6장 (후반 세트의 11~15번 + 전반 세트의 11번). 후반용 4색 이미지는 5장뿐이라 6번째는
 #     전반에서 안 쓰게 된 전반 세트의 4색 이미지를 가져온다 -- 전반에는 4색 이미지가 안 나오므로 한 판 안에서 겹치지 않는다.
-# 귀중품이 아닌 종류(mini가 있는 종류)의 칸은 src를 비워서 번들에서 이미지를 뺀다(약 4MB -> 1.4MB). 어떤 종류를 다시
+# 특선 초밥이 아닌 종류(mini가 있는 종류)의 칸은 src를 비워서 번들에서 이미지를 뺀다(약 4MB -> 1.4MB). 어떤 종류를 다시
 # 우봉고로 돌리려면(TYPES의 mini를 null로) 아래 PUZZLE_SRC에 그 종류의 (세트, 번호) 6개를 하프별로 적어야 한다 -- 없으면
 # 빌드가 실패한다(빈 퍼즐 이미지가 실전에 나가는 걸 막기 위함).
 # 2026-10-08 실물 우봉고 복귀: 네 종류 모두 퍼즐 이미지를 싣는다. 원본 세트의 번호 체계(1~5: 2색, 6~10: 3색, 11~15: 4색,
 # 16~21: 3색)에 맞춰 색 개수가 TYPES의 pieces와 같은 이미지를 고른다. 전반은 세트 1, 후반은 세트 2 (서로 다른 이미지).
-#   일반 4칸(2색) = 1~4 / 깨지기 4칸(3색) = 6~9 / 귀중품 3칸(4색) = 11~13 / 확정 층수 6칸(3색) = 16~21
+#   일반 4칸(2색) = 1~4 / 중급 4칸(3색) = 6~9 / 특선 초밥 3칸(4색) = 11~13 / 지정 접시 6칸(3색) = 16~21
 PUZZLE_SRC = {
     1: {
         "normal": [(1, 1), (1, 2), (1, 3), (1, 4)],
@@ -190,39 +176,8 @@ def build_cells(half):
     return cells
 
 
-# 2026-10-13: 퍼즐 원본(REF_DIR_1/REF_DIR_2, COMPRESSED_DIR)은 저장소 밖(작업자 PC)에 있다. 그 폴더가 없는 환경에서
-# 게임 규칙/화면만 고쳐 재빌드할 때는, 이미 커밋된 public/index.html에 박혀 있는 퍼즐 이미지(CELLS_1/CELLS_2)를 그대로
-# 재사용한다 -- 이미지가 바뀌지 않으니 결과가 같다. 이미지를 교체하려면 원본 폴더가 있는 환경에서 빌드할 것(2.1절).
-PUBLIC_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "index.html")
-
-
-def cells_from_previous_build(half):
-    html = open(PUBLIC_INDEX, encoding="utf-8").read()
-    m = re.search(r"var CELLS_%d = (\[.*?\]);\n" % half, html, re.S)
-    if not m:
-        raise RuntimeError("퍼즐 원본 폴더도 없고, 이전 빌드(public/index.html)에서 CELLS_%d도 못 찾았습니다." % half)
-    prev = {c["id"]: c for c in json.loads(m.group(1))}
-    cells = []
-    for cat_idx, t in enumerate(TYPES):
-        for num_idx in range(t["count"]):
-            cid = f"{t['key']}-{num_idx + 1}"
-            if cid not in prev:
-                raise RuntimeError(f"이전 빌드에 {cid} 칸이 없습니다 -- 보드 구성이 바뀌었다면 원본 폴더가 있는 환경에서 빌드하세요.")
-            # 디지털 미니게임 종류여도 이미지를 빼지 않는다 -- 빼 버리면 다음 빌드(우봉고로 복귀)에서 되살릴 원본이 없다.
-            src = prev[cid]["src"]
-            if t.get("mini") is None and not src:
-                raise RuntimeError(f"이전 빌드의 {cid} 칸에 퍼즐 이미지가 없습니다.")
-            cells.append({"id": cid, "catIdx": cat_idx, "num": num_idx, "src": src})
-    return cells
-
-
-if all(os.path.isdir(d) for d in (REF_DIR_1, REF_DIR_2, COMPRESSED_DIR)):
-    CELLS_1 = build_cells(1)   # 전반
-    CELLS_2 = build_cells(2)   # 후반
-else:
-    print("NOTE: 퍼즐 원본 폴더가 없어 이전 빌드(public/index.html)의 퍼즐 이미지를 재사용합니다.")
-    CELLS_1 = cells_from_previous_build(1)
-    CELLS_2 = cells_from_previous_build(2)
+CELLS_1 = build_cells(1)   # 전반
+CELLS_2 = build_cells(2)   # 후반
 
 
 def box_art_data_uri(key):
@@ -235,25 +190,46 @@ def box_art_data_uri(key):
 # catIdx로 바로 인덱싱해서 쓰는 배열 (TYPES 순서와 항상 같이 감) -- renderBoard가 BOX_ART[catIdx]로 참조.
 BOX_ART = [box_art_data_uri(t["key"]) for t in TYPES]
 
+# 2026-10-12: 입장·결과 화면에 쓰는 대표 이미지 (사용자 제공 컨셉 이미지, art/hero.webp -- 좌: 초밥왕, 우: 스시헌터).
+HERO_PATH = os.path.join(os.path.dirname(__file__), "art", "hero.webp")
+with open(HERO_PATH, "rb") as _f:
+    HERO_URL = "data:image/webp;base64," + base64.b64encode(_f.read()).decode("ascii")
+
 TYPES_JSON = json.dumps(TYPES, ensure_ascii=False)
 COURIERS_JSON = json.dumps(COURIERS, ensure_ascii=False)
 CELLS_1_JSON = json.dumps(CELLS_1, ensure_ascii=False)
 CELLS_2_JSON = json.dumps(CELLS_2, ensure_ascii=False)
 FLOORS_JSON = json.dumps(FLOORS, ensure_ascii=False)
 BOX_ART_JSON = json.dumps(BOX_ART, ensure_ascii=False)
+# 초밥 아이콘(내 초밥 목록용): 참고 일러스트에서 잘라 만든 art/sushi_<key>.webp. 없는 키는 클라이언트가 SVG로 대체한다.
+SUSHI_IMG = {}
+for _k in ("egg", "whitefish", "salmon", "eel"):
+    _p = os.path.join(os.path.dirname(__file__), "art", "sushi_" + _k + ".webp")
+    if os.path.exists(_p):
+        with open(_p, "rb") as _f:
+            SUSHI_IMG[_k] = "data:image/webp;base64," + base64.b64encode(_f.read()).decode("ascii")
+SUSHI_IMG_JSON = json.dumps(SUSHI_IMG, ensure_ascii=False)
+# 2026-10-12 레일 손질 게임용 재료 일러스트(사용자 제공): art/prep_<bowl|pan|salmon|whitefish|eel>.webp
+PREP_IMG = {}
+for _k in ("bowl", "pan", "salmon", "whitefish", "eel"):
+    _p = os.path.join(os.path.dirname(__file__), "art", "prep_" + _k + ".webp")
+    if os.path.exists(_p):
+        with open(_p, "rb") as _f:
+            PREP_IMG[_k] = "data:image/webp;base64," + base64.b64encode(_f.read()).decode("ascii")
+PREP_IMG_JSON = json.dumps(PREP_IMG, ensure_ascii=False)
 ROOMS_JSON = json.dumps(ROOMS, ensure_ascii=False)
 
 HEAD_HTML = """<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>택배 배송 게임 — 라이브</title>
+<title>초밥 서빙 게임 — 라이브</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Oswald:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  /* 2026-08-27 전면 리스킨: 어두운 남색 테마 -> 사용자가 준 "택배 요금표" 참고 포스터(크림/베이지
-     바탕 + 주황 포인트)에 맞춘 따뜻한 톤. 게임 전체(로비/보드/엘리베이터/하프타임/종료 화면 전부)에
+  /* 2026-08-27 전면 리스킨: 어두운 남색 테마 -> 사용자가 준 "초밥 요금표" 참고 포스터(크림/베이지
+     바탕 + 주황 포인트)에 맞춘 따뜻한 톤. 게임 전체(로비/보드/회전 벨트/하프타임/종료 화면 전부)에
      적용 -- 사용자가 명시적으로 "게임 전체" 범위를 확인했다. 토큰만 바꾸면 대부분의 컴포넌트가
      자동으로 따라오지만, 특정 hex 값을 직접 박아넣은 rgba(...) 리터럴들과, 어두운 배경을 전제로 한
      "옅은 흰색 틴트" 오버레이들은 토큰이 아니라서 이 블록만 바꿔선 안 바뀐다 -- 아래 각 규칙에서
@@ -311,10 +287,10 @@ HEAD_HTML = """<!doctype html>
   .btn.big { padding:1.4rem; font-size:1.4rem; border-radius:16px; width:100%; }
 
   .center-screen { flex:1; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; }
-  /* 2026-08-27: 좌석 선택 화면을 "플레이어 1/2" 두 버튼에서 가상 택배사 5종 아이콘 픽커로 교체하면서
-     같이 카드 배경 + 장식용 택배박스 일러스트를 추가했다 (사용자 요청: "처음 시작 페이지에 택배박스
+  /* 2026-08-27: 좌석 선택 화면을 "플레이어 1/2" 두 버튼에서 가상 셰프 5종 아이콘 픽커로 교체하면서
+     같이 카드 배경 + 장식용 초밥상자 일러스트를 추가했다 (사용자 요청: "처음 시작 페이지에 초밥상자
      모양이 좀 그려져 있으면 좋을 것 같아"). .picker-scene이 그 장식(.lobby-box-deco, 카드 뒤에 옅게
-     흩어진 박스 라인아트)의 위치 기준점 -- 카드(.seat-pick) 자체는 z-index로 그 위에 뜬다. */
+     흩어진 상자 라인아트)의 위치 기준점 -- 카드(.seat-pick) 자체는 z-index로 그 위에 뜬다. */
   .picker-scene { position:relative; width:100%; max-width:680px; display:flex; justify-content:center; }
   .lobby-box-deco { position:absolute; pointer-events:none; z-index:0; }
   .lobby-box-deco svg { width:100%; height:100%; display:block; }
@@ -367,9 +343,9 @@ HEAD_HTML = """<!doctype html>
     letter-spacing:0.08em; color:var(--muted); }
   .key-hint { margin-top:0.6rem; color:var(--muted); font-size:0.78rem; }
 
-  /* 2026-10-06 레일 화면: 확보 보드는 "레일 위의 택배 4종". 종류마다 한 줄이고, 줄 가운데에 택배 상자(남은 개수 점 6개),
+  /* 2026-10-06 레일 화면: 제작 보드는 "레일 위의 초밥 4종". 종류마다 한 줄이고, 줄 가운데에 초밥 상자(남은 개수 점 6개),
      내 자리 쪽(1번 = 왼쪽, 2번 = 오른쪽)에 내 버튼이 있다. 버튼을 누르면 내 화면에 그 종류의 미니게임이 뜬다.
-     상대 쪽은 비워 둔다(상대가 뭘 하는지는 안 보인다 -- 남은 개수만 공유). 확정 층수 택배는 층이 곧 칸이라 버튼 대신 층 버튼 6개. */
+     상대 쪽은 비워 둔다(상대가 뭘 하는지는 안 보인다 -- 남은 개수만 공유). 지정 초밥은 접시가 곧 칸이라 버튼 대신 접시 버튼 6개. */
   .board-grid { display:flex; flex-direction:column; gap:0; flex:1; min-height:0; overflow-y:auto; }
   .board-row { flex:1 1 0; min-height:96px; display:grid; grid-template-columns:minmax(0,1fr) minmax(210px,300px) minmax(0,1fr); align-items:stretch; padding:0.28rem 0; }
   .rail-side { display:flex; flex-direction:column; justify-content:center; gap:0.4rem; min-width:0; padding:0 0.7rem; }
@@ -392,8 +368,12 @@ HEAD_HTML = """<!doctype html>
   .rail-box .cat-left { font-family:var(--font-display); font-size:0.7rem; color:#16233f; font-weight:700; }
   .rail-box .cat-left b { font-size:0.9rem; }
   .rail-box .pips { display:flex; gap:4px; background:rgba(255,252,244,0.9); padding:3px 7px; border-radius:999px; }
-  .rail-box .pip { width:10px; height:10px; border-radius:50%; background:var(--c); border:1.5px solid rgba(22,35,63,0.55); }
-  .rail-box .pip.gone { background:transparent; border-style:dashed; opacity:0.45; }
+  .rail-box .pip { width:22px; height:13px; display:inline-block; }
+  .rail-box .pip svg { width:100%; height:100%; display:block; overflow:visible; fill:var(--c); stroke:rgba(22,35,63,0.7); stroke-width:1.4; stroke-linejoin:round; }
+  .rail-box .pip svg .eye { fill:rgba(22,35,63,0.8); stroke:none; }
+  .rail-box .pip.gone { opacity:0.45; }
+  .rail-box .pip.gone svg { fill:transparent; stroke-dasharray:2.4 2; }
+  .rail-box .pip.gone svg .eye { fill:transparent; }
   .rail-box .stamp { position:absolute; z-index:3; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-8deg); background:var(--danger); color:#fff;
     font-family:var(--font-display); font-weight:800; padding:0.15rem 0.8rem; border-radius:6px; white-space:nowrap; }
   .board-row.is-empty .rail-box { filter:grayscale(1); opacity:0.7; }
@@ -477,7 +457,7 @@ HEAD_HTML = """<!doctype html>
   @media (prefers-reduced-motion: reduce) { .rail-btn.is-busy { animation:none; } }
 
   /* 플레이어 화면(레일 모드)의 대기 카드 */
-  .rw { display:flex; flex-direction:column; gap:0.8rem; }
+  .rw { display:flex; flex-direction:column; gap:0.8rem; padding:1rem 1.2rem; }
   .rw h2 { margin:0; font-size:1.3rem; }
   .rw-sub { margin:0; color:var(--muted); font-size:0.9rem; }
   .rw-sub b { color:var(--ink); }
@@ -490,8 +470,54 @@ HEAD_HTML = """<!doctype html>
   .rw-name small { font-weight:700; color:var(--muted); font-size:0.72rem; }
   .rw-left { font-family:var(--font-display); font-weight:700; font-size:0.85rem; white-space:nowrap; }
   .rw-left b { font-size:1.1rem; }
-  .rw-mine { display:flex; flex-wrap:wrap; gap:0.25rem; justify-content:flex-end; }
+  .rw-mine { display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end; }
   .rw-mine small { color:var(--muted); }
+  .rw-chips { display:flex; flex-wrap:wrap; gap:0.25rem; justify-content:flex-end; }
+  .rw-row.has-kai { box-shadow:0 0 0 3px color-mix(in srgb, var(--c) 35%, transparent); }
+  .rw-kai { color:var(--c); }
+  .rw-mine .rail-btn { padding:0.45rem 0.9rem; min-width:9rem; }
+
+  /* 레일 화면 제작 단계(2026-10-12): 공용 화면 좌/우 패널, 각자 동시에 손질 */
+  .rp-wrap { flex:1 1 0; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:clamp(0.5rem,1.6vw,1.4rem); }
+  .rp { min-height:0; display:flex; flex-direction:column; gap:0.45rem; padding:0.7rem 0.8rem; border-radius:18px; border:var(--pop-line,3px) solid var(--ink); background:var(--panel); box-shadow:0 5px 0 var(--ink); overflow:hidden; }
+  .rp-1 { border-color:#D9382E; box-shadow:0 5px 0 #D9382E; }
+  .rp-2 { border-color:#1F4FA8; box-shadow:0 5px 0 #1F4FA8; }
+  .rp-name { display:flex; align-items:center; gap:0.5rem; color:var(--c); font-family:var(--font-display); font-size:clamp(1.1rem,3.2vh,1.8rem); font-weight:800; }
+  .rp-name small { color:var(--muted); font-size:0.8rem; }
+  .rp-name-ico { width:1.3em; height:1.3em; display:inline-flex; }
+  .rp-name-ico svg { width:100%; height:100%; }
+  .rp-stock { display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 0.4rem; }
+  .rp-stock-label { font-size:0.78rem; font-weight:800; color:var(--muted); }
+  .rp-chip { display:inline-flex; align-items:center; gap:0.25rem; padding:0.1rem 0.55rem; border-radius:999px; border:2px solid var(--c); font-size:0.82rem; font-weight:700; opacity:0.55; background:#fff; }
+  .rp-chip.has { opacity:1; background:color-mix(in srgb, var(--c) 30%, #fff); }
+  .rp-chip-ico { width:1.1em; height:1.1em; display:inline-flex; }
+  .rp-chip-ico svg { width:100%; height:100%; }
+  .rp-chip b { font-size:1rem; }
+  .rp-keys { font-size:0.78rem; font-weight:700; color:var(--muted); }
+  .rp-msg { min-height:1.5em; font-weight:800; font-size:0.95rem; }
+  .rp-msg.is-ok { color:var(--ok); }
+  .rp-msg.is-bad { color:var(--danger); }
+  .rp-menu { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:0.5rem; justify-content:center; }
+  .rp-pick { font-family:var(--font-display); font-weight:800; font-size:clamp(1rem,2.6vh,1.4rem); }
+  .rp-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.5rem; }
+  .rp-card { --c:#ccc; display:grid; grid-template-columns:auto 1fr; grid-template-areas:"ico name" "ico sub" "left left"; align-items:center; gap:0 0.5rem; text-align:left; padding:0.55rem 0.7rem; border-radius:14px; border:3px solid var(--c); background:#fff; color:var(--ink); font:inherit; cursor:pointer; }
+  .rp-card .rp-ico { grid-area:ico; width:4.2rem; height:3.2rem; display:inline-flex; align-items:center; justify-content:center; }
+  .rp-card .rp-ico svg, .rp-card .rp-ico img { width:100%; height:100%; object-fit:contain; }
+  .rp-card b { grid-area:name; font-family:var(--font-display); font-size:clamp(0.95rem,2.4vh,1.2rem); }
+  .rp-card small { grid-area:sub; color:var(--muted); font-weight:700; }
+  .rp-card .rp-left { grid-area:left; font-size:0.82rem; font-weight:700; margin-top:0.2rem; }
+  .rp-card.is-sel { background:color-mix(in srgb, var(--c) 35%, #fff); outline:4px solid var(--ink); outline-offset:2px; transform:translateY(-2px); }
+  .rp-card:disabled { opacity:0.45; cursor:not-allowed; }
+  .rp-help { margin:0; font-size:0.85rem; color:var(--muted); }
+  .rp-help b { color:var(--ink); }
+  .rp-game { flex:1 1 auto; min-height:0; display:none; overflow:auto; }
+  .rp.is-playing .rp-game { display:block; }
+  .rp.is-playing .rp-menu { display:none; }
+  .rp-game .mg-root { max-width:100%; }
+  .rp-game .mg-hint { display:none; }
+  .rp-game .tm-stage { width:min(100%,330px); }
+  .rp-game .pr-art { max-height:140px; }
+  .rp-game .mg-head { margin-bottom:0.3rem; }
   @media (max-width:560px) { .rw-row { grid-template-columns:auto minmax(0,1fr) auto; } .rw-mine { grid-column:1 / -1; justify-content:flex-start; } }
 
   /* on genuinely short viewports, shrink the chrome around the board (topbar + side-timer) too --
@@ -513,8 +539,8 @@ HEAD_HTML = """<!doctype html>
   .puzzle-actions .btn { flex:1; }
 
   .elev-layout { display:grid; grid-template-columns:220px 1fr; gap:1.2rem; align-items:start; }
-  /* 2026-10-06: 폰/좁은 화면에서는 지금 해야 할 일(우선 택배 10초 창, 이동 버튼, 준비)이 담긴 오른쪽 카드를 위로 올린다 --
-     안 그러면 층 게이지/내 택배 목록 밑으로 밀려서 10초 타이머가 도는 걸 화면 밖에서 놓친다. */
+  /* 2026-10-06: 폰/좁은 화면에서는 지금 해야 할 일(우선 초밥 10초 창, 이동 버튼, 준비)이 담긴 오른쪽 카드를 위로 올린다 --
+     안 그러면 벨트 게이지/내 초밥 목록 밑으로 밀려서 10초 타이머가 도는 걸 화면 밖에서 놓친다. */
   @media (max-width:820px) { .elev-layout { grid-template-columns:1fr; } .elev-layout > div:last-child { order:-1; } }
   /* left column: gauge + my own package list stacked underneath it, so "what I'm carrying" reads
      right off the same glance as "where the car is" instead of living at the bottom of the far
@@ -529,19 +555,21 @@ HEAD_HTML = """<!doctype html>
      current floor like a level gauge; reverted per direct feedback -- it read as "progress" rather
      than "here is the car", which is the wrong metaphor once movement is real and instant per
      click.) */
-  .shaft { background:var(--bg-deep); border-radius:14px; border:1px solid var(--panel-line); padding:1rem 0.8rem; }
-  .shaft-track { display:flex; flex-direction:column-reverse; gap:0.4rem; }
-  /* 2026-08-27 수정: 층수 숫자가 --muted(연한 갈색)라 --bg-deep(연한 탠) 위에서 잘 안 보인다는
-     피드백 -- 비활성 층은 더 짙은 잉크색으로 대비를 올리고, 현재 층은 옅은 틴트 배경 대신 꽉 찬
-     골드 배경 + 크림 글씨(버튼과 같은 언어)로 확실히 튀게 만들었다. */
-  .floor-stop { display:flex; align-items:center; gap:0.5rem; padding:0.55rem 0.6rem; border-radius:8px;
-    font-family:var(--font-display); font-weight:700; color:rgba(43,29,18,0.62); font-size:1.02rem;
-    transition:background-color 160ms ease, color 160ms ease, transform 160ms ease; }
-  .floor-stop.current { background:var(--gold); color:var(--gold-ink); font-weight:800;
-    font-size:1.12rem; box-shadow:0 6px 16px rgba(226,105,26,0.45); transform:scale(1.03); }
-  .floor-stop .car { width:11px; height:11px; border-radius:50%; background:transparent; flex-shrink:0;
-    transition:background-color 160ms ease, box-shadow 160ms ease; }
-  .floor-stop.current .car { background:var(--gold-ink); box-shadow:0 0 0 4px rgba(255,248,239,0.35); }
+  .shaft { background:var(--bg-deep); border-radius:14px; border:1px solid var(--panel-line); padding:0.8rem; container-type:inline-size; }
+  @property --cur { syntax:'<number>'; inherits:true; initial-value:0; }
+  .belt-ring { position:relative; width:100%; height:112cqw; transition:--cur 0.55s cubic-bezier(.4,.1,.2,1); }
+  .belt-track { position:absolute; left:14cqw; top:14cqw; width:72cqw; height:72cqw; border-radius:50%; border:3cqw solid rgba(43,29,18,0.13); box-sizing:border-box; }
+  .floor-stop { position:absolute; left:50%; top:50cqw; width:24cqw; height:24cqw; margin:-12cqw 0 0 -12cqw;
+    --ang:calc(90deg + (var(--cur) - var(--i)) * 60deg);
+    transform:rotate(var(--ang)) translateX(36cqw) rotate(calc(var(--ang) * -1)); }
+  .floor-stop .car { width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center; box-sizing:border-box;
+    font-family:var(--font-display); font-weight:800; font-size:7cqw; border:0.8cqw solid rgba(43,29,18,0.28); opacity:0.78;
+    transition:transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease; }
+  .floor-stop.current .car { opacity:1; transform:scale(1.3); border-color:var(--ink); box-shadow:0 1.4cqw 3.5cqw rgba(43,29,18,0.4); }
+  .belt-mark { position:absolute; left:0; right:0; top:100cqw; text-align:center; font-family:var(--font-display); font-weight:800; font-size:6.5cqw; color:var(--ink); letter-spacing:0.04em; }
+  .inv-sushi { flex:0 0 auto; width:2.3rem; display:inline-flex; align-items:center; }
+  .inv-sushi-svg { width:100%; height:auto; display:block; }
+  .invoice .t .inv-type { font-weight:600; font-size:0.72rem; color:var(--muted); margin-left:0.2rem; }
   .round-pill { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.8rem; border-radius:999px;
     background:rgba(37,105,168,0.12); color:var(--sky); font-family:var(--font-display); font-weight:600; font-size:0.85rem; }
   .vote-buttons { display:flex; flex-direction:column; gap:0.7rem; margin-top:1rem; }
@@ -567,13 +595,13 @@ HEAD_HTML = """<!doctype html>
   .player-col h3 { font-family:var(--font-display); font-size:0.95rem; margin:0 0 0.3rem; color:var(--muted); }
   .player-col.me h3 { color:var(--gold); }
 
-  /* 우선 택배 지정 (엘리베이터 라운드 게이트 "idle"/"result"에 내장, 매 라운드 다시 고름) */
+  /* 우선 초밥 지정 (회전 벨트 라운드 게이트 "idle"/"result"에 내장, 매 라운드 다시 고름) */
   .invoice.pickable { cursor:pointer; transition:background-color 120ms ease, border-color 120ms ease; }
   .invoice.pickable:hover { background:rgba(43,29,18,0.08); }
   .invoice.is-priority { border-color:var(--gold); background:rgba(226,105,26,0.1); }
   .invoice .priority-flag { font-family:var(--font-display); font-size:0.68rem; font-weight:700; color:var(--gold);
     border:1px solid rgba(226,105,26,0.5); border-radius:999px; padding:0.15rem 0.45rem; white-space:nowrap; }
-  /* 2026-10-06: 우선 택배 지정은 게이트에 끼워 넣던 방식에서 전용 10초 창("priority" 상태)으로 분리됐다. */
+  /* 2026-10-06: 우선 초밥 지정은 게이트에 끼워 넣던 방식에서 전용 10초 창("priority" 상태)으로 분리됐다. */
   .priority-window { background:rgba(226,105,26,0.08); border:1px solid rgba(226,105,26,0.35); border-radius:12px;
     padding:0.9rem 1rem; margin-top:0.75rem; }
   .priority-window h4 { margin:0 0 0.3rem; font-family:var(--font-display); font-size:1rem; color:var(--gold); }
@@ -581,29 +609,61 @@ HEAD_HTML = """<!doctype html>
   .priority-window .pw-clock { display:flex; align-items:baseline; gap:0.6rem; margin-top:0.2rem; }
   .priority-window .pw-clock .time-left-big { margin-top:0; font-size:1.9rem; }
   .priority-window .timer-bar { margin:0.45rem 0 0.8rem; }
-  /* 2026-10-13 개선 1단계: 층별 배송비 배율 표시, 결과 자동 진행 안내, 우선 지정 창 안의 택배도둑 영역 */
-  .floor-stop .floor-mult { margin-left:auto; font-size:0.72rem; font-weight:800; padding:0.05rem 0.4rem; border-radius:999px; }
-  .floor-stop .floor-mult.hi { background:rgba(47,158,110,0.18); color:#2F9E6E; }
-  .floor-stop .floor-mult.lo { background:rgba(120,120,120,0.16); color:var(--muted); }
-  .floor-stop.current .floor-mult { background:rgba(0,0,0,0.12); color:inherit; }
-  .auto-advance { margin-top:0.6rem; font-size:0.9rem; color:var(--muted); font-weight:700; }
-  .priority-window .thief-window.merged { margin-top:0.8rem; }
   .priority-window .pw-actions { margin-top:0.7rem; display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap; }
   .priority-window .pw-actions .key-hint { margin:0; }
 
-  /* same-floor 선택 (같은 층에 배송 대기 중인 내 택배가 2개 이상일 때, SAME_FLOOR_CHOICE_MS 동안) */
+  /* same-floor 선택 (같은 접시에 서빙 대기 중인 내 초밥이 2개 이상일 때, SAME_FLOOR_CHOICE_MS 동안) */
   .choice-box { background:rgba(226,105,26,0.08); border:1px solid rgba(226,105,26,0.3); border-radius:12px;
     padding:0.9rem 1rem; margin-top:0.75rem; }
   .choice-box h4 { margin:0 0 0.5rem; font-family:var(--font-display); font-size:0.95rem; color:var(--gold); }
   .choice-list { display:flex; flex-direction:column; gap:0.5rem; }
   .choice-list .invoice.chosen { border-color:var(--ok); background:rgba(47,143,82,0.14); }
 
-  /* 택배도둑 배치 전용 시간 (후반 전용, "thief" 상태 -- 라운드 이동 전 독립된 전체 화면) */
+  /* 초밥도둑 배치 전용 시간 (후반 전용, "thief" 상태 -- 라운드 이동 전 독립된 전체 화면) */
   .thief-window { background:rgba(199,64,45,0.08); border:1px solid rgba(199,64,45,0.3); border-radius:12px;
     padding:0.9rem 1rem; margin-top:0.75rem; }
   .thief-window h4 { margin:0 0 0.5rem; font-family:var(--font-display); font-size:0.95rem; color:var(--danger); }
   .thief-floors { display:flex; flex-wrap:wrap; gap:0.4rem; }
   .thief-floors .btn { flex:none; padding:0.4rem 0.7rem; font-size:0.8rem; }
+  .thief-floors .btn small, .peek-panel .btn small { display:block; font-size:0.62rem; font-weight:600; opacity:0.8; }
+  .thief-floors .btn.is-peeked { border-color:var(--danger); box-shadow:0 0 0 2px rgba(199,64,45,0.28); }
+
+  /* 시작 3컷 설명 / 3줄 규칙 / 게이트 카운트다운 / 5초 깜빡임 (2026-10-12) */
+  .intro3 { position:fixed; left:calc(50% + 40px); top:12px; transform:translateX(-50%); width:min(440px, 58vw); height:58px; z-index:55; pointer-events:none;
+    animation:introLife 10s linear both; animation-delay:calc(var(--el) * -1); }
+  .intro3 .cut { position:absolute; inset:0; display:flex; gap:0.8rem; align-items:center; padding:0.4rem 0.8rem; background:#2b1d12; color:#fff; border-radius:14px; opacity:0;
+    box-shadow:0 5px 0 rgba(0,0,0,0.22); animation:introCut 3.34s linear both; animation-delay:calc(var(--d) - var(--el)); }
+  .intro3 .cut i { flex:none; width:1.9rem; height:1.9rem; border-radius:50%; background:#ffc62e; color:#2b1d12; font-style:normal; font-weight:800; display:grid; place-items:center; font-size:1.1rem; }
+  .intro3 .cut b { display:block; font-size:0.95rem; } .intro3 .cut span { display:block; font-size:0.76rem; opacity:0.85; margin-top:0.05rem; }
+  @keyframes introCut { 0% { opacity:0; transform:translateY(8px); } 8% { opacity:1; transform:none; } 92% { opacity:1; transform:none; } 100% { opacity:0; } }
+  @keyframes introLife { 0%, 97% { opacity:1; visibility:visible; } 100% { opacity:0; visibility:hidden; } }
+  .rules3 { margin:0.7rem 0 0; padding:0 0 0 1.3rem; display:flex; flex-direction:column; gap:0.3rem; font-size:0.9rem; color:var(--muted); text-align:left; }
+  .rules3 b { color:var(--ink, #2b1d12); }
+  .halftime-box .rules3 { display:inline-flex; margin:0.8rem auto 0; }
+  .gate-count { display:block; margin-top:0.5rem; font-size:0.8rem; color:var(--muted); text-align:center; }
+  @keyframes nudgeBlink { 0%, 100% { transform:none; box-shadow:none; } 50% { transform:scale(1.04); box-shadow:0 0 0 4px rgba(255,198,46,0.9); } }
+  body.nudge-on .rail-btn:not([disabled]), body.nudge-on .floor-btn:not([disabled]):not(.is-gone) { animation:nudgeBlink 0.9s ease-in-out infinite; }
+  body.nudge-on .rw h2 { animation:nudgeBlink 0.9s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { body.nudge-on .rail-btn, body.nudge-on .floor-btn, body.nudge-on .rw h2 { animation:none; } }
+  .sfx-toggle { position:fixed; left:12px; bottom:12px; z-index:70; width:38px; height:38px; display:grid; place-items:center; padding:0; border-radius:50%;
+    border:2px solid #2b1d12; background:#fff; color:#2b1d12; cursor:pointer; box-shadow:0 2px 0 #2b1d12; opacity:0.85; }
+  .sfx-toggle:hover { opacity:1; } .sfx-toggle:focus-visible { outline:3px solid #ffc62e; outline-offset:2px; }
+  /* 엿보기 (2026-10-12) */
+  .peek-box { margin:0.9rem 0 0.4rem; padding:0.7rem 0.8rem; border:1.5px dashed var(--panel-line); border-radius:12px; text-align:center; display:flex; flex-direction:column; gap:0.45rem; align-items:center; }
+  .peek-box .pb-title { font-family:var(--font-display); font-size:1rem; }
+  .peek-box .pb-desc, .peek-box .pb-other { font-size:0.8rem; color:var(--muted); }
+  .peek-box .pb-done b { display:block; font-family:var(--font-display); font-size:1.05rem; color:var(--gold); }
+  .peek-box .pb-done span { font-size:0.8rem; color:var(--muted); }
+  .peek-panel { margin-top:0.8rem; padding:0.6rem 0.7rem; border:1px solid var(--panel-line); border-radius:12px; display:flex; flex-direction:column; gap:0.5rem; }
+  .peek-panel h3 { margin:0; font-size:0.85rem; }
+  .peek-panel .btn { font-size:0.9rem; padding:0.5rem 0.6rem; line-height:1.25; }
+  .peek-seen-list { display:flex; flex-direction:column; gap:0.35rem; }
+  .peek-seen { display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; }
+  .peek-empty { font-size:0.78rem; color:var(--muted); }
+  .peek-pop { position:fixed; left:50%; top:22%; transform:translateX(-50%); z-index:60; background:#2b1d12; color:#fff; border-radius:16px; padding:1rem 1.6rem;
+    display:flex; flex-direction:column; align-items:center; gap:0.2rem; box-shadow:0 6px 0 rgba(0,0,0,0.25); animation:peekIn 160ms ease-out; }
+  .peek-pop small { font-size:0.78rem; opacity:0.8; } .peek-pop b { font-size:1.9rem; font-family:var(--font-display); font-weight:700; } .peek-pop span { font-size:1.05rem; }
+  @keyframes peekIn { from { opacity:0; transform:translate(-50%,-8px); } to { opacity:1; transform:translate(-50%,0); } }
 
   /* halftime 전환 화면 */
   .halftime-box { text-align:center; max-width:480px; }
@@ -619,8 +679,8 @@ HEAD_HTML = """<!doctype html>
   .winner-banner { text-align:center; padding:1.4rem; font-family:var(--font-display); font-size:1.6rem; font-weight:700; color:var(--gold); }
   /* 2026-08-28: 종료 화면 "다시 시작" 게이트 -- 결과 표들 사이에서도 눈에 띄도록 가운데 정렬 + 폭 제한. */
   .restart-gate { max-width:420px; margin:0 auto 1.4rem; text-align:center; }
-  /* 2026-10-06: 확보 미니게임 레이어. #app 바깥(body 직속)에 둔다 -- render()가 상태 브로드캐스트마다
-     #app 전체를 innerHTML로 갈아엎기 때문에, 미니게임을 #app 안에 넣으면 상대가 택배를 확보하는 것 같은
+  /* 2026-10-06: 제작 미니게임 레이어. #app 바깥(body 직속)에 둔다 -- render()가 상태 브로드캐스트마다
+     #app 전체를 innerHTML로 갈아엎기 때문에, 미니게임을 #app 안에 넣으면 상대가 초밥을 제작하는 것 같은
      아무 브로드캐스트만 와도 진행 중이던 게임이 통째로 날아간다. 게임 자체의 스타일은 minigames.css. */
   #mg-layer { overflow-y:auto; align-items:flex-start; }
   #mg-layer .mg-wrap { margin:auto; width:100%; max-width:640px; }
@@ -630,6 +690,206 @@ HEAD_HTML = """<!doctype html>
   .cat-game { margin-top:0.15rem; font-size:0.68rem; font-weight:600; color:var(--muted); letter-spacing:0.02em; }
   .toast { position:fixed; left:50%; bottom:1.4rem; transform:translateX(-50%); background:var(--panel); border:1px solid var(--panel-line);
     padding:0.6rem 1.1rem; border-radius:999px; font-size:0.85rem; z-index:80; box-shadow:0 10px 30px rgba(0,0,0,0.4); }
+  /* ================= 2026-10-12 POP 테마 =================
+     초밥왕(빨강/원목) vs 스시헌터(남색) 콘셉트 이미지 기준. 입장·로비·결과 화면은 그림(hero.webp)을 쓰고,
+     플레이 화면은 그림 없이 코드로만: 굵은 먹색 외곽선 + 딱딱한 오프셋 그림자 + 둥근 버튼 + Jua 제목체.
+     body[data-team]이 king/hunter면 포인트색(--gold)이 팀색으로 바뀐다(톤 토큰만 바꾸므로 기존 컴포넌트가 따라온다). */
+  :root { --pop-line:3px; --pop-shadow:0 4px 0 var(--ink); --pop-yellow:#ffc52e; --pop-cream:#fff6dc;
+    --font-pop:'Jua','Noto Sans KR',sans-serif; --team:#e2691a; }
+  body[data-team="king"] { --gold:#d9382e; --gold-ink:#fff; --team:#d9382e; --sky:#1f4fa8; }
+  body[data-team="hunter"] { --gold:#1f4fa8; --gold-ink:#fff; --team:#1f4fa8; --sky:#d9382e; }
+  html, body { background:var(--pop-cream); }
+  body { background-image:radial-gradient(rgba(43,29,18,0.09) 1.6px, transparent 1.8px); background-size:22px 22px; }
+  h1,h2,h3,h4,.btn,.eyebrow,.timer-num,.time-left-big,.rail-btn .rbt,.floor-btn,.rb-name,.my-chip,.ready-chip,.seat-badge,.room-chip,.round-pill,.winner-banner { font-family:var(--font-pop); }
+  h1,h2,h3 { letter-spacing:0.01em; font-weight:400; }
+
+  .topbar { background:#fff; border-bottom:var(--pop-line) solid var(--ink); box-shadow:0 4px 0 var(--team); }
+  .topbar .eyebrow { color:var(--team); }
+  .topbar h1 { font-weight:400; font-size:clamp(1.2rem,2.3vw,1.7rem); }
+  .seat-badge { background:var(--team); color:#fff; border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink); font-size:0.9rem; }
+  .room-chip { background:#fff; color:var(--ink); border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink); }
+
+  .card { border:var(--pop-line) solid var(--ink); border-radius:20px; box-shadow:0 6px 0 var(--ink); background:#fff; }
+  .btn { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:var(--pop-shadow); font-weight:400; font-size:1.02rem; padding:0.65rem 1.3rem; transition:transform .08s ease, box-shadow .08s ease, filter .12s ease; }
+  .btn:active:not(:disabled) { transform:translateY(3px); box-shadow:0 1px 0 var(--ink); }
+  .btn.primary { background:var(--team); color:#fff; }
+  .btn.ghost { background:#fff; color:var(--ink); border:var(--pop-line) solid var(--ink); }
+  .btn.danger { background:#e5483a; } .btn.ok { background:#2fa65a; }
+  .btn:disabled { box-shadow:0 2px 0 var(--ink); }
+  .btn.big { font-size:1.5rem; padding:1rem 1.2rem; border-radius:18px; }
+
+  /* --- 시작 화면: 코드로 그린 평면 일러스트(왼쪽 초밥왕 가게 / 오른쪽 스시헌터 가게 / 아래 회전 레일). 입장 패널은 그 위에 얹는다 --- */
+  .splash { position:relative; flex:1; min-height:100vh; display:flex; align-items:flex-end; justify-content:center; padding:1rem 1rem clamp(7rem,19vh,10rem); background:#f3e7c9; overflow:hidden; }
+  .splash > .splash-panel { position:relative; z-index:2; }
+  .splash-art { position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .sa-half { position:absolute; top:0; bottom:0; }
+  .sa-king { left:0; width:100%; clip-path:polygon(0 0, 55% 0, 45% 100%, 0 100%); --c:#d93a2b; --cd:#a82a1f; background:var(--c); }
+  .sa-hunter { left:0; width:100%; clip-path:polygon(55% 0, 100% 0, 100% 100%, 45% 100%); --c:#1f3f87; --cd:#162d63; background:var(--c); }
+  .sa-half::before { content:""; position:absolute; inset:0; opacity:0.16;
+    background:radial-gradient(circle at 50% 100%, transparent 0 38%, #fff 39% 42%, transparent 43% 55%, #fff 56% 59%, transparent 60%) 0 0 / 56px 28px; }
+  .sa-half::after { content:""; position:absolute; left:0; right:0; top:0; height:7%; background:var(--cd); box-shadow:0 4px 0 rgba(0,0,0,0.18); }
+  .sa-sign { position:absolute; top:23%; display:flex; align-items:center; gap:0.6rem; padding:0.35rem 1.4rem 0.45rem; background:#fff6dc; border:var(--pop-line) solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); color:var(--c); font-family:var(--font-pop); font-size:clamp(1.9rem,5.2vw,4.2rem); line-height:1.1; white-space:nowrap; }
+  .sa-sign svg { width:1.05em; height:1.05em; fill:currentColor; flex:none; }
+  .sa-long { font-size:clamp(1.3rem,3.4vw,2.9rem); top:8%; }
+  .name-row { display:flex; align-items:center; justify-content:center; gap:0.6rem; margin:0 0 0.8rem; font-family:var(--font-pop); }
+  .name-row span { font-size:0.9rem; color:var(--muted); }
+  .name-in { width:11em; max-width:60%; padding:0.45rem 0.8rem; font:inherit; font-size:1.15rem; text-align:center; color:var(--ink); background:#fff; border:var(--pop-line) solid var(--ink); border-radius:12px; box-shadow:0 3px 0 var(--ink); }
+  .name-in:focus { outline:3px solid var(--gold); outline-offset:2px; }
+  .lobby-box .name-row { margin:0.4rem 0 1rem; }
+  /* 플레이 시작 전 게임 방법 카드 (2026-10-13) */
+  .lobby-box.has-howto { max-width:820px; }
+  .howto-title { font-family:var(--font-display); font-weight:800; font-size:1.05rem; margin:0.2rem 0 0.5rem; text-align:left; }
+  .howto { list-style:none; margin:0 0 0.8rem; padding:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0.6rem; text-align:left; }
+  .howto li { display:flex; gap:0.5rem; padding:0.6rem 0.7rem; border-radius:14px; border:3px solid var(--ink); background:#fff; box-shadow:0 3px 0 var(--ink); }
+  .howto i { flex:none; width:1.7rem; height:1.7rem; border-radius:50%; background:var(--gold); border:2px solid var(--ink); display:inline-flex; align-items:center; justify-content:center; font-style:normal; font-weight:800; }
+  .howto small { display:block; font-size:0.72rem; color:var(--muted); font-weight:700; }
+  .howto b { display:block; font-family:var(--font-display); font-size:1.05rem; }
+  .howto span { display:block; font-size:0.82rem; line-height:1.4; color:var(--ink); }
+  .howto span b { display:inline; font-size:inherit; color:var(--danger); }
+  @media (max-width:760px) { .howto { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .sa-king .sa-sign { left:5%; transform:rotate(-3deg); }
+  .sa-hunter .sa-sign { right:5%; transform:rotate(3deg); }
+  .sa-noren { position:absolute; top:7%; display:flex; gap:0.5%; }
+  .sa-king .sa-noren { left:3%; width:44%; }
+  .sa-hunter .sa-noren { right:3%; width:44%; }
+  .sa-noren i { flex:1; height:clamp(3rem,13vh,7.5rem); background:#fff6dc; border:var(--pop-line) solid var(--ink); border-top:0; border-radius:0 0 8px 8px;
+    clip-path:polygon(0 0,100% 0,100% 100%,50% 88%,0 100%); position:relative; }
+  .sa-noren i::after { content:""; position:absolute; left:50%; top:34%; width:46%; aspect-ratio:1; transform:translateX(-50%); border-radius:50%; background:var(--c); }
+  .sa-lamp { position:absolute; top:7%; width:clamp(2.2rem,5.4vw,4.2rem); }
+  .sa-lamp::before { content:""; display:block; width:3px; height:clamp(1.2rem,5vh,3rem); margin:0 auto; background:var(--ink); }
+  .sa-lamp b { display:block; aspect-ratio:0.8; border:var(--pop-line) solid var(--ink); border-radius:46%; background:linear-gradient(90deg, rgba(0,0,0,0.12), transparent 30%, rgba(255,255,255,0.35) 55%, transparent 80%), #fff6dc; box-shadow:inset 0 0.45em 0 -0.2em var(--c), inset 0 -0.45em 0 -0.2em var(--c); }
+  .sa-vs { position:absolute; left:50%; top:30%; transform:translate(-50%,-50%) rotate(-8deg); width:clamp(4.2rem,11vw,8rem); aspect-ratio:1; border-radius:50%; background:var(--pop-yellow); border:var(--pop-line) solid var(--ink); box-shadow:0 6px 0 var(--ink);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-pop); font-size:clamp(1.8rem,5vw,3.6rem); color:var(--ink); }
+  .sa-belt { position:absolute; left:0; right:0; bottom:0; height:clamp(6rem,17vh,9rem); background:#2b1d12; border-top:var(--pop-line) solid var(--ink); overflow:hidden; }
+  .sa-belt::before { content:""; position:absolute; left:0; right:0; top:0; height:0.9rem; background:repeating-linear-gradient(90deg, #4a3523 0 18px, #3a2a1b 18px 36px); }
+  .sa-track { position:absolute; left:0; top:50%; display:flex; gap:clamp(1.4rem,4vw,3rem); transform:translateY(-38%); animation:sa-run 26s linear infinite; width:max-content; }
+  .sa-plate { flex:none; width:clamp(4.4rem,10vh,6.4rem); aspect-ratio:1; border-radius:50%; background:#fff6dc; border:var(--pop-line) solid var(--ink); box-shadow:0 4px 0 rgba(0,0,0,0.35), inset 0 0 0 0.45rem var(--pc); display:flex; align-items:center; justify-content:center; }
+  .sa-plate svg { width:68%; height:auto; display:block; }
+  @keyframes sa-run { to { transform:translate(-50%,-38%); } }
+  @media (prefers-reduced-motion:reduce) { .sa-track { animation:none; } }
+  @media (max-width:640px) { .sa-sign { font-size:1.6rem; padding:0.25rem 0.8rem 0.35rem; } .sa-lamp { display:none; } }
+  .splash-panel { width:min(620px,100%); padding:1rem 1.2rem 1.1rem; background:rgba(255,255,255,0.94); border:var(--pop-line) solid var(--ink); border-radius:22px; box-shadow:0 6px 0 var(--ink); text-align:center; }
+  .splash-panel .team-row { margin:0 0 0.9rem; }
+  .screen-links { margin-top:0.55rem; display:flex; flex-wrap:wrap; gap:0.4rem 0.6rem; justify-content:center; align-items:center; font-size:0.78rem; color:var(--muted); }
+  .screen-links a { color:var(--ink); background:#fff; border:2px solid var(--ink); border-radius:999px; padding:0.1rem 0.7rem; text-decoration:none; font-family:var(--font-pop); box-shadow:0 2px 0 var(--ink); }
+  .splash-panel .room-share { margin-top:0.9rem; padding-top:0.7rem; font-size:0.8rem; }
+  .lobby-box { max-width:720px; width:100%; }
+  .lobby-box h2 { font-size:clamp(1.7rem,4vw,2.4rem); margin:0 0 0.4rem; }
+  .rule-note { background:var(--pop-yellow); border:2px solid var(--ink); border-radius:14px; padding:0.55rem 0.9rem; color:var(--ink) !important; font-weight:700; box-shadow:0 3px 0 var(--ink); }
+  .lobby-box-deco { display:none; }
+  .team-row { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:0.6rem; margin:0 0 1.2rem; }
+  .team-card { --team:#999; display:flex; flex-direction:column; align-items:center; gap:0.15rem; padding:0.7rem 0.5rem; border:var(--pop-line) solid var(--ink); border-radius:16px;
+    background:color-mix(in srgb, var(--team) 12%, #fff); box-shadow:0 4px 0 var(--ink); }
+  .team-card .team-icon { width:36px; height:36px; color:var(--team); } .team-card .team-icon svg { width:100%; height:100%; display:block; }
+  .team-card .team-name { font-family:var(--font-pop); font-weight:400; font-size:1.35rem; color:var(--team); }
+  .team-card .team-state { font-size:0.8rem; font-weight:700; color:var(--muted); }
+  .team-card.is-in .team-state { color:var(--ink); }
+  .team-card.is-mine { background:var(--team); } .team-card.is-mine .team-icon, .team-card.is-mine .team-name, .team-card.is-mine .team-state { color:#fff; }
+  .vs-badge { display:inline-flex; align-items:center; justify-content:center; width:3.2rem; height:3.2rem; border-radius:50%; background:var(--pop-yellow); border:var(--pop-line) solid var(--ink);
+    box-shadow:0 3px 0 var(--ink); font-family:var(--font-pop); font-size:1.3rem; transform:rotate(-8deg); }
+  .join-btn { background:var(--pop-yellow) !important; color:var(--ink) !important; }
+  .room-share { border-top:2px dashed rgba(43,29,18,0.3); }
+  .room-share strong { color:var(--ink); background:var(--pop-yellow); padding:0 0.5rem; border-radius:8px; border:2px solid var(--ink); }
+  .ready-chip { border:2px solid var(--ink); background:#fff; color:var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .ready-chip.is-ready { background:#b9f0c6; color:var(--ink); border-color:var(--ink); }
+  .space-hint { border:var(--pop-line) solid var(--ink); border-radius:14px; background:var(--pop-yellow); color:var(--ink); box-shadow:0 4px 0 var(--ink); font-family:var(--font-pop); width:fit-content; min-width:min(240px,86%); max-width:92%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:0.35rem; padding:0.8rem 1.6rem; word-break:keep-all; letter-spacing:0.02em; }
+  .space-hint .sh-key { font-family:var(--font-display); font-size:0.78rem; letter-spacing:0.18em; background:var(--ink); color:var(--pop-yellow); border-radius:6px; padding:0.12rem 0.7rem; }
+  .space-hint .sh-label { font-size:1.45rem; line-height:1.2; white-space:nowrap; }
+  .winner-banner { font-weight:400; font-size:2rem; color:var(--ink); background:var(--pop-yellow); border:var(--pop-line) solid var(--ink); border-radius:18px; box-shadow:0 5px 0 var(--ink); max-width:420px; margin:0 auto 1.2rem; padding:0.6rem 1rem; }
+  .halftime-box h2 { font-weight:400; }
+  .halftime-scores .chip, .round-result { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:0 3px 0 var(--ink); background:#fff; }
+  .round-result { background:#e4f8e8; }
+  .score-table th, .score-table td { border-bottom:2px solid rgba(43,29,18,0.15); }
+
+  /* --- 타이머 / 사이드 --- */
+  .timer-bar, .rv-bar, .mv-bar { background:#fff; border:2px solid var(--ink); }
+  .timer-bar > i, .rv-bar > i { background:var(--team); }
+  .timer-num, .time-left-big { color:var(--team); }
+  .side-timer { border:var(--pop-line) solid var(--ink); border-radius:18px; box-shadow:0 5px 0 var(--ink); background:#fff; }
+  .round-pill { background:var(--pop-yellow); color:var(--ink); border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .toast { border:var(--pop-line) solid var(--ink); box-shadow:0 4px 0 var(--ink); border-radius:16px; font-weight:700; }
+  .overlay { background:rgba(43,29,18,0.9); }
+
+  /* --- 제작 보드(레일) --- */
+  .rail-mid { box-shadow:inset 0 0 0 3px var(--ink); }
+  .rail-box { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:0 3px 0 var(--ink); }
+  .rail-box .rb-name { border:2px solid var(--ink); border-radius:999px; font-weight:400; font-size:0.9rem; box-shadow:0 2px 0 var(--ink); }
+  .rail-box .rb-game, .rail-box .cat-left { color:var(--ink); }
+  .rail-box .pips { border:2px solid var(--ink); }
+  .rail-box .pip svg { stroke:var(--ink); stroke-width:1.8; }
+  .rail-box .stamp { border:var(--pop-line) solid var(--ink); border-radius:10px; font-weight:400; box-shadow:0 3px 0 var(--ink); }
+  .rail-btn { border:var(--pop-line) solid var(--ink); border-bottom-width:var(--pop-line); box-shadow:0 4px 0 var(--ink); background:var(--c); color:var(--ink); border-radius:14px; }
+  .rail-btn .rbp { color:var(--ink); opacity:0.75; }
+  .rail-btn:hover:not(:disabled) { background:var(--c); filter:brightness(1.08); }
+  .rail-btn:active:not(:disabled) { transform:translateY(3px); box-shadow:0 1px 0 var(--ink); border-bottom-width:var(--pop-line); }
+  .rail-btn .rbt { font-weight:400; }
+  .floor-btn { border:2px solid var(--ink); border-bottom-width:2px; box-shadow:0 3px 0 var(--ink); background:var(--c); color:var(--ink); font-weight:400; border-radius:10px; }
+  .floor-btn:hover:not(.is-gone) { background:var(--c); filter:brightness(1.08); }
+  .floor-btn:active:not(.is-gone) { transform:translateY(2px); box-shadow:0 1px 0 var(--ink); }
+  .floor-btn.is-gone { box-shadow:none; background:transparent; }
+  .my-chip { border:2px solid var(--ink); border-radius:999px; font-weight:400; background:#fff; }
+  .rv { background:var(--pop-cream); }
+  .rv-chip.phase { background:var(--pop-yellow); border:2px solid var(--ink); color:var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .rv-chip.room { background:#fff; border:2px solid var(--ink); color:var(--ink); box-shadow:0 2px 0 var(--ink); }
+  .rv-side { border:var(--pop-line) solid var(--ink); box-shadow:0 3px 0 var(--ink); background:#fff; }
+  .rv-side.is-busy { background:var(--c); }
+  .rw-row { border:var(--pop-line) solid var(--ink); border-radius:14px; box-shadow:0 3px 0 var(--ink); background:#fff; }
+
+  /* --- 회전 벨트 --- */
+  .shaft { background:#ffe9b0; border:var(--pop-line) solid var(--ink); border-radius:20px; box-shadow:0 5px 0 var(--ink); }
+  .belt-track { border:3cqw solid #3b4049; box-shadow:0 0 0 0.9cqw var(--ink); }
+  .floor-stop .car { border:1cqw solid var(--ink); opacity:0.92; font-family:var(--font-pop); font-weight:400; font-size:7.5cqw; box-shadow:0 1cqw 0 var(--ink); }
+  .floor-stop.current .car { box-shadow:0 1.6cqw 0 var(--ink), 0 0 0 1.4cqw var(--pop-yellow); }
+  .belt-mark { font-family:var(--font-pop); font-weight:400; top:106cqw; }
+  .invoice { border:2px solid var(--ink); border-radius:12px; background:#fff; box-shadow:0 3px 0 var(--ink); }
+  .invoice .swatch { border:2px solid var(--ink); }
+  .invoice .sticker { border:2px solid var(--ink); font-weight:400; font-family:var(--font-pop); }
+  .invoice .sticker.pending { border-style:dashed; }
+  .invoice.is-priority { background:#fff0b8; border-color:var(--ink); }
+  .invoice .priority-flag { background:var(--pop-yellow); color:var(--ink); border:2px solid var(--ink); font-family:var(--font-pop); font-weight:400; }
+  .invoice.pickable:hover { background:#fff6dc; }
+  .priority-window, .choice-box, .thief-window { border:var(--pop-line) solid var(--ink); border-radius:16px; box-shadow:0 4px 0 var(--ink); background:#fff3c4; }
+  .thief-window { background:#ffd9d3; }
+  .priority-window h4, .choice-box h4 { color:var(--team); font-weight:400; font-size:1.1rem; } .thief-window h4 { color:var(--danger); font-weight:400; font-size:1.1rem; }
+  .choice-list .invoice.chosen { background:#c9f1d2; }
+  .player-col.me h3 { color:var(--team); }
+  /* 서빙 칸 강조 + 방향 화살표 (2026-10-12) */
+  .belt-ring { height:120cqw; }
+  .belt-mark { top:112cqw; }
+  .serve-frame { position:absolute; left:50%; top:86cqw; width:34cqw; height:34cqw; margin:-17cqw 0 0 -17cqw; border-radius:50%; border:2.2cqw solid var(--ink);
+    box-shadow:0 0 0 2.4cqw var(--pop-yellow), 0 0 0 4.6cqw var(--ink); pointer-events:none; }
+  .serve-arrow { position:absolute; top:92cqw; width:21cqw; margin-top:-10cqw; display:flex; flex-direction:column; align-items:center; pointer-events:none; }
+  .serve-arrow.left { left:1.5cqw; } .serve-arrow.right { right:1.5cqw; }
+  .serve-arrow.right svg { transform:scaleX(-1); }
+  .serve-arrow svg { width:100%; height:auto; display:block; filter:drop-shadow(0 0.8cqw 0 var(--ink)); }
+  .serve-arrow polygon { fill:var(--pop-yellow); stroke:var(--ink); stroke-width:3.5; stroke-linejoin:round; }
+  .serve-arrow b { margin-top:1.8cqw; font-family:var(--font-pop); font-weight:400; font-size:5.6cqw; color:var(--ink); line-height:1; }
+  .vote-buttons { flex-direction:row; gap:0.8rem; }
+  .vote-buttons .btn { flex:1; font-size:1.25rem; padding:1rem 0.6rem; }
+  .vote-arrow { display:inline-block; font-size:1.6em; line-height:0.8; vertical-align:-0.1em; }
+  /* 벨트 접시: 참고 일러스트의 접시처럼 안쪽 링 + 하얀 물고기 문양 (이름은 아래에 작게) */
+  .floor-stop .car { flex-direction:column; gap:0.2cqw; position:relative; }
+  .floor-stop .car::before { content:""; position:absolute; inset:7%; border-radius:50%; border:0.5cqw solid rgba(255,255,255,0.5); pointer-events:none; }
+  .floor-stop .car .car-fish { width:8.5cqw; height:auto; fill:rgba(255,255,255,0.92); stroke:rgba(0,0,0,0.25); stroke-width:1; }
+  .floor-stop .car .car-fish .eye { fill:rgba(0,0,0,0.45); stroke:none; }
+  .floor-stop .car b { font-weight:400; font-size:6.4cqw; line-height:1; }
+  /* 가독성: 글자는 왼쪽 칸, 초밥 그림은 오른쪽 칸 안에만 (겹치지 않게). 점은 작게 + 줄바꿈 */
+  .rail-box { padding:0.35rem 46% 0.35rem 0.4rem; box-sizing:border-box; }
+  .rail-box .cell-art { inset:8% 3% 8% auto; width:42%; opacity:1; filter:drop-shadow(0 3px 0 rgba(0,0,0,0.25)); background-size:contain; background-position:center; }
+  .rail-box::after { content:""; position:absolute; top:0; bottom:0; right:0; width:46%; z-index:0; background:rgba(255,255,255,0.28); }
+  .rail-box .rb-name { font-size:0.82rem; padding:0.12rem 0.55rem; white-space:nowrap; }
+  .rail-box .rb-game { font-size:0.7rem; }
+  .rail-box .pips { flex-wrap:wrap; justify-content:center; gap:2px; padding:3px 5px; max-width:100%; box-sizing:border-box; }
+  .rail-box .pip { width:14px; height:9px; }
+  .rail-box::before { background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(0,0,0,0.05)); }
+  .rail-box .cat-left { background:rgba(255,255,255,0.9); border:2px solid var(--ink); border-radius:999px; padding:0 0.55rem; color:var(--ink); }
+  .rail-box .rb-game { background:rgba(255,255,255,0.9); border:2px solid var(--ink); }
+  .inv-sushi { width:3.1rem; }
+  .inv-sushi-img { width:100%; height:auto; display:block; filter:drop-shadow(0 2px 0 rgba(0,0,0,0.25)); }
+  /* 접시 색 표시 (번호는 안 쓴다): 색 동그라미 + "초록 접시" */
+  .invoice .t .inv-type { white-space:nowrap; }
+  .plate-tag { display:inline-flex; align-items:center; gap:0.35em; font-weight:700; }
+  .plate-dot { display:inline-block; width:1.05em; height:1.05em; flex:none; border-radius:50%; background:var(--p); border:2px solid var(--ink); box-shadow:inset 0 0 0 2px rgba(255,255,255,0.45); }
 </style>
 </head><body>
 <div id="app"></div>
@@ -648,116 +908,119 @@ APP_JS_TEMPLATE = r"""
   var CELLS_2 = @@CELLS_2_JSON@@;
   var FLOORS = @@FLOORS_JSON@@;
   var ROOMS = @@ROOMS_JSON@@;
-  // 2026-08-27 신설: 좌석 선택 화면에서 고르는 가상 택배사 5종 (game-data.js와 동일 -- 서버가
-  // pickCourier에서 이 key 목록으로 유효성 검사도 한다). 실제 택배사 로고를 흉내내면 상표권
+  // 2026-08-27 신설: 좌석 선택 화면에서 고르는 가상 셰프 5종 (game-data.js와 동일 -- 서버가
+  // pickCourier에서 이 key 목록으로 유효성 검사도 한다). 실제 셰프 로고를 흉내내면 상표권
   // 문제가 있어서 완전 창작 브랜드로 대체했다 (HANDOVER.md 3.6 참고).
   var COURIERS = @@COURIERS_JSON@@;
   // COURIERS와 순서를 맞춘 손그림 flat 아이콘 (SVG, 순수 표시용이라 서버/game-data.js엔 없음).
-  // 2026-08-28 리스킨: 사용자가 준 새 로고 세트에 맞춰 교체 (COURIERS 순서와 동일 -- 쿡방/천일배송/
-  // 한짐택배/MZ로지스틱스/우체통안). 프라이팬+계란(쿡방), 다이아몬드 직인+바코드선(천일배송),
-  // 방패+상자(한짐택배), 지그재그 화살표(MZ로지스틱스), 우편함(우체통안).
+  // 2026-08-28 리스킨: 사용자가 준 새 로고 세트에 맞춰 교체 (COURIERS 순서와 동일 -- 하루스시/파도초밥/
+  // 참치당/여우초밥/청해스시). 프라이팬+계란(하루스시), 다이아몬드 직인+바코드선(파도초밥),
+  // 방패+상자(참치당), 지그재그 화살표(여우초밥), 우편함(청해스시).
   var COURIER_ICONS = [
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="14" r="6"></circle><path d="M14.5 9.5L20 4"></path><circle cx="10" cy="14" r="2.1" fill="currentColor" stroke="none"></circle><path d="M6.5 8.2c.6-1.4 2-2.2 3.2-2.2"></path></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 7-7 7-7-7z"></path><path d="M8.7 10.6h6.6M8.7 13h4.6"></path></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"></path><rect x="9" y="10.2" width="6" height="4.6" rx="0.6"></rect><path d="M9 12.3h6"></path></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h13l-8 6h8l-9 6"></path></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 1 12 0v6H6z"></path><path d="M4 16h16"></path><path d="M12 4v3"></path><rect x="8.5" y="11.5" width="7" height="2.4" rx="0.5" fill="currentColor" stroke="none"></rect></svg>'
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l4 3 4-6 4 6 4-3-1.5 7h-13z"></path><path d="M5.5 19h13"></path></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12c3-5 9-6 13-3l5-3v12l-5-3c-4 3-10 2-13-3z"></path><circle cx="8" cy="11" r="1" fill="currentColor"></circle></svg>',
   ];
   // catIdx로 인덱싱하는 종류별 보드-칸 배경 일러스트 (위 BOX_ART_DIR 참고). CELLS[].src(칸마다 다른
   // 퍼즐 이미지, 오버레이 전용)와는 별개 -- 이건 보드 위 21칸 자체의 배경으로 쓴다.
   var BOX_ART = @@BOX_ART_JSON@@;
+  // 남은 개수 표시용 물고기(단순 타원 몸통 + 꼬리). 색/테두리는 CSS가 입힌다.
+  var FISH_PIP = '<svg viewBox="0 0 26 14" aria-hidden="true"><path d="M2 7c0-3.4 3.6-5.6 8-5.6 3.2 0 5.8 1.2 7.2 3.2L24 1.6v10.8l-6.8-3.2C15.8 11.2 13.2 12.6 10 12.6 5.6 12.6 2 10.4 2 7z"/><circle class="eye" cx="6.2" cy="5.6" r="1.1"/></svg>';
+  // 스페이스바 안내 버튼: 키캡 + 라벨 두 줄로 나눠, 좁아도 글자가 어색하게 끊기지 않게 한다.
+  function spaceHint(label) {
+    return '<div class="space-hint"><span class="sh-key">SPACE</span><span class="sh-label">' + label + '</span></div>';
+  }
+  var PREP_IMGS = @@PREP_IMG_JSON@@;   // 레일 손질 재료 일러스트(bowl/pan/salmon/whitefish/eel)
+  if (window.MiniGames && MiniGames.setPrepImages) MiniGames.setPrepImages(PREP_IMGS);
+  var PREP_CARD_IMG = { egg: "pan", whitefish: "whitefish", eel: "eel", salmon: "salmon" };   // 레일 메뉴 카드 그림 (계란은 완성된 달걀말이)
+  var SUSHI_IMG = @@SUSHI_IMG_JSON@@;   // 초밥 키 -> 일러스트(data URI, 투명 컷아웃)
+  // 보드 한 줄(종류)의 배경 일러스트: 그 종류의 초밥 컷아웃. 없으면 예전 상자 그림.
+  function railArt(catIdx) {
+    var k = TYPES[catIdx] && TYPES[catIdx].sushi && TYPES[catIdx].sushi[0];
+    return (k && SUSHI_IMG[k]) || BOX_ART[catIdx];
+  }
   // 2026-08-27 리스킨: board-label 카드용 평평한 라인 아이콘 (TYPES 순서와 동일 -- 트럭/깨진 유리잔/
-  // 보석/체크마크 건물). box_art/의 3D 박스 일러스트와는 다른, 손으로 그린 별도의 단순한 SVG -- 그
-  // 일러스트는 라벨 카드 안에 아이콘 크기로 넣기엔 스타일이 안 맞아서(입체 박스 그림 vs 평면 라인
+  // 보석/체크마크 건물). box_art/의 3D 상자 일러스트와는 다른, 손으로 그린 별도의 단순한 SVG -- 그
+  // 일러스트는 라벨 카드 안에 아이콘 크기로 넣기엔 스타일이 안 맞아서(입체 상자 그림 vs 평면 라인
   // 아이콘), 참고 포스터의 "구분/요금" 카드가 쓰는 플랫 아이콘 언어에 맞춰 새로 그렸다.
   var CAT_ICONS = [
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="13" height="9"></rect><path d="M14 10h4l3 3v3h-7z"></path><circle cx="6" cy="18" r="1.6"></circle><circle cx="17" cy="18" r="1.6"></circle></svg>',
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-1 8a4 4 0 0 1-8 0z"></path><path d="M12 11v6"></path><path d="M9 20h6"></path><path d="M9 5l2 3-2 2 3 2"></path></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="18" height="7" rx="2"></rect><path d="M6 9V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"></path><path d="M12 5v11"></path></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="11" rx="8" ry="4"></ellipse><path d="M4 11v3c0 2 4 4 8 4s8-2 8-4v-3"></path><circle cx="9" cy="10.5" r="0.8" fill="currentColor"></circle><circle cx="12" cy="9.8" r="0.8" fill="currentColor"></circle><circle cx="15" cy="10.5" r="0.8" fill="currentColor"></circle></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4.5-6h9L21 9"></path><path d="M3 9l9 12 9-12"></path><path d="M3 9h18"></path><path d="M9 3l3 6 3-6"></path></svg>',
-    '<svg viewBox="0 0 26 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="10" height="18"></rect><line x1="5" y1="6" x2="5" y2="6.01"></line><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="5" y1="10" x2="5" y2="10.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="5" y1="14" x2="5" y2="14.01"></line><line x1="9" y1="14" x2="9" y2="14.01"></line><path d="M16 12l3 3 6-6"></path></svg>'
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15c0-4 4-7 9-7 5 0 9 3 9 7z"></path><path d="M3 15h18v2H3z"></path><path d="M8 11c1 1 1 3 0 4M12 10c1 1 1 4 0 5M16 11c1 1 1 3 0 4"></path></svg>',
   ];
+  // ---------- 효과음 (2026-10-12): 파일 없이 WebAudio로 합성. 브라우저 정책상 첫 클릭/키 입력 뒤부터 소리가 난다. ----------
+  // 켜짐/꺼짐은 화면 왼쪽 아래 스피커 버튼 (localStorage에 기억, 못 쓰는 환경이면 그냥 켜짐).
+  var SFX = (function () {
+    var ctx = null, on = true;
+    try { on = localStorage.getItem("bp-sfx") !== "off"; } catch (e) {}
+    var SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 987.77]; // 접시 6개 = 도레미솔라시 (접시마다 고정 음)
+    function unlock() {
+      if (!ctx) { try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) ctx = new AC(); } catch (e) { ctx = null; } }
+      if (ctx && ctx.state === "suspended") { try { ctx.resume(); } catch (e) {} }
+    }
+    function tone(freq, dur, type, vol, delay, slideTo) {
+      if (!on || !ctx || ctx.state !== "running") return;
+      var t0 = ctx.currentTime + (delay || 0), o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type || "sine"; o.frequency.setValueAtTime(freq, t0);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+    }
+    return {
+      unlock: unlock,
+      isOn: function () { return on; },
+      toggle: function () { on = !on; try { localStorage.setItem("bp-sfx", on ? "on" : "off"); } catch (e) {} unlock(); if (on) tone(784, 0.1, "triangle", 0.12); return on; },
+      click: function () { tone(880, 0.05, "triangle", 0.07); },
+      key: function () { tone(660, 0.03, "triangle", 0.04); },
+      select: function () { tone(660, 0.08, "triangle", 0.12); tone(990, 0.12, "triangle", 0.12, 0.07); },
+      plate: function (i) { var f = SCALE[((i % 6) + 6) % 6]; tone(f, 0.16, "sine", 0.14); tone(f * 2, 0.08, "sine", 0.04); },
+      ok: function () { tone(659, 0.12, "triangle", 0.13); tone(784, 0.12, "triangle", 0.13, 0.1); tone(1047, 0.22, "triangle", 0.13, 0.2); },
+      bad: function () { tone(220, 0.25, "sawtooth", 0.09, 0, 110); },
+      peek: function () { tone(1318, 0.1, "sine", 0.08); tone(1760, 0.18, "sine", 0.08, 0.09); }
+    };
+  })();
+  function sfxButton() {
+    if (document.getElementById("sfx-toggle")) return;
+    var b = document.createElement("button");
+    b.id = "sfx-toggle"; b.type = "button"; b.className = "sfx-toggle";
+    function paint() {
+      var on = SFX.isOn();
+      b.setAttribute("aria-label", on ? "효과음 끄기" : "효과음 켜기"); b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/>'
+        + (on ? '<path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/>' : '<path d="M17 9l5 6M22 9l-5 6"/>') + '</svg>';
+    }
+    b.addEventListener("click", function (e) { e.stopPropagation(); SFX.toggle(); paint(); });
+    paint(); document.body.appendChild(b);
+  }
+  // 버튼을 누를 때마다: 접시 버튼은 그 접시 음, 초밥 종류/미니게임 선택은 선택음, 나머지는 짧은 틱.
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("button, [data-action]");
+    if (!t || t.disabled || t.id === "sfx-toggle") return;
+    SFX.unlock();
+    var plate = null;
+    if (t.hasAttribute("data-floor-idx")) plate = parseInt(t.getAttribute("data-floor-idx"), 10);
+    else { var m = /^fixed-floor-(\d+)$/.exec(t.getAttribute("data-cell") || ""); if (m) plate = parseInt(m[1], 10) - 1; }
+    var a = t.getAttribute("data-action") || "";
+    if (plate !== null && !isNaN(plate)) SFX.plate(plate);
+    else if (a === "open-type" || a === "open-cell" || a === "rail-start" || a === "start-peek" || a === "use-peek") SFX.select();
+    else SFX.click();
+  }, true);
+  document.addEventListener("keydown", function (e) {
+    SFX.unlock();
+    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (typeof mg !== "undefined" && mg && (e.code === "Space" || e.code.indexOf("Arrow") === 0 || e.code === "Enter")) SFX.key(); // 미니게임 조작
+  }, true);
+  document.addEventListener("pointerdown", function () { SFX.unlock(); }, true);
+
   var ELEVATOR_ROUNDS = @@ELEVATOR_ROUNDS@@;
   var SECURE_PHASE_MS = @@SECURE_PHASE_MS@@;
+  var VOTE_MS = @@VOTE_MS@@;
   var PRIORITY_MULTIPLIER = @@PRIORITY_MULTIPLIER@@;
   var SAME_FLOOR_CHOICE_MS = @@SAME_FLOOR_CHOICE_MS@@;
   var HALVES = @@HALVES@@;
   var THIEF_PLACE_MS = @@THIEF_PLACE_MS@@;
   var PRIORITY_PICK_MS = @@PRIORITY_PICK_MS@@;
-  // 2026-10-13 개선 1단계(P1+P2) -- game-data.js 참고
-  var FLOOR_REWARD_MULT = @@FLOOR_REWARD_MULT@@;
-  var RESULT_AUTO_ADVANCE_MS = @@RESULT_AUTO_ADVANCE_MS@@;
-  var MERGE_PRIORITY_THIEF = @@MERGE_PRIORITY_THIEF@@;
-  // 2026-10-14 확보 단계 레이스 라운드 (game-data.js RACE_*). 레이스 모드인지는 서버 상태(state.race)로 판단한다.
-  var RACE_MODE = @@RACE_MODE@@; // 안내 문구용 (실제 모드는 서버 상태 state.race로 판단 -- 서버를 RACE_MODE=0으로 띄우면 예전 방식)
-  var RACE_PICK_MS = @@RACE_PICK_MS@@;
-  var RACE_SECOND_MS = @@RACE_SECOND_MS@@;
-  var RACE_STICKER_LEVEL = @@RACE_STICKER_LEVEL@@;
-  var ELEVATOR_JOLT = @@ELEVATOR_JOLT@@; // 2026-10-14 덜컹 (game-data.js)
-  var BUILD_TAG = "@@BUILD_TAG@@"; // 배포 확인용 빌드 표시 (build_client.py가 빌드 시각을 넣는다 -- 화면 왼쪽 위 작은 글씨)
-  // 송장 하나의 배송 성공 금액 (서버가 확보 순간 층 배율을 적용해 inv.reward에 박아 둔다 -- 예전 형식이면 종류 금액)
-  function invReward(inv) { return typeof inv.reward === "number" ? inv.reward : TYPES[inv.catIdx].reward; }
-  function floorMult(i) { return FLOOR_REWARD_MULT[i] == null ? 1 : FLOOR_REWARD_MULT[i]; }
-  function multLabel(i) { var m = floorMult(i); return "x" + (Math.round(m * 10) / 10); }
-  // 종류 금액의 층별 범위 ("1,750~3,250원" 식) -- 층이 아직 안 정해진 레일 버튼용
-  function rewardRange(t) {
-    var lo = Infinity, hi = -Infinity;
-    FLOOR_REWARD_MULT.forEach(function (m) { var v = Math.round(t.reward * m); if (v < lo) lo = v; if (v > hi) hi = v; });
-    if (lo === hi) return fmtWon(lo);
-    return fmtWon(lo) + "~" + Math.abs(hi).toLocaleString("ko-KR") + "원";
-  }
-
-  // ---------- 2026-10-14 UI 리스킨: 빨간 택배 카트 틀 + 택배 요금표 (스타일은 ui_theme.css) ----------
-  // 카트 틀: cartOpen(cls) + 내용 + cartClose(). 회색 화면(.cart-screen) 안에 기존 카드/레이아웃이 그대로 들어간다.
-  function cartOpen(cls) {
-    return '<div class="cart' + (cls ? ' ' + cls : '') + '"><span class="cart-door l"><i></i></span><span class="cart-door r"><i></i></span>'
-      + '<div class="cart-body"><div class="cart-screen">';
-  }
-  function cartClose() {
-    return '</div><div class="cart-base"><b></b><b></b></div></div><span class="cart-wheel l"></span><span class="cart-wheel r"></span></div>';
-  }
-  function cartWrap(inner, cls) { return cartOpen(cls) + inner + cartClose(); }
-
-  // 택배 요금표 -- 사용자 제공 포스터(ui_art/ref/fee_poster_ref.png)를 HTML로 다시 그린 것. 숫자는 TYPES / FLOOR_REWARD_MULT에서.
-  var FEE_UP_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13V3M2.5 5.5 5 3l2.5 2.5M11 13V3M8.5 5.5 11 3l2.5 2.5"></path></svg>';
-  var FEE_TRUCK_SVG = '<svg class="fee-truck" viewBox="0 0 74 40" aria-hidden="true"><rect x="24" y="2" width="48" height="27" rx="2" fill="#E2A65B" stroke="#7a4a1f" stroke-width="2"></rect>'
-    + '<path d="M3 30V17l7-11h15v24z" fill="#6B3A12"></path><path d="M9 16l4-7h8v7z" fill="#cfe8ff"></path>'
-    + '<rect x="1" y="28" width="72" height="4" rx="2" fill="#3b2a1e"></rect><circle cx="14" cy="33" r="5" fill="#222" stroke="#fff" stroke-width="2"></circle>'
-    + '<circle cx="58" cy="33" r="5" fill="#222" stroke="#fff" stroke-width="2"></circle></svg>';
-  function multsVary() { return FLOOR_REWARD_MULT.some(function (m) { return m !== 1; }); }
-  function rewardRangePlain(t) {
-    var vals = FLOOR_REWARD_MULT.map(function (m) { return Math.round(t.reward * m); });
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-    return lo.toLocaleString("ko-KR") + "~" + hi.toLocaleString("ko-KR") + "원";
-  }
-  // withRange: 성공 칸 아래에 층별 금액 범위를 작게 (확보 보드의 작은 카드용 -- 포스터는 아래 안내에 배율을 따로 적는다)
-  function feeTable(t, withRange) {
-    return '<table class="fee-table"><thead><tr><th>구분</th><th>요금</th></tr></thead><tbody>'
-      + '<tr><td>성공</td><td>' + fmtWon(t.reward) + (withRange && multsVary() ? '<small>층별 ' + rewardRangePlain(t) + '</small>' : '') + '</td></tr>'
-      + '<tr><td>실패</td><td>' + fmtWon(-t.penalty) + '</td></tr></tbody></table>';
-  }
-  function feeName(catIdx, withUp) {
-    return '<div class="fee-name"><span class="ico">' + CAT_ICONS[catIdx] + '</span>' + esc(TYPES[catIdx].name)
-      + (withUp ? '<span class="up">' + FEE_UP_SVG + '</span>' : '') + '</div>';
-  }
-  function renderFeeMini(catIdx) {
-    return '<div class="fee-mini fee-t' + catIdx + '">' + feeName(catIdx, false) + feeTable(TYPES[catIdx], true) + '</div>';
-  }
-  function renderFeePoster() {
-    var html = '<div class="fee-poster"><div class="fee-head"><span class="fee-title">택배 요금표</span>' + FEE_TRUCK_SVG + '</div><div class="fee-road"></div>';
-    html += '<div class="fee-cards">' + TYPES.map(function (t, i) {
-      return '<div class="fee-card fee-t' + i + '">' + feeName(i, true) + feeTable(t) + '</div>';
-    }).join('') + '</div>';
-    html += '<div class="fee-foot"><span class="i">i</span><div><ul>';
-    if (multsVary()) {
-      html += '<li>성공 요금은 <b>표의 요금 x 층 배율</b>이에요.<div class="fee-mults">'
-        + FLOORS.map(function (f, i) { var m = floorMult(i); return '<span class="' + (m > 1 ? 'hi' : (m < 1 ? 'lo' : '')) + '">' + esc(f) + ' ' + multLabel(i) + '</span>'; }).join('')
-        + '</div></li>';
-    }
-    html += '<li>전반에 획득한 송장은 전반에, 후반에 획득한 송장은 후반에 보내야 합니다.</li>'
-      + '<li>모든 택배는 지정된 조건을 충족해야 정상적으로 처리됩니다.</li></ul></div></div></div>';
-    return html;
-  }
-  // 확정 층수 택배를 제외한 나머지 종류는 칸 번호 대신 A/B/C/D/E로 표기한다 (사용자 요청, 2026-08-27: 대문자로 변경).
+  // 지정 초밥을 제외한 나머지 종류는 칸 번호 대신 A/B/C/D/E로 표기한다 (사용자 요청, 2026-08-27: 대문자로 변경).
   var CELL_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
   var ROOM = (new URLSearchParams(window.location.search).get("room") || "").trim().toUpperCase();
@@ -791,6 +1054,10 @@ APP_JS_TEMPLATE = r"""
 
   var state = null; // populated by the first "state" message from the server
   var local = { openCellId: null, toast: null, pending: {} };
+  // 5초 이상 아무것도 안 하면(평가 G3) 눌러야 할 버튼이 깜빡인다: 마지막 조작 시각. 클릭/키 입력과 게임 종료 때 갱신된다.
+  var lastAct = Date.now();
+  var introSeen = {};
+  var INTRO_MS = 10000;
   // 방금 완료 신호를 보낸 칸(서버 브로드캐스트가 오기 전) -- 종류 버튼이 같은 칸을 또 골라 중복 완료로 무시되는 걸 막는다.
   function markPending(id) { local.pending[id] = Date.now(); }
   var wsConnected = false;
@@ -810,15 +1077,15 @@ APP_JS_TEMPLATE = r"""
     var t = TYPES[inv.catIdx];
     if (inv.stolen) return -t.penalty;
     if (inv.deliveredRound === null) return -t.penalty;
-    var base = invReward(inv); // 2026-10-13: 층 배율 적용 금액 (game-room.js scoreInvoice와 동일)
+    var base = t.reward;
     return inv.deliveredWasPriority ? base * PRIORITY_MULTIPLIER : base;
   }
   function resultLabel(inv) {
-    // 2026-08-27: 도난당한 송장도 "미배송"으로 통합 표기 (사용자 요청 -- 배송이 안 됐으니까).
+    // 2026-08-27: 도난당한 주문표도 "미서빙"으로 통합 표기 (사용자 요청 -- 서빙이 안 됐으니까).
     // 페널티/소진 로직(scoreInvoice, deliveredRound 처리)은 그대로, 영구 라벨만 통일했다. 그 라운드의
-    // 실시간 안내(renderDeliveredCallout의 "택배도둑에게 도난당했어요!")는 별개로 남겨둠.
-    if (inv.stolen) return "미배송";
-    return inv.deliveredRound === null ? "미배송" : "성공";
+    // 실시간 안내(renderDeliveredCallout의 "초밥도둑에게 도난당했어요!")는 별개로 남겨둠.
+    if (inv.stolen) return "미서빙";
+    return inv.deliveredRound === null ? "미서빙" : "성공";
   }
   function totalScore(seat, st) {
     return st.players[seat].invoices.reduce(function (sum, inv) { return sum + scoreInvoice(inv); }, 0);
@@ -836,7 +1103,22 @@ APP_JS_TEMPLATE = r"""
   var ws = null;
   function wsUrl() {
     var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return proto + "//" + window.location.host + "/ws?room=" + encodeURIComponent(ROOM) + (RAIL ? "&role=rail" : "");
+    return proto + "//" + window.location.host + "/ws?room=" + encodeURIComponent(ROOM) + (RAIL ? "&role=rail" : (MAIN ? "&role=main" : ""));
+  }
+  // 상태가 바뀔 때의 효과음: 벨트가 다른 접시로 움직이면 그 접시 음(둘 다 듣는다), 라운드 결과가 나오면 내 서빙 결과음, 엿보기 도착음.
+  function sfxOnState(prev, st) {
+    try {
+      if (!prev || !st || st.phase !== "elevator" || prev.phase !== "elevator") return;
+      var a = prev.elevator, b = st.elevator;
+      if (a.round === b.round && a.floorIdx !== b.floorIdx) SFX.plate(b.floorIdx);
+      if (a.state !== "result" && b.state === "result" && !MAIN && !RAIL) {
+        var seat = mySeat(), last = b.log && b.log[b.log.length - 1];
+        if (seat && last && last.round === b.round) {
+          var mine = null; last.delivered.forEach(function (d) { if (d.seat === seat) mine = d; });
+          if (mine) { if (mine.stolen) SFX.bad(); else SFX.ok(); }
+        }
+      }
+    } catch (e) { /* 효과음 실패는 게임에 영향 없음 */ }
   }
   function connectWS() {
     if (!ROOM) return;
@@ -856,7 +1138,9 @@ APP_JS_TEMPLATE = r"""
         // the elevator's floorIdx is now real, server-authoritative position -- every click (from
         // either player) already moves it for real before this broadcast goes out, so a plain
         // re-render is enough to show the car actually stepping; no client-side simulation needed.
+        var prevState = state;
         state = msg.state;
+        sfxOnState(prevState, state);
         if (typeof msg.now === "number") clockOffset = msg.now - Date.now();
         if (msg.rail) railInfo = msg.rail;
         // 2026-08-27: "pick-courier"는 좌석 번호를 클라이언트가 미리 못 정하므로(서버가 정해서
@@ -870,7 +1154,8 @@ APP_JS_TEMPLATE = r"""
         syncMiniGame();
       }
       else if (msg.type === "error") { handleWsError(msg); }
-      else if (msg.type === "open-game") { onRailOpenGame(msg.cellId); }
+      else if (msg.type === "rail-result") { railResult(msg); }
+      else if (msg.type === "peek-reveal") { onPeekReveal(msg); }
     };
     ws.onclose = function () { wsConnected = false; renderConnBanner(); setTimeout(connectWS, 1200); };
     ws.onerror = function () {};
@@ -882,12 +1167,11 @@ APP_JS_TEMPLATE = r"""
   function handleWsError(msg) {
     if (msg.code === "seat_taken") {
       try { sessionStorage.removeItem("bp-seat"); } catch (e) {}
-      showToast(seatName(msg.seat, state) + "는 이미 다른 사람이 선택했어요. 다시 골라주세요.");
+      showToast(seatName(msg.seat, state) + " 자리는 이미 다른 사람이 앉았어요.");
       render();
     }
-    else if (msg.code === "courier_taken") {
-      showToast("바로 직전에 상대방이 그 택배사를 먼저 골랐어요. 다른 곳을 골라주세요.");
-      render();
+    else if (msg.code === "name_taken") {
+      showToast("상대 팀과 같은 이름은 쓸 수 없어요. 다른 이름을 지어주세요.");
     }
     else if (msg.code === "room_full") {
       showToast("이 방은 이미 두 명이 다 찼어요.");
@@ -914,29 +1198,66 @@ APP_JS_TEMPLATE = r"""
   // Combines a floor + room slot into a single realistic-looking building room code, e.g.
   // "401호" (4F, slot 1) or "B03호" (B1, slot 3) -- floorIdx/room are still tracked separately
   // server-side (floorIdx drives elevator delivery-matching), this is purely a display format.
-  function floorDigitLabel(floorIdx) {
-    var f = FLOORS[floorIdx];
-    return f === "B1" ? "B" : f.replace("F", "");
+  // 2026-10-12 (사용자: "접시 색만 중요해. 몇번인지는 알릴 필요 없음"): 번호는 더 이상 화면에 안 낸다. 서빙은 접시 색으로만 정해진다
+  //   (inv.room은 서버에 남아 있지만 표시 전용 값이라 아무 데도 쓰지 않는다). 함수 이름은 그대로 두고 "접시 색"만 돌려준다.
+  function roomCode(floorIdx) {
+    return FLOORS[floorIdx] + " 접시";
   }
-  function roomCode(floorIdx, room) {
-    return floorDigitLabel(floorIdx) + "0" + room + "호";
+  // 접시 그림(색 동그라미) + "초록 접시" -- 주문표 목록/결과 표용 HTML.
+  function plateTag(floorIdx) {
+    return '<span class="plate-tag"><i class="plate-dot" style="--p:' + PLATE_HEX[floorIdx] + '"></i>' + esc(roomCode(floorIdx)) + '</span>';
   }
+  // 제작된 초밥의 구체적인 종류 (inv.sushi = TYPES[catIdx].sushi 중 하나, 예: "salmon" -> "연어"). 이름/그림은 minigames.js의 SUSHI.
+  function sushiShort(key) { return key && window.MiniGames && MiniGames.SUSHI[key] ? MiniGames.SUSHI[key] : ""; }
+  function sushiIcon(key) {
+    if (key && SUSHI_IMG[key]) return '<span class="inv-sushi"><img class="inv-sushi-img" alt="" src="' + SUSHI_IMG[key] + '"></span>';
+    return key && window.MiniGames && MiniGames.SUSHI[key] ? '<span class="inv-sushi">' + MiniGames.sushiSvg(key, "inv-sushi-svg") + '</span>' : '';
+  }
+  function invTitle(inv) {
+    var t = TYPES[inv.catIdx], sn = sushiShort(inv.sushi);
+    return sn ? esc(sn) + ' 초밥 <small class="inv-type">' + fmtWon(t.reward) + '</small>' : esc(t.name) + ' <small class="inv-type">' + fmtWon(t.reward) + '</small>';
+  }
+  function chipText(inv) { var sn = sushiShort(inv.sushi); return (sn ? sn + ' · ' : '') + FLOORS[inv.floorIdx]; }
+  function findInvoiceById(id) {
+    if (!state || !state.players) return null;
+    var out = null;
+    ["1", "2"].forEach(function (sn) { (state.players[sn].invoices || []).forEach(function (v) { if (v.id === id) out = v; }); });
+    return out;
+  }
+  // 칸을 열 때마다 이번에 만들 초밥을 클라이언트가 무작위로 고른다 (TYPES[].sushi 중). 서버는 그 키가 목록에 있는지만 검증해 주문표에 붙인다.
+  var sushiPicks = {};
+  function newSushiPick(cellId) {
+    var m = cellMeta(cellId, state.half), pool = (m && TYPES[m.catIdx].sushi) || [];
+    sushiPicks[cellId] = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    return sushiPicks[cellId];
+  }
+  function sushiFor(cellId) { return sushiPicks[cellId] || newSushiPick(cellId); }
 
-  // ---------- 택배사(courier) 표시 이름 -- 2026-08-27 신설 ----------
-  // "플레이어 1/2" 대신 화면 곳곳에서 좌석을 부를 때 이걸 쓴다. 아직 그 좌석이 택배사를 안 골랐으면
+  // ---------- 셰프(courier) 표시 이름 -- 2026-08-27 신설 ----------
+  // "플레이어 1/2" 대신 화면 곳곳에서 좌석을 부를 때 이걸 쓴다. 아직 그 좌석이 셰프를 안 골랐으면
   // (게임 시작 전 극히 짧은 순간, 혹은 옛 상태 호환) "플레이어 N"으로 그냥 폴백한다.
   function courierByKey(key) {
     for (var i = 0; i < COURIERS.length; i++) if (COURIERS[i].key === key) return COURIERS[i];
     return null;
   }
+  // 2026-10-12: 팀 이름은 플레이어가 직접 짓는다(st.names, 서버가 정리·저장). 비어 있으면 자리의 기본 이름(빨강팀/남색팀).
+  var NAME_MAX = 8;
+  function defaultName(seat) { var c = COURIERS[Number(seat) - 1]; return c ? c.name : ("플레이어 " + seat); }
   function seatName(seat, st) {
-    var key = st && st.courierPick && st.courierPick[seat];
-    var c = key ? courierByKey(key) : null;
-    return c ? c.name : ("플레이어 " + seat);
+    var n = st && st.names && st.names[seat];
+    return n ? n : defaultName(seat);
+  }
+  // 이름 입력칸: render()가 #app을 통째로 갈아끼우므로 입력 중이던 값/커서/포커스를 보존한다. 한글 조합 중에는 렌더를 미룬다.
+  var nameDraft = null;          // 입장 전 입력 중인 이름 (입장 버튼 누르면 서버로 보낸다)
+  var nameComposing = false, renderPending = false;
+  try { nameDraft = localStorage.getItem("bp-name"); } catch (e) {}
+  function saveNameDraft(v) { nameDraft = v; try { localStorage.setItem("bp-name", v); } catch (e) {} }
+  function nameInput(id, value, ph) {
+    return '<input id="' + id + '" class="name-in" type="text" maxlength="' + NAME_MAX + '" autocomplete="off" spellcheck="false" value="' + esc(value || "") + '" placeholder="' + esc(ph) + '" aria-label="팀 이름">';
   }
 
-  // 시작(택배사 선택) 화면 뒤에 옅게 흩뿌리는 장식용 택배박스 라인아트 -- 2026-08-27 신설
-  // (사용자 요청: "처음 시작 페이지에 택배박스 모양이 좀 그려져 있으면 좋을 것 같아"). 순수 장식이라
+  // 시작(셰프 선택) 화면 뒤에 옅게 흩뿌리는 장식용 초밥상자 라인아트 -- 2026-08-27 신설
+  // (사용자 요청: "처음 시작 페이지에 초밥상자 모양이 좀 그려져 있으면 좋을 것 같아"). 순수 장식이라
   // 클릭 불가(pointer-events:none)이고, 위치/크기/회전/색만 다른 같은 SVG 하나를 4번 찍는다.
   function renderLobbyBoxes() {
     var BOX_SVG = '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M6 14 20 8 34 14 34 30 20 36 6 30Z"></path><path d="M6 14 20 20 34 14M20 20V36"></path></svg>';
@@ -947,64 +1268,72 @@ APP_JS_TEMPLATE = r"""
       + deco('top:56%;right:-5%;width:92px;height:92px;color:var(--danger);opacity:0.12;transform:rotate(-9deg);');
   }
 
+  // 2026-10-12: 가게 고르기를 없애고 팀을 입장 순서로 고정했다 -- 먼저 들어온 사람이 초밥왕, 다음 사람이 스시헌터.
+  function teamCard(i) {
+    var c = COURIERS[i], sn = String(i + 1);
+    var owner = state && state.seatOwners && state.seatOwners[sn];
+    var mine = owner && owner === CLIENT_ID;
+    return '<div class="team-card team-' + c.key + (owner ? ' is-in' : '') + (mine ? ' is-mine' : '') + '" style="--team:' + c.color + '">'
+      + '<span class="team-icon">' + COURIER_ICONS[i] + '</span>'
+      + '<b class="team-name">' + esc(seatName(sn, state)) + '</b>'
+      + '<span class="team-state">' + (mine ? '내 자리' : (owner ? '입장 완료' : '대기 중')) + '</span></div>';
+  }
+  // 시작 화면 배경 일러스트(코드로 그림). 사진 같은 질감 없이 평면 도형 + 팀 색 + 회전 레일만으로 구성한다.
+  var CROWN_SVG = '<svg viewBox="0 0 24 20" aria-hidden="true"><path d="M2 5l5.5 5L12 2l4.5 8L22 5l-2 13H4z"/></svg>';
+  var FISH_SVG = '<svg viewBox="0 0 26 14" aria-hidden="true"><path d="M2 7c0-3.4 3.6-5.6 8-5.6 3.2 0 5.8 1.2 7.2 3.2L24 1.6v10.8l-6.8-3.2C15.8 11.2 13.2 12.6 10 12.6 5.6 12.6 2 10.4 2 7z"/></svg>';
+  function splashArt(st) {
+    var keys = ["egg", "salmon", "whitefish", "eel"], cols = ["#d93a2b", "#1f3f87", "#f2b233", "#2f9e6a"], plates = "", i;
+    for (i = 0; i < 16; i++) {
+      var k = keys[i % 4];
+      plates += '<span class="sa-plate" style="--pc:' + cols[(i * 3) % 4] + '">' + (window.MiniGames && MiniGames.SUSHI[k] ? MiniGames.sushiSvg(k, "sa-sushi") : '') + '</span>';
+    }
+    return '<div class="splash-art" aria-hidden="true">'
+      + '<div class="sa-half sa-king"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign' + (Array.from(seatName("1", st)).length > 5 ? ' sa-long' : '') + '">' + CROWN_SVG + esc(seatName("1", st)) + '</div></div>'
+      + '<div class="sa-half sa-hunter"><div class="sa-noren"><i></i><i></i><i></i><i></i></div><div class="sa-sign' + (Array.from(seatName("2", st)).length > 5 ? ' sa-long' : '') + '">' + esc(seatName("2", st)) + FISH_SVG + '</div></div>'
+      + '<div class="sa-vs">VS</div>'
+      + '<div class="sa-belt"><div class="sa-track">' + plates + plates + '</div></div></div>';
+  }
   function renderSeatPicker() {
-    var picks = (state && state.courierPick) || { "1": null, "2": null };
-    var myKey = null;
-    ["1", "2"].forEach(function (s) { if (state && state.seatOwners[s] === CLIENT_ID) myKey = picks[s]; });
-    var takenKeys = {};
-    ["1", "2"].forEach(function (s) {
-      if (picks[s] && state.seatOwners[s] !== CLIENT_ID) takenKeys[picks[s]] = true;
-    });
     var roomFull = state && state.seatOwners["1"] && state.seatOwners["2"]
       && state.seatOwners["1"] !== CLIENT_ID && state.seatOwners["2"] !== CLIENT_ID;
-    function courierBtn(c, i) {
-      var taken = !!takenKeys[c.key];
-      var mine = myKey === c.key;
-      var disabled = taken || (roomFull && !mine);
-      return '<button class="courier-btn' + (taken ? ' taken' : '') + (mine ? ' mine' : '') + '"'
-        + ' style="--courier-color:' + c.color + '" data-action="pick-courier" data-courier="' + c.key + '"'
-        + (disabled ? ' disabled' : '') + '>'
-        + '<span class="courier-icon">' + COURIER_ICONS[i] + '</span>'
-        + '<span class="courier-name">' + esc(c.name) + '</span>'
-        + (taken ? '<span class="taken-note">이미 선택됨</span>' : (mine ? '<span class="taken-note">내 선택</span>' : ''))
-        + '</button>';
-    }
-    return '<div class="center-screen">' + cartOpen('cart--pick') + '<div class="picker-scene">'
-      + renderLobbyBoxes()
-      + '<div class="seat-pick card">'
-      + '<h2>어느 택배사 직원인가요?</h2>'
-      + '<p>이 기기에서 플레이할 가상 택배사를 하나 골라주세요. 상대방이 먼저 고른 곳은 고를 수 없어요.</p>'
-      + '<div class="courier-options">' + COURIERS.map(courierBtn).join('') + '</div>'
-      + '<div class="room-share">이 방 코드: <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
-      + '</div></div>' + cartClose() + '</div>';
+    var nextSeat = state && !state.seatOwners["1"] ? "1" : "2";
+    var nextTeam = COURIERS[Number(nextSeat) - 1];
+    // 2026-10-12: 게임 시작 화면 = 콘셉트 이미지가 화면 전체(배경). 그림 위에 입장 패널만 얹는다 (카드 안에 일러스트를 끼우는 구조가 아님).
+    return '<div class="splash">' + splashArt(state) + '<div class="splash-panel">'
+      + '<div class="team-row">' + teamCard(0) + '<span class="vs-badge">VS</span>' + teamCard(1) + '</div>'
+      + (roomFull ? '' : '<label class="name-row"><span>우리 팀 이름</span>' + nameInput("name-join", nameDraft, "비우면 " + nextTeam.name) + '</label>')
+      + '<button class="btn primary big join-btn" data-action="join-team"' + (roomFull ? ' disabled' : '') + '>'
+      + (roomFull ? '방이 가득 찼어요' : '입장하기') + '</button>'
+      + '<div class="room-share">팀 이름은 입장 전·대기실에서 바꿀 수 있어요(최대 ' + NAME_MAX + '글자) · 방 코드 <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
+      + '<div class="screen-links">초밥 확보(레일)·관전(메인)은 다른 화면에서: <a href="/rail?room=' + encodeURIComponent(ROOM) + '" target="_blank" rel="noopener">레일 화면 열기</a><a href="/?room=' + encodeURIComponent(ROOM) + '&view=main" target="_blank" rel="noopener">메인 화면 열기</a></div>'
+      + '</div></div>';
   }
 
   function renderTopbar(st, seat) {
-    var phaseLabel = { lobby: "대기 중", secure: "택배 확보", elevator: "엘리베이터", halftime: "하프타임", end: "결과" }[st.phase] || "";
+    var phaseLabel = { lobby: "대기 중", secure: "초밥 제작", elevator: "회전 벨트", halftime: "하프타임", end: "결과" }[st.phase] || "";
     if (st.half && (st.phase === "secure" || st.phase === "elevator")) {
       phaseLabel += " · " + (st.half === 1 ? "전반" : "후반");
     }
-    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>택배 배송 게임 — ' + phaseLabel + '</h1></div>'
+    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live</span><h1>초밥 서빙 게임 — ' + phaseLabel + '</h1></div>'
       + '<div class="right"><span class="room-chip">방 ' + esc(ROOM) + '</span>'
-      + '<span class="seat-badge">' + (seat ? ("내 좌석 · " + seatName(seat, st)) : "택배사 미선택") + '</span></div></div>';
+      + '<span class="seat-badge">' + (seat ? ("내 팀 · " + seatName(seat, st)) : "입장 전") + '</span></div></div>';
   }
 
   function renderLobby(st, seat) {
     var otherSeat = seat === "1" ? "2" : (seat === "2" ? "1" : null);
     var mine = seat ? !!st.ready[seat] : false;
     var other = otherSeat ? !!st.ready[otherSeat] : false;
-    return '<main class="stage"><div class="center-screen"><div class="cart-lobby">' + cartOpen('cart--lobby') + '<div class="lobby-box card">'
-      + '<h2>택배 배송 게임</h2>'
-      + '<p>두 사람 모두 이 페이지를 열고 좌석을 선택한 뒤, 각자 자기 키보드의 <strong>스페이스바</strong>를 누르면 준비 완료예요.<br>'
-      + (RACE_MODE
-        ? '둘 다 준비되면 3분 동안 <b>택배 확보 레이스</b>: 레일에 택배 3개가 올라오면 <b>송장 붙이기 → 택배 쌓기 → 투입</b>! 먼저 끝낸 사람이 먼저 고르고, 늦은 사람은 남은 것 중에서 골라요. 고르면 내 자리에 송장(층·금액)이 나와요. 그다음 엘리베이터 라운드(총 ' + ELEVATOR_ROUNDS + '라운드)로 배송해요.</p>'
-        : '둘 다 준비되면 자동으로 시작하고, 최대 3분 동안(택배가 다 떨어지면 일찍 끝나요) 택배 확보 미니게임을 진행한 뒤 자동으로 엘리베이터 라운드(총 ' + ELEVATOR_ROUNDS + '라운드)로 넘어가요.</p>')
+    return '<main class="stage"><div class="center-screen"><div class="lobby-box card has-howto">'
+      + '<h2>' + esc(seatName("1", st)) + ' VS ' + esc(seatName("2", st)) + '</h2>'
+      + (seat ? '<label class="name-row"><span>우리 팀 이름</span>' + nameInput("name-lobby", st.names && st.names[seat], defaultName(seat)) + '</label>' : '')
+      + '<div class="howto-title">게임 방법</div>' + howtoHtml()
+      + '<p class="rule-note">초밥마다 판매가가 달라요(계란 1,000 · 흰살생선 2,000 · 연어 1,500 · 장어 3,000). 만든 초밥을 라운드 안에 못 팔면 <b>원재료값</b>만큼 점수가 깎여요.</p>'
       + '<div class="ready-row">'
       + '<span class="ready-chip' + (mine ? ' is-ready' : '') + '">나 · ' + (seat ? seatName(seat, st) : "-") + (mine ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
       + '<span class="ready-chip' + (other ? ' is-ready' : '') + '">' + (otherSeat ? seatName(otherSeat, st) : "-") + (other ? ' · 준비 완료' : ' · 대기 중') + '</span>'
       + '</div>'
-      + '<div class="space-hint">Space</div>'
-      + '</div>' + cartClose() + renderFeePoster() + '</div></div></main>';
+      + spaceHint('준비')
+      + '</div></div></main>';
   }
 
   // ---------- 공유 보드 헬퍼 (2026-10-06) ----------
@@ -1018,215 +1347,20 @@ APP_JS_TEMPLATE = r"""
     for (var i = 0; i < b.length; i++) if (b[i].catIdx === catIdx && !b[i].taken) n++;
     return n;
   }
-  // 이 칸을 지금 눌러서 확보할 수 있는가. 확정 층수 택배는 그 층(칸)이 비어 있어야 하고, 나머지 종류는 같은 종류
+  // 이 칸을 지금 눌러서 제작할 수 있는가. 지정 초밥은 그 접시(칸)이 비어 있어야 하고, 나머지 종류는 같은 종류
   // 빈 칸이 하나라도 있으면 된다(서버가 대신 빈 칸을 준다). 반환: null이면 가능, 아니면 사유 문구.
+  // 2026-10-12 레일 모드: 레일 화면이 연결돼 있으면 손질(회 만들기)은 레일에서, 자리에서는 재료함의 회로 퍼즐 조립만 한다.
+  function railMode() { return !MAIN && !RAIL && railInfo.count > 0; }
+  function stockOf(st, seat, catIdx) { return (st && st.stock && st.stock[seat] && st.stock[seat][catIdx]) || 0; }
+  function prepLeft(st, catIdx) { return boardLeft(st, catIdx) - stockOf(st, "1", catIdx) - stockOf(st, "2", catIdx); } // 아직 손질로 선점 가능한 공급량
+  var PREP_LABEL = { egg: "휘젓기", whitefish: "칼질", eel: "굽기", salmon: "뼈 발라내기" };
   function cellBlockedReason(st, cellId) {
-    if (!st || st.phase !== "secure") return "확보 시간이 끝났어요";
+    if (!st || st.phase !== "secure") return "제작 시간이 끝났어요";
     var c = boardCell(st, cellId);
-    if (!c) return "확보 시간이 끝났어요";
+    if (!c) return "제작 시간이 끝났어요";
     var t = TYPES[c.catIdx];
-    if (t.fixedFloor) return c.taken ? "다른 사람이 먼저 확보한 층이에요" : null;
-    return boardLeft(st, c.catIdx) > 0 ? null : "이 종류 택배가 모두 소진됐어요";
-  }
-
-  // ---------- 2026-10-14 확보 단계 레이스 라운드 화면 ----------
-  // 흐름: 가려진 택배 2개 -> 둘이 동시에 송장 붙이기(#mg-layer의 디지털 미니게임) -> 실물 우봉고(같은 문제, 이 화면에 그림 + 투입 버튼)
-  //   -> 먼저 투입한 사람이 공개된 2개 중 하나를 고름(← / → 또는 클릭, RACE_PICK_MS) -> 늦은 사람은 RACE_SECOND_MS 안에 투입하면 남은 것.
-  // 상대의 진행 단계(송장/우봉고/투입)는 보인다 -- "같이 겨룬다"는 느낌. 상대 송장 내용은 여전히 안 보인다.
-  function raceOther(seat) { return seat === "1" ? "2" : "1"; }
-  // 2026-10-14: 라운드 첫 게임은 RACE_GAME_POOL 중 무작위(r.game). 단계 이름 "sticker"는 그대로지만 화면엔 그 게임 이름을 쓴다.
-  function raceGameKind(r) { return (r && r.game && MiniGames.KINDS[r.game]) ? r.game : "sticker"; }
-  function raceGameName(r) { return MiniGames.KINDS[raceGameKind(r)].name; }
-  // 택배 쌓기 문제는 레일 화면(관전)에 하나만 -- 누군가 첫 게임을 끝낸 순간부터 결과 공개 전까지
-  function racePuzzleOpen(r) {
-    if (r.status === "reveal") return false;
-    return !!r.first || ["1", "2"].some(function (s) { return r.stage[s] === "ubongo" || r.stage[s] === "done"; });
-  }
-  function raceCount(endsAt, prefix, suffix) {
-    return '<b class="race-count" data-ends="' + endsAt + '" data-prefix="' + esc(prefix || '') + '" data-suffix="' + esc(suffix || '') + '">'
-      + (prefix || '') + Math.max(0, Math.ceil((endsAt - nowMs()) / 1000)) + (suffix || '') + '</b>';
-  }
-  var RACE_KEYS = ["←", "↑", "→"]; // 택배 3개 고르기 키 (현장 물리 버튼과 같은 배치)
-  function raceCanPick(r, seat) {
-    if (!seat || r.status !== "picking" || r.picks[seat] !== null) return false;
-    if (r.first === seat) return true;
-    return r.picks[r.first] !== null && r.stage[seat] === "done";
-  }
-  // 택배는 종류만 보인다. 층·금액은 고른 사람 자기 자리 송장(raceSlip)에만.
-  function raceParcel(st, r, it, i, seat) {
-    var owner = r.picks["1"] === i ? "1" : (r.picks["2"] === i ? "2" : null);
-    var left = r.status === "reveal" && !owner;
-    var canPick = !owner && raceCanPick(r, seat);
-    var t = TYPES[it.catIdx];
-    var cls = 'race-parcel is-open fee-t' + it.catIdx + (owner ? ' is-owned' : '') + (left ? ' is-gone' : '') + (canPick ? ' can-pick' : '') + (owner && owner === seat ? ' is-mine' : '');
-    var inner = '<span class="rp-ico">' + CAT_ICONS[it.catIdx] + '</span><span class="rp-name">' + esc(t.name) + '</span>'
-      + '<span class="rp-amt">' + (multsVary() ? '기본 ' : '') + fmtWon(t.reward) + '</span><span class="rp-hint">층은 송장에서</span>';
-    if (owner) inner += '<span class="rp-owner seat-' + owner + '">' + esc(seatName(owner, st)) + ' 획득</span>';
-    else if (left) inner += '<span class="rp-owner gone">레일로 돌아감</span>';
-    else if (canPick) inner += '<span class="rp-owner pick">' + (RACE_KEYS[i] || '') + ' 고르기</span>';
-    return canPick ? '<button class="' + cls + '" data-action="race-pick" data-idx="' + i + '">' + inner + '</button>'
-      : '<div class="' + cls + '">' + inner + '</div>';
-  }
-  // 자기 자리에서 나오는 송장 (고른 사람 화면에만)
-  function raceSlip(st, r, seat) {
-    var id = r.invoiceIds && r.invoiceIds[seat];
-    if (!id) return '';
-    var inv = null;
-    st.players[seat].invoices.forEach(function (v) { if (v.id === id) inv = v; });
-    if (!inv) return '';
-    var t = TYPES[inv.catIdx];
-    // 출력 애니메이션은 처음 한 번만 (상태가 올 때마다 다시 그리므로, 매번 붙이면 계속 처음부터 다시 나온다)
-    var isNew = local.raceSlipSeen !== id;
-    local.raceSlipSeen = id;
-    return '<div class="race-slip fee-t' + inv.catIdx + (isNew ? ' is-new' : '') + '"><div class="rs-bar">송장 출력</div>'
-      + '<div class="rs-name"><span class="rp-ico">' + CAT_ICONS[inv.catIdx] + '</span>' + esc(t.name) + '</div>'
-      + '<div class="rs-room">' + esc(roomCode(inv.floorIdx, inv.room)) + '</div>'
-      + '<div class="rs-floor">' + esc(FLOORS[inv.floorIdx]) + (floorMult(inv.floorIdx) !== 1 ? ' <small>' + multLabel(inv.floorIdx) + '</small>' : '') + '</div>'
-      + '<div class="rs-amt">' + fmtWon(invReward(inv)) + '</div>'
-      + '<div class="rs-code">||| ||||| || |||| ||| |||||</div></div>';
-  }
-  function raceLane(st, r, s, isMe) {
-    var stg = r.stage[s];
-    var steps = [["sticker", raceGameName(r)], ["ubongo", "택배 쌓기"], ["done", "투입"]];
-    var idx = stg === "sticker" ? 0 : (stg === "ubongo" ? 1 : (stg === "done" ? 2 : -1));
-    var html = '<div class="race-lane' + (isMe ? ' me' : '') + (stg === "out" ? ' is-out' : '') + '"><span class="rl-name">' + (isMe ? '나 · ' : '') + esc(seatName(s, st))
-      + (r.first === s ? ' <em>1등</em>' : '') + '</span><span class="rl-steps">';
-    steps.forEach(function (sp, k) {
-      html += '<span class="rl-step' + (k < idx || (k === 2 && idx === 2) ? ' done' : '') + (k === idx && idx < 2 ? ' now' : '') + '">' + sp[1] + '</span>';
-      if (k < 2) html += '<i class="rl-arrow">›</i>';
-    });
-    html += '</span>' + (stg === "out" ? '<span class="rl-out">이번 라운드 탈락</span>' : '') + '</div>';
-    return html;
-  }
-  function raceMessage(st, r, seat) {
-    if (r.status === "reveal") {
-      var parts = ["1", "2"].map(function (s) {
-        var i = r.picks[s];
-        return esc(seatName(s, st)) + ' · ' + (i === null ? '못 가져감' : esc(TYPES[r.pair[i].catIdx].name));
-      });
-      return '<div class="race-msg reveal">' + parts.join('<span class="sep">|</span>') + '</div>';
-    }
-    var f = r.first;
-    if (!seat) { // 관전(레일 화면/메인 모니터)
-      if (r.status === "picking") {
-        if (r.picks[f] === null) return '<div class="race-msg hot">' + esc(seatName(f, st)) + ' 먼저 투입! 고르는 중' + (r.pickEndsAt ? ' ' + raceCount(r.pickEndsAt, '', '초') : '') + '</div>';
-        var o = raceOther(f);
-        if (r.stage[o] === "done") return '<div class="race-msg hot">' + esc(seatName(o, st)) + ' 남은 택배 고르는 중</div>';
-        return '<div class="race-msg hot">' + esc(seatName(o, st)) + ' 남은 택배를 노린다! ' + raceCount(r.secondEndsAt, '', '초') + '</div>';
-      }
-      return '<div class="race-msg">' + esc(raceGameName(r)) + ' → 택배 쌓기 → 투입! 먼저 끝낸 사람이 먼저 골라요</div>';
-    }
-    var me = r.stage[seat];
-    if (r.status === "picking") {
-      if (raceCanPick(r, seat)) {
-        var ends = f === seat ? r.pickEndsAt : r.secondPickEndsAt; // 자동 선택이 꺼져 있으면(기본) 마감 없음 -- 고를 때까지 기다린다
-        return '<div class="race-msg hot">' + (f === seat ? '먼저 끝냈어요! ' : '남은 택배 중 ') + '<b>← ↑ →</b> 로 고르세요' + (ends ? ' ' + raceCount(ends, '', '초') + ' <small>안 고르면 무작위</small>' : '') + '</div>';
-      }
-      if (f === seat) {
-        if (r.stage[raceOther(seat)] === "done") return '<div class="race-msg">상대가 남은 택배를 고르는 중</div>';
-        return '<div class="race-msg">상대가 남은 택배를 노리는 중 ' + raceCount(r.secondEndsAt, '', '초') + '</div>';
-      }
-      if (me === "done") return '<div class="race-msg">상대가 고르는 중이에요. 다음은 내 차례!</div>';
-      if (me === "out") return '<div class="race-msg">이번 라운드는 탈락이에요</div>';
-      return '<div class="race-msg hot">상대가 먼저 끝냈어요! ' + raceCount(r.secondEndsAt, '', '초') + ' 안에 투입하면 남은 택배 중 골라요</div>';
-    }
-    if (me === "sticker") return '<div class="race-msg">' + esc(raceGameName(r)) + '! 끝나면 바로 택배 쌓기예요</div>';
-    if (me === "ubongo") return '<div class="race-msg hot"><b>레일 화면</b>의 문제를 실물 조각으로 <b>택배 쌓기</b> → <b>투입</b> (Space)</div>';
-    if (me === "out") return '<div class="race-msg">이번 라운드는 포기했어요. 다음 라운드를 기다려요</div>';
-    return '<div class="race-msg">투입 완료!</div>';
-  }
-  // seat가 null이면 관전용(레일 화면/메인 모니터): 고르기 버튼·내 우봉고 영역 없음
-  function raceStage(st, seat) {
-    var r = st.race;
-    var html = '<div class="race' + (seat ? '' : ' race--watch') + '" data-race-round="' + r.round + '">';
-    html += '<div class="race-head"><span class="round-pill">레이스 ' + r.round + '</span>'
-      + '<span class="race-clock">확보 남은 시간 <b id="race-secure-clock">' + fmtClock((st.secureEndsAt || nowMs()) - nowMs()) + '</b></span></div>';
-    html += '<div class="race-rail"><span class="race-belt"></span>' + r.pair.map(function (it, i) { return raceParcel(st, r, it, i, seat); }).join('') + '</div>';
-    html += raceMessage(st, r, seat);
-    var order = seat ? [seat, raceOther(seat)] : ["1", "2"];
-    html += '<div class="race-lanes">' + order.map(function (s, k) { return raceLane(st, r, s, !!seat && k === 0); }).join('') + '</div>';
-    html += '</div>';
-    // 관전 화면(레일 화면/메인 모니터): 택배 쌓기 문제를 여기에만 크게 하나 (플레이어 화면엔 그림 없음)
-    if (!seat && racePuzzleOpen(r)) return '<div class="race-watch has-puzzle">' + html + racePuzzle(st, r) + '</div>';
-    return html;
-  }
-  function racePieces(st, r) {
-    var meta = cellMeta(r.puzzleId, st.half);
-    var pt = meta ? TYPES[meta.catIdx] : null;
-    return pt ? perHalf(pt.pieces) : '?';
-  }
-  // 레일 화면용 문제 그림 (하나만)
-  function racePuzzle(st, r) {
-    var meta = cellMeta(r.puzzleId, st.half);
-    return '<div class="race-puzzle"><div class="rp-cap">택배 쌓기 문제 · 조각 ' + racePieces(st, r) + '개 · 두 사람 같은 문제</div>'
-      + (meta && meta.src ? '<img src="' + meta.src + '" alt="택배 쌓기 문제">' : '') + '</div>';
-  }
-  // 플레이어 화면: 문제 그림 없이 안내 + 포기/투입 버튼만
-  function racePad(st, r) {
-    return '<div class="race-pad"><div class="rpad-ico" aria-hidden="true">⇧</div>'
-      + '<div class="rpad-t">레일 화면의 문제를 보세요</div>'
-      + '<div class="rpad-s">실물 조각 ' + racePieces(st, r) + '개로 택배 쌓기 · 두 사람 같은 문제</div>'
-      + '<div class="puzzle-actions"><button class="btn danger" data-action="race-giveup">포기</button>'
-      + '<button class="btn ok" data-action="race-done">투입 (Space)</button></div></div>';
-  }
-  function renderRace(st, seat) {
-    var r = st.race;
-    var me = r.stage[seat];
-    // 2026-10-14 (사용자 요청): 첫 게임·택배 쌓기 중에는 플레이어 화면에 아무것도 없다 (문제는 레일 화면에만).
-    //   택배 3개는 내가 택배 쌓기를 끝내고 투입한 뒤에야 나온다. 화면엔 지금 할 일 한 줄(늦은 사람은 투입 마감)과 작은 투입/포기 버튼만.
-    if (r.status !== "reveal" && (me === "sticker" || me === "ubongo")) {
-      return '<main class="stage stage--race">' + cartOpen('cart--race') + '<div class="race-blank">'
-        + '<div class="race-head"><span class="round-pill">레이스 ' + r.round + '</span>'
-        + '<span class="race-clock">확보 남은 시간 <b id="race-secure-clock">' + fmtClock((st.secureEndsAt || nowMs()) - nowMs()) + '</b></span></div>'
-        + '<div class="rb-center">' + raceMessage(st, r, seat)
-        + (me === "ubongo" ? '<div class="rb-actions"><button class="btn danger" data-action="race-giveup">포기</button><button class="btn ok" data-action="race-done">투입 (Space)</button></div>' : '')
-        + '</div></div>' + cartClose() + '</main>';
-    }
-    var slip = raceSlip(st, r, seat); // 고른 뒤: 자기 자리에서 송장이 나온다
-    var html = '<main class="stage stage--race">' + cartOpen('cart--race') + '<div class="race-wrap' + (slip ? ' has-slip' : '') + '">'
-      + raceStage(st, seat) + slip + '</div>';
-    html += '<div class="race-mine"><span class="rm-label">내 택배</span>' + (st.players[seat].invoices.length
-      ? st.players[seat].invoices.map(function (inv) { return '<span class="my-chip fee-t' + inv.catIdx + '">' + esc(TYPES[inv.catIdx].name) + ' ' + esc(roomCode(inv.floorIdx, inv.room)) + ' ' + fmtWon(invReward(inv)) + '</span>'; }).join('')
-      : '<small>아직 없음</small>') + '</div>';
-    return html + cartClose() + '</main>';
-  }
-  // 송장 붙이기 미니게임(#mg-layer)을 레이스 단계에 맞춰 열고 닫는다. 상태가 바뀔 때마다 호출된다.
-  function raceSync() {
-    var r = state && state.phase === "secure" ? state.race : null;
-    var seat = mySeat();
-    var want = r && seat && r.stage[seat] === "sticker" && r.status !== "reveal";
-    if (want) {
-      if (!mg || !mg.race || mg.round !== r.round || mg.kind !== raceGameKind(r)) openRaceSticker(r);
-      updateRaceStrip();
-    } else if (mg && mg.race) closeMiniGame();
-  }
-  function openRaceSticker(r) {
-    closeMiniGame();
-    var layer = document.getElementById("mg-layer");
-    layer.innerHTML = '<div class="mg-wrap"><div class="mg-clock">레이스 ' + r.round + ' · 확보 시간<b id="mg-clock">--:--</b></div>'
-      + '<div class="race-strip" id="race-strip"></div><div id="mg-host"></div></div>';
-    layer.classList.remove("hidden");
-    var round = r.round;
-    var done = function () { closeMiniGame(); send({ type: "race-step", seat: mySeat(), step: "sticker-done", round: round }); };
-    mg = {
-      race: true, round: round, kind: raceGameKind(r),
-      ctl: MiniGames.start(document.getElementById("mg-host"), {
-        kind: raceGameKind(r), level: perHalf(RACE_STICKER_LEVEL), testHooks: TEST_HOOKS,
-        onDone: done,
-        onCancel: function () { closeMiniGame(); send({ type: "race-step", seat: mySeat(), step: "give-up", round: round }); },
-      }),
-    };
-    if (TEST_HOOKS) window.__mgFinish = function () { if (!mg || !mg.race) return false; done(); return true; };
-    updateMiniClock();
-  }
-  // 송장 붙이기 화면 위쪽 띠: 상대 진행 단계 (게임 화면이 가려도 상대가 어디까지 왔는지 보이게)
-  function updateRaceStrip() {
-    var el = document.getElementById("race-strip");
-    if (!el || !state || !state.race) return;
-    var o = raceOther(mySeat());
-    var stg = state.race.stage[o];
-    el.textContent = seatName(o, state) + ' · ' + (stg === "sticker" ? raceGameName(state.race) + ' 중' : stg === "ubongo" ? '택배 쌓기 중!' : stg === "done" ? '투입 완료!' : '탈락');
-    el.className = 'race-strip' + (stg === "ubongo" || stg === "done" ? ' hot' : '');
+    if (t.fixedFloor) return c.taken ? "다른 사람이 먼저 제작한 접시예요" : null;
+    return boardLeft(st, c.catIdx) > 0 ? null : "이 종류 초밥이 모두 소진됐어요";
   }
 
   function renderBoard(st, seat) {
@@ -1234,15 +1368,15 @@ APP_JS_TEMPLATE = r"""
     var pct = Math.max(0, Math.min(100, (msLeft / SECURE_PHASE_MS) * 100));
     var html = '<main class="stage stage--secure">';
     html += '<div class="side-timer" id="side-timer">'
-      + '<span class="timer-label">택배 확보<br>남은 시간</span>'
+      + '<span class="timer-label">초밥 제작<br>남은 시간</span>'
       + '<span class="timer-num">' + fmtClock(msLeft) + '</span>'
       + '<div class="timer-bar"><i style="width:' + pct + '%"></i></div></div>';
 
-    html += cartOpen('cart--board') + '<div class="card"><div class="board-grid">';
-    // 2026-10-06 레일 화면: 종류마다 한 줄 -- 가운데 레일 위에 택배 상자(남은 개수), 내 자리 쪽에 내 버튼.
+    html += '<div class="card"><div class="board-grid">';
+    // 2026-10-06 레일 화면: 종류마다 한 줄 -- 가운데 레일 위에 초밥 상자(남은 개수), 내 자리 쪽에 내 버튼.
     // 1번 자리는 왼쪽, 2번 자리는 오른쪽. 보드는 두 플레이어가 공유한다(종류별 6개 합계) -- 남은 개수만 같이 보이고
     // 상대 쪽 칸은 비워 둔다. 버튼은 "그 종류의 아직 안 가져간 칸"을 열어 준다(칸끼리 구별이 없어서 서버가 어차피 대체함).
-    // 확정 층수 택배만 층(칸)이 곧 배송 층이라 버튼 대신 층 버튼 6개를 둔다.
+    // 지정 초밥만 접시(칸)이 곧 서빙 접시라 버튼 대신 접시 버튼 6개를 둔다.
     var myInvoices = st.players[seat].invoices;
     var boardById = {};
     st.board.forEach(function (c) { boardById[c.id] = c; });
@@ -1267,51 +1401,50 @@ APP_JS_TEMPLATE = r"""
         mine += '<div class="floor-btns">';
         for (var num = 0; num < t.count; num++) {
           var cell = boardById[t.key + "-" + (num + 1)];
-          if (!cell.taken) mine += '<button class="floor-btn" data-action="open-cell" data-cell="' + cell.id + '"><span>' + esc(FLOORS[num]) + '</span><small>' + fmtWon(Math.round(t.reward * floorMult(num))) + '</small></button>';
+          if (!cell.taken) mine += '<button class="floor-btn" data-action="open-cell" data-cell="' + cell.id + '">' + esc(FLOORS[num]) + '</button>';
           else if (cell.takenBy === seat) {
             var fInv = invFor(cell);
-            mine += '<button class="floor-btn is-gone mine" disabled><span>' + esc(FLOORS[num]) + '</span>' + (fInv ? '<small>' + esc(roomCode(fInv.floorIdx, fInv.room)) + '</small>' : '') + '</button>';
+            mine += '<button class="floor-btn is-gone mine" disabled><span>' + esc(FLOORS[num]) + '</span>' + (fInv ? '<small>' + esc(sushiShort(fInv.sushi)) + '</small>' : '') + '</button>';
           }
           else mine += '<button class="floor-btn is-gone" disabled title="상대가 먼저 가져갔어요">' + esc(FLOORS[num]) + '</button>';
         }
         mine += '</div>';
-        mine += '<div class="mine-count">내 택배 ' + myCells.length + '개 · 층 버튼을 눌러 송장 붙이기</div>';
+        mine += '<div class="mine-count">내 초밥 ' + myCells.length + '개 · 접시 버튼을 눌러 주문표 붙이기</div>';
       } else {
         mine += '<button class="rail-btn" data-action="open-type" data-cat="' + catIdx + '"' + (left === 0 ? ' disabled' : '') + '>'
-          + '<span class="rbt">' + (left === 0 ? '소진' : esc(MINI_NAME[t.mini] || '택배 쌓기') + ' 시작') + '</span>'
-          + '<span class="rbp">성공 ' + rewardRange(t) + ' · 실패 ' + fmtWon(-t.penalty) + '</span></button>';
+          + '<span class="rbt">' + (left === 0 ? '소진' : esc(MINI_NAME[t.mini] || '우봉고') + ' 시작') + '</span>'
+          + '<span class="rbp">팔면 ' + fmtWon(t.reward) + ' · 못 팔면 ' + fmtWon(-t.penalty) + '</span></button>';
         mine += '<div class="my-chips">' + myCells.map(function (c) {
           var inv = invFor(c);
-          return '<span class="my-chip">' + (inv ? esc(roomCode(inv.floorIdx, inv.room)) : '확보') + '</span>';
+          return '<span class="my-chip">' + (inv ? esc(chipText(inv)) : '제작') + '</span>';
         }).join('') + '</div>';
       }
       mine += '</div>';
       // --- 가운데 레일 위 상자 ---
       var pips = '';
-      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '"></span>';
+      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '">' + FISH_PIP + '</span>';
       var mid = '<div class="rail-mid"><div class="rail-box" style="background:' + t.color + ';--c:' + t.color + '">'
-        + '<span class="cell-art" style="background-image:url(\'' + BOX_ART[catIdx] + '\')"></span>'
+        + '<span class="cell-art" style="background-image:url(\'' + railArt(catIdx) + '\')"></span>'
         + '<span class="rb-name"><span class="cat-icon">' + CAT_ICONS[catIdx] + '</span>' + esc(t.name) + '</span>'
-        + '<span class="rb-game">' + esc(MINI_NAME[t.mini] || '택배 쌓기') + '</span>'
+        + '<span class="rb-game">' + esc(MINI_NAME[t.mini] || '우봉고') + '</span>'
         + '<span class="pips">' + pips + '</span>'
         + '<span class="cat-left">남은 <b>' + left + '</b> / ' + t.count + '</span>'
         + (left === 0 ? '<span class="stamp">소진</span>' : '')
         + '</div></div>';
-      // 2026-10-14: 비어 있던 상대 자리 칸에 그 줄 종류의 요금 카드(요금표 디자인)를 둔다. 상대 정보는 여전히 안 보인다.
-      var theirs = '<div class="rail-side theirs has-fee">' + renderFeeMini(catIdx) + '</div>';
+      var theirs = '<div class="rail-side theirs"></div>';
       html += '<div class="board-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '">'
         + (meLeft ? mine + mid + theirs : theirs + mid + mine) + '</div>';
     });
-    html += '</div></div>' + cartClose();
+    html += '</div></div>';
     html += '</main>';
     return html;
   }
 
-  // ---------- 확보 미니게임 (2026-10-06) ----------
+  // ---------- 제작 미니게임 (2026-10-06) ----------
   // TYPES[catIdx].mini(game-data.js)가 있는 종류의 칸은 우봉고 대신 minigames.js의 게임을 띄운다
   // (null이면 기존 우봉고 이미지 + "완료" 버튼). 게임은 #app이 아니라 #mg-layer에 mount한다 -- 이유는 CSS 주석 참고.
   // 서버는 이 게임을 모른다: 클라이언트가 끝까지 풀었다고 판정하면 예전과 똑같은 secure-cell 하나만 보낸다.
-  var MINI_NAME = { pack: "박스 포장", inspect: "이상 확인", sticker: "송장 붙이기", map: "지도 배달" };
+  var MINI_NAME = { pack: "상자 포장", inspect: "이상 확인", sticker: "주문표 붙이기", map: "주문 서빙", soko: "재료 정리", ice: "초밥 담기", route: "도마 닦기", twin: "쌍둥이 서빙", pipe: "컨베이어 잇기", hanoi: "초밥 쌓기" };
   // ?mgtest=1 이면 불량 검수의 정답 칸에 data-defect를 노출한다 (자동 테스트 전용 -- 일반 플레이엔 안 붙음).
   var TEST_HOOKS = /[?&]mgtest=1(&|$)/.test(location.search);
   var mg = null; // { cellId, ctl }
@@ -1319,44 +1452,61 @@ APP_JS_TEMPLATE = r"""
   // 값이 숫자 하나면 그대로, [전반, 후반] 배열이면 지금 하프 것 (TYPES의 miniLevel/pieces).
   function perHalf(v) { return Array.isArray(v) ? v[(state && state.half === 2) ? 1 : 0] : v; }
   function closeMiniGame() {
-    if (mg) { try { mg.ctl.destroy(); } catch (e) { /* ignore */ } mg = null; notifyGameClosed(); }
+    lastAct = Date.now();
+    if (mg) { var wasPeek = mg.kind === "peek"; try { mg.ctl.destroy(); } catch (e) { /* ignore */ } mg = null; if (!wasPeek) notifyGameClosed(); }
     var layer = document.getElementById("mg-layer");
     if (layer) { layer.classList.add("hidden"); layer.innerHTML = ""; }
   }
-  // 칸을 연다: 미니게임이 있는 종류면 게임, 없으면(귀중품) 우봉고 오버레이. open-cell 버튼/레일 화면 지시가 같이 쓴다.
+  // 칸을 연다: 미니게임이 있는 종류면 게임, 없으면(특선 초밥) 우봉고 오버레이. open-cell 버튼/레일 화면 지시가 같이 쓴다.
   function openCell(cellId) {
     var m = cellMeta(cellId, state.half);
+    if (railMode() && m && stockOf(state, mySeat(), m.catIdx) <= 0) { showToast("재료함에 회가 없어요 — 레일 화면에서 먼저 손질하세요"); return; }
     if (m && TYPES[m.catIdx].mini && window.MiniGames) { openMiniGame(cellId); return; }
+    newSushiPick(cellId);
     local.openCellId = cellId; render();
-  }
-  // 레일 화면이 "이 칸을 풀어라"고 보냈을 때. 이미 뭔가 하고 있으면(서버도 막지만 경합 대비) 무시한다.
-  function onRailOpenGame(cellId) {
-    if (!state || state.phase !== "secure" || mg || local.openCellId) return;
-    if (cellBlockedReason(state, cellId)) { notifyGameClosed(); return; }
-    openCell(cellId);
   }
   // 레일이 열어 준 게임을 닫았다(포기/시간 종료/소진)는 걸 서버에 알린다 -- 레일 화면의 "플레이 중" 표시와 중복 지시 방지용.
   function notifyGameClosed() { send({ type: "game-closed", seat: mySeat() }); }
   function openMiniGame(cellId) {
     var meta = cellMeta(cellId, state.half);
     var t = TYPES[meta.catIdx];
+    var pickedSushi = newSushiPick(cellId);
     closeMiniGame();
     var layer = document.getElementById("mg-layer");
-    layer.innerHTML = '<div class="mg-wrap"><div class="mg-clock">확보 시간<b id="mg-clock">--:--</b></div><div id="mg-host"></div></div>';
+    layer.innerHTML = '<div class="mg-wrap"><div class="mg-clock">제작 시간<b id="mg-clock">--:--</b></div><div id="mg-host"></div></div>';
     layer.classList.remove("hidden");
-    mg = {
-      cellId: cellId,
-      ctl: MiniGames.start(document.getElementById("mg-host"), {
-        kind: t.mini, level: perHalf(t.miniLevel),
-        // 확정 층수 택배는 칸이 곧 배송 층이라 송장에 그 층을 그대로 찍는다 (호수는 확보 순간 서버가 정하므로 표기 안 함).
-        label: t.fixedFloor ? FLOORS[meta.num] : null,
-        testHooks: TEST_HOOKS,
-        onDone: function () { var id = cellId; markPending(id); closeMiniGame(); send({ type: "secure-cell", seat: mySeat(), cellId: id }); },
-        onCancel: function () { closeMiniGame(); },
-      }),
-    };
-    // 자동 테스트 전용(?mgtest=1): 게임을 실제로 풀지 않고 "풀었다"로 처리 -- 많은 칸을 한꺼번에 확보해야 하는
-    // 엘리베이터 단계 테스트가 확보 시간 안에 끝나게 하려는 용도다. 미니게임 자체는 test_minigames.js와
+    // 2026-10-12: 초밥 하나 = 손질(액션형 칼질 타이밍) -> 제작(종류별 퍼즐) 두 단계. 칸은 손질을 시작하는 순간부터 내 칸이고,
+    // 서버에는 제작까지 끝낸 뒤 secure-cell 한 번만 보낸다(서버 규칙은 그대로).
+    var fromStock = railMode(); // 레일 모드: 손질은 이미 레일에서 끝냈다 -- 재료함의 회로 조립(퍼즐)만 한다
+    mg = { cellId: cellId, ctl: null, stage: fromStock ? "make" : "prep", prep: null };
+    function beginStage(stage) {
+      if (mg.ctl) { try { mg.ctl.destroy(); } catch (e) { /* ignore */ } }
+      mg.stage = stage;
+      var o = { sushi: pickedSushi, testHooks: TEST_HOOKS, onCancel: function () { closeMiniGame(); } };
+      // 게임 설명은 종류(손질은 초밥 종류별)마다 처음 만났을 때 한 번만 보여 준다 (매번 보면 흐름이 끊긴다).
+      var introKey = stage === "prep" ? "prep:" + pickedSushi : t.mini;
+      if (!introSeen[introKey]) { introSeen[introKey] = true; o.intro = true; }
+      if (stage === "prep") {
+        o.kind = "prep"; o.pieces = t.pieces;
+        o.onDone = function (res) { mg.prep = res; beginStage("make"); };
+      } else {
+        o.kind = t.mini; o.level = perHalf(t.miniLevel);
+        // 지정 초밥은 칸이 곧 서빙 접시라 주문표에 그 접시를 그대로 찍는다 (호수는 제작 순간 서버가 정하므로 표기 안 함).
+        o.label = t.fixedFloor ? FLOORS[meta.num] : null;
+        o.onDone = function (res) {
+          var id = cellId, prep = mg && mg.prep;
+          markPending(id); closeMiniGame();
+          send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id), fromStock: fromStock || undefined,
+            mini: res && res.ms ? { kind: res.kind, level: res.level, ms: res.ms, mistakes: res.mistakes } : undefined,
+            prep: prep && prep.ms ? { ms: prep.ms, mistakes: prep.mistakes } : undefined });
+        };
+      }
+      send({ type: "game-stage", seat: mySeat(), catIdx: meta.catIdx, stage: stage, sushi: pickedSushi }); // 메인 모니터의 "지금 만드는 중" 표시용
+      mg.ctl = MiniGames.start(document.getElementById("mg-host"), o);
+    }
+    beginStage(fromStock ? "make" : "prep");
+    // 자동 테스트 전용(?mgtest=1): 게임을 실제로 풀지 않고 "풀었다"로 처리 -- 많은 칸을 한꺼번에 제작해야 하는
+    // 회전 벨트 단계 테스트가 제작 시간 안에 끝나게 하려는 용도다. 미니게임 자체는 test_minigames.js와
     // test_minigames_live.js가 실제로 플레이하며 검증한다. 일반 접속에는 이 함수가 생기지 않는다.
     if (TEST_HOOKS) {
       window.__mgFinish = function () {
@@ -1364,11 +1514,47 @@ APP_JS_TEMPLATE = r"""
         var id = mg.cellId;
         markPending(id);
         closeMiniGame();
-        send({ type: "secure-cell", seat: mySeat(), cellId: id });
+        send({ type: "secure-cell", seat: mySeat(), cellId: id, sushi: sushiFor(id), fromStock: fromStock || undefined });
         return true;
       };
     }
     updateMiniClock();
+  }
+  // ---- 엿보기 (2026-10-12): 전반-후반 하프타임에 미니게임 1회(재도전 없음) -> 후반 벨트에서 횟수만큼 상대 주문표 1장씩 몰래 보기 ----
+  function openPeekGame() {
+    var seat = mySeat();
+    if (!seat || !state || state.phase !== "halftime" || mg || state.peek[seat].played || !window.MiniGames) return;
+    var layer = document.getElementById("mg-layer");
+    layer.innerHTML = '<div class="mg-wrap"><div id="mg-host"></div></div>';
+    layer.classList.remove("hidden");
+    mg = { cellId: null, kind: "peek", ctl: null };
+    mg.ctl = MiniGames.start(document.getElementById("mg-host"), {
+      kind: "peek", testHooks: TEST_HOOKS, intro: !introSeen.peek && (introSeen.peek = true),
+      onCancel: function () { closeMiniGame(); },
+      onDone: function (res) {
+        closeMiniGame();
+        send({ type: "peek-result", seat: seat, mistakes: res && typeof res.mistakes === "number" ? res.mistakes : 3 });
+      },
+    });
+  }
+  function peekInfoFor(seat) { return (state && state.peek && state.peek[seat]) || { charges: 0, played: false, used: 0, seen: [] }; }
+  function usePeek() {
+    var seat = mySeat();
+    if (!seat || !state || state.phase !== "elevator" || state.half !== 2) return;
+    if (peekInfoFor(seat).charges <= 0) { showToast("남은 엿보기가 없어요"); return; }
+    send({ type: "use-peek", seat: seat });
+  }
+  function onPeekReveal(msg) {
+    if (!msg.ok) { showToast(msg.code === "nothing" ? "더 엿볼 상대 주문이 없어요" : (msg.code === "no_charge" ? "남은 엿보기가 없어요" : "지금은 엿볼 수 없어요")); return; }
+    var iv = findInvoiceById(msg.invoiceId);
+    if (!iv) return;
+    SFX.peek();
+    var old = document.getElementById("peek-pop"); if (old) old.remove();
+    var d = document.createElement("div");
+    d.id = "peek-pop"; d.className = "peek-pop";
+    d.innerHTML = '<small>상대 주문표를 엿봤어요</small><b>' + esc(roomCode(iv.floorIdx)) + '</b><span>' + esc(sushiShort(iv.sushi)) + ' 초밥</span>';
+    document.body.appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 3400);
   }
   function updateMiniClock() {
     var el = document.getElementById("mg-clock");
@@ -1377,10 +1563,10 @@ APP_JS_TEMPLATE = r"""
     el.textContent = fmtClock(Math.max(0, left));
     el.parentNode.classList.toggle("low", left < 30000);
   }
-  // 상태가 바뀔 때마다 호출: 확보 시간이 끝났거나 그 칸이 이미 확보됐으면(재접속 등) 열려 있던 게임을 닫는다.
+  // 상태가 바뀔 때마다 호출: 제작 시간이 끝났거나 그 칸이 이미 제작됐으면(재접속 등) 열려 있던 게임을 닫는다.
   function syncMiniGame() {
-    if ((state && state.phase === "secure" && state.race) || (mg && mg.race)) { raceSync(); return; }
     if (!mg) return;
+    if (mg.kind === "peek") { if (!state || state.phase !== "halftime") closeMiniGame(); return; }
     var why = cellBlockedReason(state, mg.cellId);
     if (why) { closeMiniGame(); showToast(why); }
   }
@@ -1393,7 +1579,7 @@ APP_JS_TEMPLATE = r"""
     return '<div class="overlay" id="puzzle-overlay">'
       + '<div class="puzzle-frame">'
       + '<div style="margin-bottom:0.6rem;color:var(--muted);font-family:var(--font-display);font-size:0.85rem;">' + esc(t.name) + ' · 조각 ' + perHalf(t.pieces) + '개</div>'
-      + '<img src="' + meta.src + '" alt="택배 쌓기 문제">'
+      + '<img src="' + meta.src + '" alt="우봉고 문제">'
       + '<div class="puzzle-actions">'
       + '<button class="btn danger" data-action="give-up">포기</button>'
       + '<button class="btn ok" data-action="complete-cell" data-cell="' + cellId + '">완료</button>'
@@ -1403,37 +1589,45 @@ APP_JS_TEMPLATE = r"""
   // floorIdx is the real, server-authoritative elevator position -- it moves live as either player
   // clicks (see game-room.js's vote()), so this is a direct rendering of it with no client-side
   // simulation whatsoever: whichever row is floorIdx gets .current, nothing else changes.
-  function renderShaft(floorIdx) {
-    var html = '<div class="shaft"><div class="shaft-track">';
-    // DOM order stays FLOORS order (B1 first) -- the bottom-to-top stacking comes from
-    // column-reverse, so rows[i] is still floor i no matter where it sits on screen. Tests rely on
-    // that mapping.
+  var PLATE_HEX = ["#E0443E", "#F28C28", "#F4D03F", "#3FAE5A", "#3D7FD9", "#8E5BC8"]; // FLOORS 순서와 같은 접시 색
+  var PLATE_INK = ["#fff", "#2b1d12", "#2b1d12", "#fff", "#fff", "#fff"];
+  // 순환 벨트: 접시 6장이 원으로 놓여 있고, 현재 접시가 항상 6시 "서빙 칸"에 오도록 통째로 돌아간다.
+  // cur는 접시 번호(연속값 -- 메인 모니터는 한 바퀴 넘어가도 최단 방향으로 돌도록 누적값을 넘긴다).
+  // 각 접시는 .floor-stop (DOM 순서 = FLOORS 순서), 현재 접시에만 .current. 접시 안의 .car가 색 원반이다.
+  // 2026-10-12: 서빙 칸(6시)에 굵은 테두리 + 양옆 방향 화살표. 왼쪽 화살표 = 시계 방향(← 키), 오른쪽 화살표 = 반시계 방향(→ 키).
+  //   벨트가 시계 방향으로 돌면 6시 자리에서는 접시가 왼쪽으로 지나가므로 화살표 방향이 실제 움직임과 맞다.
+  var ARROW_SVG = '<svg viewBox="0 0 60 40" aria-hidden="true"><polygon points="4,20 26,3 26,13 56,13 56,27 26,27 26,37" /></svg>';
+  var SERVE_ARROWS = '<span class="serve-arrow left">' + ARROW_SVG + '<b>시계</b></span><span class="serve-arrow right">' + ARROW_SVG + '<b>반시계</b></span>';
+  function ringHtml(cur, extraCls, ringId, toCur) {
+    var h = '<div class="belt-ring ' + (extraCls || '') + '"' + (ringId ? ' id="' + ringId + '" data-to="' + toCur + '"' : '') + ' style="--cur:' + cur + '"><div class="belt-track"></div><span class="serve-frame"></span>' + SERVE_ARROWS;
     FLOORS.forEach(function (f, i) {
-      html += '<div class="floor-stop' + (i === floorIdx ? ' current' : '') + '"><span class="car"></span>' + f
-        + (floorMult(i) !== 1 ? ' <span class="floor-mult' + (floorMult(i) > 1 ? ' hi' : ' lo') + '">' + multLabel(i) + '</span>' : '')
-        + '</div>';
+      var isCur = (((Math.round(toCur === undefined ? cur : toCur) % FLOORS.length) + FLOORS.length) % FLOORS.length) === i;
+      h += '<div class="floor-stop' + (isCur ? ' current' : '') + '" style="--i:' + i + '"><span class="car" style="background:' + PLATE_HEX[i] + ';color:' + PLATE_INK[i] + '"><svg class="car-fish" viewBox="0 0 40 24" aria-hidden="true"><path d="M3 12c5-8 15-9 22-3l8-5v16l-8-5c-7 6-17 5-22-3z"/><circle cx="9" cy="10" r="1.6" class="eye"/></svg><b>' + f + '</b></span></div>';
     });
-    html += '</div></div>';
-    return html;
+    h += '<span class="belt-mark">▲ 서빙 칸</span></div>';
+    return h;
+  }
+  function renderShaft(floorIdx) {
+    return '<div class="shaft">' + ringHtml(floorIdx, '') + '</div>';
   }
 
   function renderInvoiceList(st, seat) {
     var invs = st.players[seat].invoices.slice().sort(function (a, b) { return a.acquiredSeq - b.acquiredSeq; });
-    if (!invs.length) return '<div style="color:var(--muted);font-size:0.85rem;">아직 확보한 택배가 없어요</div>';
-    // st.elevator.priorityPick는 "이번 라운드" 우선 택배 지정값(라운드가 끝나면 서버가 비움) --
-    // 아직 안 끝난 항목에만 의미가 있다. 이미 배송된 항목은 대신 inv.deliveredWasPriority(그 라운드에
-    // 배송 성공했을 때만 영구히 true)로 우선 보너스가 적용됐는지를 보여준다.
+    if (!invs.length) return '<div style="color:var(--muted);font-size:0.85rem;">아직 제작한 초밥이 없어요</div>';
+    // st.elevator.priorityPick는 "이번 라운드" 우선 초밥 지정값(라운드가 끝나면 서버가 비움) --
+    // 아직 안 끝난 항목에만 의미가 있다. 이미 서빙된 항목은 대신 inv.deliveredWasPriority(그 라운드에
+    // 서빙 성공했을 때만 영구히 true)로 우선 보너스가 적용됐는지를 보여준다.
     var pickedId = st.elevator ? st.elevator.priorityPick[seat] : null;
     return '<div class="invoice-list">' + invs.map(function (inv) {
       var t = TYPES[inv.catIdx];
       var delivered = inv.deliveredRound !== null;
-      var stickerText = inv.stolen ? "미배송" : (delivered ? ("완료 · R" + inv.deliveredRound) : "대기");
+      var stickerText = inv.stolen ? "미서빙" : (delivered ? ("완료 · R" + inv.deliveredRound) : "대기");
       var isPendingPriority = !delivered && inv.id === pickedId;
       var isPriority = isPendingPriority || inv.deliveredWasPriority;
       var flagText = inv.deliveredWasPriority ? ('우선 x' + PRIORITY_MULTIPLIER + ' 성공') : (isPendingPriority ? ('이번 라운드 우선 x' + PRIORITY_MULTIPLIER) : '');
       return '<div class="invoice' + (delivered ? ' delivered' : '') + (isPriority ? ' is-priority' : '') + '">'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + '<div class="meta"><div class="t">' + esc(t.name) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · ' + fmtWon(invReward(inv)) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + (flagText ? ' <span class="priority-flag">' + flagText + '</span>' : '') + '</div><div class="d">' + plateTag(inv.floorIdx) + '</div></div>'
         + '<span class="sticker' + (delivered && !inv.stolen ? '' : ' pending') + '">' + stickerText + '</span>'
         + '</div>';
     }).join("") + '</div>';
@@ -1442,21 +1636,21 @@ APP_JS_TEMPLATE = r"""
   // Only ever passed MY OWN delivered items (see renderElevator) -- who received what is private
   // per player, so there is no seat tag here; it's always understood to be "mine".
   function renderDeliveredCallout(delivered) {
-    if (!delivered || !delivered.length) return '<div class="delivered-callout empty">이번 라운드에 배송된 택배가 없어요</div>';
+    if (!delivered || !delivered.length) return '<div class="delivered-callout empty">이번 라운드에 서빙된 초밥이 없어요</div>';
     return '<div class="delivered-callout">' + delivered.map(function (d) {
       var t = TYPES[d.catIdx];
       var note = d.stolen
-        ? ' — <span style="color:var(--danger);font-weight:700;">택배도둑에게 도난당했어요! (' + fmtWon(-t.penalty) + ')</span>'
-        : ' (' + fmtWon((typeof d.reward === "number" ? d.reward : t.reward) * (d.priority ? PRIORITY_MULTIPLIER : 1)) + (d.priority ? ' · 우선 x' + PRIORITY_MULTIPLIER : '') + ')';
+        ? ' — <span style="color:var(--danger);font-weight:700;">초밥도둑에게 도난당했어요! (원재료값 ' + fmtWon(-t.penalty) + ')</span>'
+        : ' (' + fmtWon(d.priority ? t.reward * PRIORITY_MULTIPLIER : t.reward) + (d.priority ? ' · 우선 x' + PRIORITY_MULTIPLIER : '') + ')';
       return '<div class="delivered-item"><span class="swatch" style="background:' + t.color + '"></span>'
-        + roomCode(d.floorIdx, d.room) + ' ' + esc(t.name) + note
+        + plateTag(d.floorIdx) + ' ' + (function () { var iv = findInvoiceById(d.invoiceId), sn = iv ? sushiShort(iv.sushi) : ""; return sn ? esc(sn) + ' 초밥 (' + esc(t.name.replace(" 초밥", "")) + ')' : esc(t.name); })() + note
         + '</div>';
     }).join('') + '</div>';
   }
 
-  // 우선 택배 지정 전용 시간 ("priority" 상태, PRIORITY_PICK_MS = 10초 -- 2026-10-06 신설; 그 전에는 라운드
+  // 우선 초밥 지정 전용 시간 ("priority" 상태, PRIORITY_PICK_MS = 10초 -- 2026-10-06 신설; 그 전에는 라운드
   // 게이트에 끼워져 있었고 타이머가 없었다). 매 라운드 다시 골라야 하고(라운드가 끝나면 서버가
-  // el.priorityPick을 비운다), 그 라운드 안에 배송까지 성공해야만 점수가 PRIORITY_MULTIPLIER배가 된다
+  // el.priorityPick을 비운다), 그 라운드 안에 서빙까지 성공해야만 점수가 PRIORITY_MULTIPLIER배가 된다
   // -- 나중 라운드로 넘어가면 보너스는 사라진다(사용자 확인 사항). 내가 "확정"하면 이후엔 바꿀 수 없고,
   // 둘 다 확정하면 10초를 다 기다리지 않고 넘어간다. 시간이 다 되면 확정 여부와 무관하게 그 시점의 지정값이 적용된다.
   function renderPriorityWindow(st, seat) {
@@ -1467,155 +1661,62 @@ APP_JS_TEMPLATE = r"""
     var otherSeat = seat === "1" ? "2" : "1";
     var pickedId = el.priorityPick[seat];
     var html = '<div class="priority-window">';
-    html += '<h4>우선 택배 지정 (성공 시 점수 ' + PRIORITY_MULTIPLIER + '배)</h4>';
-    html += '<div class="pw-sub">이번 라운드 안에 배송해야만 적용돼요. 안 보내면 보너스는 사라져요.</div>';
+    html += '<h4>우선 초밥 지정 (성공 시 점수 ' + PRIORITY_MULTIPLIER + '배)</h4>';
+    html += '<div class="pw-sub">이번 라운드 안에 서빙해야만 적용돼요. 안 보내면 보너스는 사라져요.</div>';
     html += '<div class="pw-clock"><span style="color:var(--muted);font-size:0.85rem;">남은 시간</span>'
       + '<span class="time-left-big" id="priority-clock">' + fmtClock(Math.max(0, (el.priorityWindowEndsAt || 0) - nowMs())) + '</span></div>';
     html += '<div class="timer-bar"><i id="priority-bar" style="width:100%"></i></div>';
-    if (!undelivered.length) html += '<div style="color:var(--muted);font-size:0.85rem;">지정할 미배송 택배가 없어요</div>';
     html += '<div class="invoice-list">' + undelivered.map(function (inv) {
       var t = TYPES[inv.catIdx];
       var picked = inv.id === pickedId;
       return '<div class="invoice' + (confirmed ? ' delivered' : ' pickable') + (picked ? ' is-priority' : '') + '"'
         + (confirmed ? '' : (' data-action="pick-priority" data-inv="' + (picked ? '' : inv.id) + '"')) + '>'
         + '<span class="swatch" style="background:' + t.color + '"></span>'
-        + '<div class="meta"><div class="t">' + esc(t.name) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + ' · 성공 시 ' + fmtWon(invReward(inv)) + '</div></div>'
+        + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + plateTag(inv.floorIdx) + ' · 팔면 ' + fmtWon(t.reward) + ' / 못 팔면 ' + fmtWon(-t.penalty) + '</div></div>'
         + '<span class="sticker' + (picked ? '' : ' pending') + '">' + (picked ? ('우선 x' + PRIORITY_MULTIPLIER) : '선택') + '</span>'
         + '</div>';
     }).join('') + '</div>';
-    // P2-2 (2026-10-13): 후반이면 같은 창에서 택배도둑도 놓는다 (game-room.js _mergedThiefWindow). 놓아도 창은 안 닫히고, "확정"해야 진행.
-    var merged = MERGE_PRIORITY_THIEF && st.half === 2;
-    if (merged) html += renderThiefPicker(st, seat, confirmed);
     if (confirmed) {
       html += '<div class="pw-actions"><span class="ready-chip is-ready">'
-        + (merged ? '확정 완료' : (pickedId ? '우선 택배 확정' : '지정 안 함으로 확정')) + '</span>'
+        + (pickedId ? '우선 초밥 확정' : '지정 안 함으로 확정') + '</span>'
         + '<span class="ready-chip' + (el.priorityConfirmed[otherSeat] ? ' is-ready' : '') + '">' + seatName(otherSeat, st)
         + (el.priorityConfirmed[otherSeat] ? ' · 확정' : ' · 고르는 중') + '</span></div>';
     } else {
       html += '<div class="pw-actions"><button class="btn primary" data-action="confirm-priority">'
-        + (merged ? '확정' : (pickedId ? '이걸로 확정' : '지정 안 함으로 확정')) + '</button>'
-        + '<span class="key-hint">Space로도 확정 · 고른 택배를 다시 누르면 선택 해제</span></div>';
+        + (pickedId ? '이걸로 확정' : '지정 안 함으로 확정') + '</button>'
+        + '<span class="key-hint">Space로도 확정 · 고른 초밥을 다시 누르면 선택 해제</span></div>';
     }
     html += '</div>';
     return html;
   }
 
-  // 합쳐진 창 안의 택배도둑 영역 (P2-2). 배치 규칙은 예전 thief 창과 같다: 후반 통틀어 THIEF_PER_HALF회, 라운드당 1개,
-  // 다음 라운드부터 작동, 마지막 라운드 불가(서버가 자동 넘김). 확정 전에는 아직 안 놓았으면 층 버튼을 보여 준다.
-  function renderThiefPicker(st, seat, confirmed) {
-    var th = st.elevator.thieves;
-    var perHalf = th.perHalf || 1;
-    var usedCnt = th.usedThisHalf[seat] || 0;
-    var leftCnt = Math.max(0, perHalf - usedCnt);
-    var placed = th.placedThisRound[seat];
-    var hasPlaced = placed !== null && placed !== undefined;
-    var lastRound = st.elevator.round >= ELEVATOR_ROUNDS;
-    var html = '<div class="thief-window merged">';
-    html += '<h4>택배도둑 (남은 횟수 ' + leftCnt + '/' + perHalf + ')</h4>';
-    if (hasPlaced) {
-      html += '<div style="color:var(--muted);font-size:0.85rem;"><strong style="color:var(--danger)">' + esc(FLOORS[placed]) + '</strong>에 배치했어요. 다음 라운드에 상대가 그 층에 배송하면 가로채요.</div>';
-    } else if (lastRound) {
-      html += '<div style="color:var(--muted);font-size:0.85rem;">마지막 라운드엔 놓을 수 없어요.</div>';
-    } else if (leftCnt === 0) {
-      html += '<div style="color:var(--muted);font-size:0.85rem;">이번 후반에 택배도둑을 다 썼어요.</div>';
-    } else if (confirmed) {
-      html += '<div style="color:var(--muted);font-size:0.85rem;">이번 라운드는 놓지 않았어요.</div>';
-    } else {
-      html += '<div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem;">층을 고르면 다음 라운드에 상대가 그 층에 배송할 때 가로채요 (선택 사항).</div>';
-      html += '<div class="thief-floors">' + FLOORS.map(function (f, i) {
-        return '<button class="btn ghost" data-action="place-thief" data-floor-idx="' + i + '">' + esc(f) + '</button>';
-      }).join('') + '</div>';
-    }
-    html += '</div>';
-    return html;
-  }
-
-  // 2026-10-14: 엘리베이터 단계의 일러스트 = 엘리베이터 안 그림(ui_art/elevator.jpg, 원본 elevator_src.png에서 층 표시창 숫자와
-  // 층 버튼을 지운 것). 그 자리에 HTML로 현재 층(표시창)과 층 버튼판(5 / 4 3 / 2 1 / B1, 현재 층 노란불)을 다시 그려서 실시간으로 바뀐다.
-  // 표시창 화살표: 이동 중엔 이번 라운드 시작 층 대비 방향, 결과 화면에선 그 라운드 결과 방향.
-  var EA_PANEL = [[5, null], [4, 3], [2, 1], [0, null]]; // FLOORS 인덱스 (0 = B1)
-  function eaLabel(i) { var f = FLOORS[i]; return f === "B1" ? "B1" : f.replace("F", ""); }
-  function elevDir(el) {
-    var f = el.floorIdx;
-    if (el.state === "voting") return f > el.roundStartFloorIdx ? "up" : (f < el.roundStartFloorIdx ? "down" : "");
-    if (el.state === "result" && el.log && el.log.length) { var lg = el.log[el.log.length - 1]; return lg.jolt ? lg.jolt.dir : (lg.dir === "tie" ? "" : (lg.dir || "")); }
-    return "";
-  }
-
-  // 2026-10-14: 엘리베이터 이동 표시 = 건물 단면도(ui_art/building.jpg -- 원본 building_src.png에서 계단 칸을 잘라 폭을 줄이고,
-  // 오른쪽 유리 승강로에 그려져 있던 카트/화살표를 지운 것). 빨간 카트형 엘리베이터와 ▲▼ 화살표는 HTML/CSS로 얹어서
-  // 현재 층(서버 floorIdx)으로 실제로 미끄러져 움직인다. 층 이름표(5F 보라 ~ B1 빨강)는 그림 그대로, 현재 층만 밝게.
-  // 테스트 호환: 층마다 .floor-stop (현재 층은 .current, 글자는 층 이름 + .floor-mult 배지) -- 글자는 투명.
-  // 카트 애니메이션: 직전 층(bldPrevFloor)에서 출발한 모습으로 그렸다가 그린 직후 새 층으로 옮긴다(bldAfterRender).
-  var bldPrevFloor = null;
-  // 덜컹(결과 화면, 이번 라운드 log.jolt): 처음 그릴 때만 흔들림 애니메이션 (상태가 올 때마다 다시 그리므로)
-  var joltSeen = null;
-  function elevJolt(el) {
-    if (el.state !== "result" || !el.log || !el.log.length) return null;
-    var last = el.log[el.log.length - 1];
-    return last.round === el.round && last.jolt ? last.jolt : null;
-  }
-  function joltClass(el, who) {
-    var j = elevJolt(el);
-    if (!j) return '';
-    var key = who + ':' + el.round + ':' + j.to;
-    var fresh = !joltSeen || joltSeen.indexOf(key) < 0;
-    if (fresh) joltSeen = (joltSeen || []).concat([key]);
-    return ' has-jolt' + (fresh ? ' is-jolt' : '');
-  }
-  function renderBuilding(el) {
-    var f = el.floorIdx, dir = elevDir(el);
-    var from = bldPrevFloor === null ? f : bldPrevFloor;
-    var stops = FLOORS.map(function (name, i) {
-      var m = floorMult(i);
-      return '<div class="floor-stop bld-stop' + (i === f ? ' current' : '') + '" style="--i:' + i + '"><span class="bld-name">' + name + '</span>'
-        + (m !== 1 ? '<span class="floor-mult' + (m > 1 ? ' hi' : ' lo') + '">' + multLabel(i) + '</span>' : '') + '</div>';
+  // 후반 전용: 엿보기 남은 횟수 + 이미 엿본 상대 주문표(아직 서빙 전인 것만). 상대의 접시/초밥 종류만 보인다.
+  function renderPeekPanel(st, seat) {
+    if (st.half !== 2) return '';
+    var pk = peekInfoFor(seat);
+    if (!pk.played && !pk.seen.length) return '';
+    var seenHtml = pk.seen.map(function (id) { return findInvoiceById(id); }).filter(function (iv) { return iv && iv.deliveredRound === null; }).map(function (iv) {
+      return '<div class="peek-seen">' + plateTag(iv.floorIdx) + '<b>' + esc(sushiShort(iv.sushi)) + ' 초밥</b></div>';
     }).join('');
-    bldPrevFloor = f;
-    var jc = joltClass(el, 'bld');
-    return '<div class="bld' + (dir ? ' is-' + dir : '') + jc + '" aria-label="엘리베이터 위치 ' + esc(FLOORS[f]) + '">' + stops
-      + (jc ? '<span class="jolt-pop">덜컹!</span>' : '')
-      + '<div class="bld-car" id="mv-car" data-to="' + f + '" style="--i:' + from + '">'
-      + '<i class="bld-arw up"><b></b><b></b><b></b></i><i class="bld-arw down"><b></b><b></b><b></b></i>'
-      + '<span class="bld-cab"></span><span class="bld-wheels"></span></div>'
-      + '</div>';
-  }
-  function bldAfterRender() {
-    Array.prototype.forEach.call(document.querySelectorAll(".bld-car[data-to]"), function (car) {
-      var to = car.getAttribute("data-to");
-      if (car.style.getPropertyValue("--i") === to) return;
-      void car.offsetWidth;
-      requestAnimationFrame(function () { requestAnimationFrame(function () { car.style.setProperty("--i", to); }); });
-    });
-  }
-
-  function renderElevArt(el) {
-    var f = el.floorIdx, dir = elevDir(el);
-    var panel = EA_PANEL.map(function (row) {
-      return row.map(function (i) {
-        return i === null ? '<span class="ea-gap"></span>' : '<span class="ea-btn' + (i === f ? ' on' : '') + '" data-floor="' + i + '">' + eaLabel(i) + '</span>';
-      }).join('');
-    }).join('');
-    return '<div class="elev-art' + joltClass(el, 'art') + '" aria-label="엘리베이터 ' + esc(FLOORS[f]) + '">'
-      + '<div class="ea-ind"><i class="ea-up' + (dir === "up" ? ' on' : '') + '"></i><b>' + eaLabel(f) + '</b><i class="ea-down' + (dir === "down" ? ' on' : '') + '"></i></div>'
-      + '<div class="ea-panel">' + panel + '</div>'
-      + (floorMult(f) !== 1 ? '<span class="ea-mult' + (floorMult(f) > 1 ? ' hi' : '') + '">배송비 ' + multLabel(f) + '</span>' : '')
+    return '<div class="peek-panel"><h3>엿보기</h3>'
+      + '<button class="btn ghost" data-action="use-peek"' + (pk.charges > 0 ? '' : ' disabled') + '>상대 주문 엿보기<small>남은 ' + pk.charges + '회 · E 키</small></button>'
+      + (seenHtml ? '<div class="peek-seen-list">' + seenHtml + '</div>' : '<div class="peek-empty">' + (pk.charges > 0 ? '아직 엿본 주문이 없어요' : '엿보기를 다 썼어요') + '</div>')
       + '</div>';
   }
 
   function renderElevator(st, seat) {
-    var html = '<main class="stage"><div class="elev-frame"><div class="elev-layout">';
+    var html = '<main class="stage"><div class="elev-layout">';
     // left column: gauge, then my own package list directly beneath it -- opponent's list is
     // never rendered here (or anywhere in the elevator phase), only mine.
-    html += '<div class="elev-left">' + renderBuilding(st.elevator) + '</div>'
-      + '<div class="elev-mid">' + renderElevArt(st.elevator)
-      + '<div class="player-col me"><h3>내 택배</h3>' + renderInvoiceList(st, seat) + '</div>'
+    html += '<div class="elev-left">' + renderShaft(st.elevator.floorIdx)
+      + '<div class="player-col me"><h3>내 초밥</h3>' + renderInvoiceList(st, seat) + '</div>'
+      + renderPeekPanel(st, seat)
       + '</div>';
 
     html += '<div>';
     html += '<div class="card">';
     html += '<span class="round-pill">라운드 ' + st.elevator.round + ' / ' + ELEVATOR_ROUNDS + '</span>';
-    html += '<div style="margin-top:0.6rem;font-family:var(--font-display);font-size:1.1rem;">현재 층: <strong style="color:var(--gold)">' + FLOORS[st.elevator.floorIdx] + '</strong></div>';
+    html += '<div style="margin-top:0.6rem;font-family:var(--font-display);font-size:1.1rem;">현재 접시: <strong style="color:var(--gold)">' + FLOORS[st.elevator.floorIdx] + '</strong></div>';
 
     // Pre-round-1 gate: mirrors the between-round "result" ready-row, but with no voting UI at
     // all yet (nothing has been voted on) -- just a moment to review invoices before both players
@@ -1624,26 +1725,30 @@ APP_JS_TEMPLATE = r"""
       var otherSeat0 = seat === "1" ? "2" : "1";
       var myReady0 = !!st.elevator.readyNext[seat];
       var otherReady0 = !!st.elevator.readyNext[otherSeat0];
-      html += '<div style="margin-top:0.75rem;color:var(--muted);font-size:0.9rem;">확보한 택배를 확인하고, 준비가 되면 스페이스바를 눌러주세요. 이어서 우선 택배 지정 시간(' + (PRIORITY_PICK_MS / 1000) + '초)이 열려요.</div>';
+      html += rules3([
+        '<b>← →</b> 로 벨트를 돌려 내 초밥의 접시에 맞춰요 (라운드당 ' + (VOTE_MS / 1000) + '초)',
+        '라운드 시작 때 <b>우선 초밥</b> 1개를 고르면 서빙 성공 시 점수 x' + PRIORITY_MULTIPLIER,
+        st.half === 2 ? '후반: <b>초밥도둑</b>으로 상대를 막고, 얻은 <b>엿보기</b>로 상대 주문을 훔쳐봐요' : '못 팔면 마이너스 · 상대의 주문표는 안 보여요'
+      ]);
       html += '<div class="ready-row" style="margin-top:0.75rem;">'
         + '<span class="ready-chip' + (myReady0 ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady0 ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
         + '<span class="ready-chip' + (otherReady0 ? ' is-ready' : '') + '">' + seatName(otherSeat0, st) + (otherReady0 ? ' · 준비 완료' : ' · 대기 중') + '</span>'
         + '</div>'
-        + '<div class="space-hint">Space · 엘리베이터 이동 시작</div>';
+        + spaceHint('회전 벨트 시작') + gateAuto(st.elevator);
       html += '</div>';
 
-      html += '</div></div></div></main>';
+      html += '</div></div></main>';
       return html;
     }
 
-    // 우선 택배 지정 전용 시간 (매 라운드 맨 처음, PRIORITY_PICK_MS) -- 독립된 상태 화면.
+    // 우선 초밥 지정 전용 시간 (매 라운드 맨 처음, PRIORITY_PICK_MS) -- 독립된 상태 화면.
     if (st.elevator.state === "priority") {
       html += renderPriorityWindow(st, seat);
-      html += '</div></div></div></main>';
+      html += '</div></div></main>';
       return html;
     }
 
-    // 택배도둑 배치 전용 시간 (후반 전용, 매 라운드 voting 시작 전 THIEF_PLACE_MS 동안 -- idle/voting 중
+    // 초밥도둑 배치 전용 시간 (후반 전용, 매 라운드 voting 시작 전 THIEF_PLACE_MS 동안 -- idle/voting 중
     // 아무 때나 놓을 수 있던 예전 방식 대신, 이제는 독립된 상태 화면이다). 배치는 선택사항(건너뛰기
     // 가능)이고, 배치 직후엔 아무 효과 없이 다음 라운드부터 실제로 작동한다 (game-room.js의 el.thieves
     // 참고). 둘 다 배치/건너뛰기를 마치면 타이머를 기다리지 않고 곧장 voting으로 넘어간다.
@@ -1659,26 +1764,28 @@ APP_JS_TEMPLATE = r"""
       var leftMine = Math.max(0, perHalf - usedCnt);
       var doneMine = placedMine !== null && placedMine !== undefined || skippedMine;
       html += '<div class="thief-window">';
-      html += '<h4>택배도둑 배치 (후반 전용, 후반 통틀어 ' + perHalf + '회 · 남은 횟수 ' + leftMine + '회)</h4>';
+      html += '<h4>초밥도둑 배치 (후반 전용, 후반 통틀어 ' + perHalf + '회 · 남은 횟수 ' + leftMine + '회)</h4>';
       if (doneMine) {
         html += '<div style="color:var(--muted);font-size:0.85rem;">'
           + (placedMine !== null && placedMine !== undefined
-            ? ('<strong style="color:var(--danger)">' + esc(FLOORS[placedMine]) + '</strong>에 배치했어요. 다음 라운드부터 그 층에 상대가 배송하면 뺏어요.')
-            : (usedUpMine ? '이번 후반에 택배도둑을 이미 다 사용했어요 (1인당 ' + perHalf + '회).' : '이번 라운드는 배치하지 않았어요.'))
+            ? ('<strong style="color:var(--danger)">' + esc(FLOORS[placedMine]) + '</strong>에 배치했어요. 다음 라운드부터 그 접시에 상대가 서빙하면 뺏어요.')
+            : (usedUpMine ? '이번 후반에 초밥도둑을 이미 다 사용했어요 (1인당 ' + perHalf + '회).' : '이번 라운드는 배치하지 않았어요.'))
           + ' 상대를 기다리는 중...</div>';
       } else {
-        html += '<div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem;">층을 골라 배치하면, 다음 라운드에 상대가 그 층에 배송할 때 가로채서 상대에게 확정 마이너스 점수를 줘요. 이 후반 동안 총 ' + perHalf + '번까지 놓을 수 있고(라운드당 1개), 마지막 라운드엔 놓을 수 없으니 신중하게 골라주세요.</div>';
+        html += '<div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem;">접시를 골라 배치하면, 다음 라운드에 상대가 그 접시에 서빙할 때 가로채서 상대에게 확정 마이너스 점수를 줘요. 이 후반 동안 총 ' + perHalf + '번까지 놓을 수 있고(라운드당 1개), 마지막 라운드엔 놓을 수 없으니 신중하게 골라주세요.</div>';
+        var peekedAt = {};
+        peekInfoFor(seat).seen.forEach(function (id) { var iv = findInvoiceById(id); if (iv && iv.deliveredRound === null) peekedAt[iv.floorIdx] = sushiShort(iv.sushi); });
         html += '<div class="thief-floors">' + FLOORS.map(function (f, i) {
-          return '<button class="btn ghost" data-action="place-thief" data-floor-idx="' + i + '">' + esc(f) + '</button>';
+          return '<button class="btn ghost' + (peekedAt[i] ? ' is-peeked' : '') + '" data-action="place-thief" data-floor-idx="' + i + '">' + esc(f) + (peekedAt[i] ? '<small>엿봄 · ' + esc(peekedAt[i]) + '</small>' : '') + '</button>';
         }).join('') + '<button class="btn ghost" data-action="skip-thief">건너뛰기</button></div>';
       }
       html += '<div class="time-left-big" id="thief-clock">' + (doneMine ? '' : '남은 시간 계산 중...') + '</div>';
       html += '</div>';
-      html += '</div></div></div></main>';
+      html += '</div></div></main>';
       return html;
     }
 
-    // 같은 층 충돌 선택 단계: 이번 라운드 도착한 층에 내 미배송 택배가 2개 이상이면, SAME_FLOOR_CHOICE_MS
+    // 같은 접시 충돌 선택 단계: 이번 라운드 도착한 접시에 내 미서빙 초밥이 2개 이상이면, SAME_FLOOR_CHOICE_MS
     // 동안 어느 걸 먼저 보낼지 고를 수 있다 (안 고르면 서버가 무작위로 정함). 충돌이 없는 플레이어에게는
     // 상대가 고르는 동안 대기 메시지만 보여준다.
     if (st.elevator.state === "choosing") {
@@ -1687,7 +1794,7 @@ APP_JS_TEMPLATE = r"""
       html += '<div class="choice-box">';
       if (myConflict) {
         var myChosen = pc.chosen[seat];
-        html += '<h4>같은 층에 택배가 여러 개예요 — 먼저 보낼 걸 골라주세요</h4>';
+        html += '<h4>같은 접시에 초밥이 여러 개예요 — 먼저 보낼 걸 골라주세요</h4>';
         html += '<div class="choice-list">' + myConflict.map(function (invId) {
           var inv = null;
           for (var i = 0; i < st.players[seat].invoices.length; i++) { if (st.players[seat].invoices[i].id === invId) { inv = st.players[seat].invoices[i]; break; } }
@@ -1698,29 +1805,29 @@ APP_JS_TEMPLATE = r"""
             + (myChosen ? '' : (' data-action="choose-delivery" data-inv="' + invId + '"'))
             + '>'
             + '<span class="swatch" style="background:' + t.color + '"></span>'
-            + '<div class="meta"><div class="t">' + esc(t.name) + '</div><div class="d">' + roomCode(inv.floorIdx, inv.room) + '</div></div>'
+            + sushiIcon(inv.sushi) + '<div class="meta"><div class="t">' + invTitle(inv) + '</div><div class="d">' + plateTag(inv.floorIdx) + '</div></div>'
             + '<span class="sticker' + (isChosen ? '' : ' pending') + '">' + (isChosen ? '선택됨' : '선택') + '</span>'
             + '</div>';
         }).join('') + '</div>';
         html += '<div class="time-left-big" id="choice-clock">' + (myChosen ? '상대를 기다리는 중...' : '남은 시간 계산 중...') + '</div>';
       } else {
-        html += '<h4>잠시만요</h4><div style="color:var(--muted);font-size:0.85rem;">상대방이 같은 층 택배 중 먼저 보낼 걸 고르고 있어요...</div>';
+        html += '<h4>잠시만요</h4><div style="color:var(--muted);font-size:0.85rem;">상대방이 같은 접시 초밥 중 먼저 보낼 걸 고르고 있어요...</div>';
       }
       html += '</div>';
-      html += '</div></div></div></main>';
+      html += '</div></div></main>';
       return html;
     }
 
     var voting = st.elevator.state === "voting";
 
     html += '<div class="vote-buttons">';
-    html += '<button class="btn big primary" data-action="vote-up"' + (voting ? '' : ' disabled') + '>▲ 위로</button>';
-    html += '<button class="btn big ghost" data-action="vote-down"' + (voting ? '' : ' disabled') + '>▼ 아래로</button>';
+    html += '<button class="btn big primary" data-action="vote-up"' + (voting ? '' : ' disabled') + '><span class="vote-arrow">←</span> 시계 방향으로</button>';
+    html += '<button class="btn big ghost" data-action="vote-down"' + (voting ? '' : ' disabled') + '>반시계 방향으로 <span class="vote-arrow">→</span></button>';
     html += '</div>';
     // per-click counts (mine or the opponent's) are never shown -- the real floor position, shown
     // live in the shaft (whichever row carries .current), is the only movement feedback either
     // player gets during voting.
-    html += '<div class="key-hint">' + (voting ? '키보드 ↑ / ↓ 화살표로도 누를 수 있어요' + (ELEVATOR_JOLT ? ' · <b>둘 다 눌렀는데 제자리면 덜컹!</b>' : '') : '이번 라운드 투표가 끝났어요') + '</div>';
+    html += '<div class="key-hint">' + (voting ? '키보드 ← / → 방향키로도 누를 수 있어요' : '이번 라운드 투표가 끝났어요') + '</div>';
 
     if (voting) {
       html += '<div class="time-left-big" id="round-clock">남은 시간 계산 중...</div>';
@@ -1732,39 +1839,34 @@ APP_JS_TEMPLATE = r"""
       var myDelivered = (last.delivered || []).filter(function (d) { return d.seat === seat; });
       html += '<div class="round-result">'
         + '<div>라운드 ' + last.round + ' 결과 — '
-        + (last.jolt ? '팽팽! <b class="jolt-word">덜컹!</b> ' + FLOORS[last.jolt.from] + '에서 ' + (last.jolt.dir === "up" ? "튀어 올랐어요" : "떨어졌어요")
-          : (last.dir === "tie" ? "동률, 유지" : (last.dir === "up" ? "상승" : "하강")))
+        + (last.dir === "tie" ? "제자리" : (last.dir === "up" ? "시계 방향" : "반시계 방향"))
         + ' (현재 ' + FLOORS[last.floorIdx] + ')</div>'
         + renderDeliveredCallout(myDelivered)
         + '</div>';
       var otherSeat = seat === "1" ? "2" : "1";
       var myReady = !!st.elevator.readyNext[seat];
       var otherReady = !!st.elevator.readyNext[otherSeat];
-      var nextLabel = st.elevator.round >= ELEVATOR_ROUNDS ? "최종 결과 보기" : "다음 라운드로";
-      // P2-1 (2026-10-13): 결과는 RESULT_AUTO_ADVANCE_MS 뒤 자동으로 넘어간다. 둘 다 Space면 더 빨리.
-      if (st.elevator.resultEndsAt) {
-        html += '<div class="auto-advance" id="result-clock">' + Math.max(0, Math.ceil((st.elevator.resultEndsAt - nowMs()) / 1000)) + '초 뒤 자동으로 ' + nextLabel.replace(" 보기", "") + '</div>';
-      }
+      var nextLabel = st.elevator.round >= ELEVATOR_ROUNDS ? "최종 결과 보기" : "다음 라운드";
       html += '<div class="ready-row">'
         + '<span class="ready-chip' + (myReady ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
         + '<span class="ready-chip' + (otherReady ? ' is-ready' : '') + '">' + seatName(otherSeat, st) + (otherReady ? ' · 준비 완료' : ' · 대기 중') + '</span>'
         + '</div>'
-        + '<div class="space-hint">Space · ' + (st.elevator.resultEndsAt ? '둘 다 누르면 바로 넘어가요' : nextLabel) + '</div>';
+        + spaceHint(nextLabel) + gateAuto(st.elevator);
     }
     html += '</div>';
 
-    html += '</div></div></div></main>';
+    html += '</div></div></main>';
     return html;
   }
 
-  // 하프타임 전환 화면: 전반이 끝난 뒤 후반(새 보드, 새 송장, 택배도둑 해금)을 시작하기 전 결과를 잠깐
-  // 보여주고, 둘 다 스페이스바를 누르면 후반의 택배 확보 페이즈가 시작된다.
+  // 하프타임 전환 화면: 전반이 끝난 뒤 후반(새 보드, 새 주문표, 초밥도둑 해금)을 시작하기 전 결과를 잠깐
+  // 보여주고, 둘 다 스페이스바를 누르면 후반의 초밥 제작 페이즈가 시작된다.
   function renderHalftime(st, seat) {
     var otherSeat = seat === "1" ? "2" : "1";
     var myReady = !!st.halftimeReady[seat];
     var otherReady = !!st.halftimeReady[otherSeat];
     var h1 = st.halfHistory[0];
-    var html = '<main class="stage"><div class="center-screen">' + cartOpen('cart--half') + '<div class="halftime-box card">';
+    var html = '<main class="stage"><div class="center-screen"><div class="halftime-box card">';
     html += '<h2>전반 종료</h2>';
     if (h1) {
       html += '<div class="halftime-scores">'
@@ -1772,18 +1874,27 @@ APP_JS_TEMPLATE = r"""
         + '<div class="chip">' + esc(seatName("2", st)) + '<span class="n">' + fmtWon(h1.scores["2"]) + '</span></div>'
         + '</div>';
     }
-    html += '<p style="color:var(--muted);font-size:0.9rem;">후반이 시작돼요. 택배 보드가 새로 채워지고, 후반부터는 <strong style="color:var(--danger)">택배도둑</strong>을 배치할 수 있어요.</p>';
+    html += rules3(['초밥 보드가 새로 채워져요', '후반부터 <b style="color:var(--danger)">초밥도둑</b>을 놓을 수 있어요 (후반 2회)', '손님 응대를 잘하면 상대 주문표를 1번 엿볼 수 있어요']);
+    var pkMe = peekInfoFor(seat), pkOther = peekInfoFor(otherSeat);
+    html += '<div class="peek-box">';
+    if (pkMe.played) {
+      html += '<div class="pb-done"><b>엿보기 ' + pkMe.charges + '회 획득</b><span>' + (pkMe.charges > 0 ? '후반 회전 벨트에서 상대 주문표를 ' + pkMe.charges + '장 몰래 볼 수 있어요' : '실수가 많아 엿보기를 얻지 못했어요') + '</span></div>';
+    } else {
+      html += '<div class="pb-title">엿보기 얻기</div><div class="pb-desc">손님이 원하는 간장·와사비를 재빨리 가져다주면, 손님이 후반에 상대 주문표를 귀띔해 줘요 (최대 1회 · 도전은 1번만 · 실수 0~1번이어야 얻어요).</div>'
+        + '<button class="btn primary" data-action="start-peek">엿보기 도전</button>';
+    }
+    html += '<div class="pb-other">' + esc(seatName(otherSeat, st)) + ' · ' + (pkOther.played ? '도전 완료' : '아직 도전 안 함') + '</div></div>';
     html += '<div class="ready-row">'
       + '<span class="ready-chip' + (myReady ? ' is-ready' : '') + '">나 · ' + seatName(seat, st) + (myReady ? ' · 준비 완료' : ' · 스페이스바 대기') + '</span>'
       + '<span class="ready-chip' + (otherReady ? ' is-ready' : '') + '">' + seatName(otherSeat, st) + (otherReady ? ' · 준비 완료' : ' · 대기 중') + '</span>'
       + '</div>'
-      + '<div class="space-hint">Space · 후반 시작</div>';
-    html += '</div>' + cartClose() + '</div></main>';
+      + spaceHint('후반 시작');
+    html += '</div></div></main>';
     return html;
   }
 
   // 전반/후반 각각의 스냅샷(st.halfHistory)과, 그 안의 players.invoices로부터 다시 계산한 점수를
-  // 그대로 보여준다 -- st.scores(전체 합산)와는 별개로 하프별 내역도 함께 표시. 우선 배송 여부는
+  // 그대로 보여준다 -- st.scores(전체 합산)와는 별개로 하프별 내역도 함께 표시. 우선 서빙 여부는
   // (라운드 한정 보너스이므로) inv.deliveredWasPriority에 이미 영구히 기록돼 있다.
   function renderHalfTable(seat, halfEntry) {
     var invs = halfEntry.players[seat].invoices.slice().sort(function (a, b) { return a.acquiredSeq - b.acquiredSeq; });
@@ -1792,9 +1903,9 @@ APP_JS_TEMPLATE = r"""
       var t = TYPES[inv.catIdx];
       var pts = scoreInvoice(inv);
       var label = resultLabel(inv) + (inv.deliveredWasPriority ? ' · 우선' : '');
-      html += '<tr><td>' + esc(t.name) + '</td><td>' + roomCode(inv.floorIdx, inv.room) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
+      html += '<tr><td>' + esc(t.name) + (sushiShort(inv.sushi) ? ' · ' + esc(sushiShort(inv.sushi)) : '') + '</td><td>' + plateTag(inv.floorIdx) + '</td><td>' + label + '</td><td>' + fmtWon(pts) + '</td></tr>';
     });
-    if (!invs.length) html += '<tr><td colspan="4" style="color:var(--muted)">확보한 택배 없음</td></tr>';
+    if (!invs.length) html += '<tr><td colspan="4" style="color:var(--muted)">제작한 초밥 없음</td></tr>';
     html += '</tbody></table>';
     return html;
   }
@@ -1818,7 +1929,7 @@ APP_JS_TEMPLATE = r"""
       + '<span class="ready-chip' + (mine ? ' is-ready' : '') + '">나 · ' + (mine ? '준비 완료' : '대기 중') + '</span>'
       + (otherSeat ? '<span class="ready-chip' + (other ? ' is-ready' : '') + '">' + esc(seatName(otherSeat, st)) + (other ? ' · 준비 완료' : ' · 대기 중') + '</span>' : '')
       + '</div>';
-    html += '<p style="color:var(--muted);font-size:0.85rem;margin:0.5rem 0 0;">같은 링크에서 좌석/택배사는 그대로 두고 바로 새 게임을 시작해요. 둘 다 눌러야 시작됩니다.</p>';
+    html += '<p style="color:var(--muted);font-size:0.85rem;margin:0.5rem 0 0;">같은 링크에서 좌석/셰프는 그대로 두고 바로 새 게임을 시작해요. 둘 다 눌러야 시작됩니다.</p>';
     html += '</div>';
     return html;
   }
@@ -1826,8 +1937,8 @@ APP_JS_TEMPLATE = r"""
   function renderEnd(st, seat) {
     var s1 = st.scores ? st.scores["1"] : 0, s2 = st.scores ? st.scores["2"] : 0;
     var winner = s1 === s2 ? "무승부" : (s1 > s2 ? (seatName("1", st) + " 승리") : (seatName("2", st) + " 승리"));
-    var html = '<main class="stage">' + cartOpen('cart--end');
-    html += '<div class="winner-banner">' + winner + '</div>';
+    var html = '<main class="stage">';
+    html += '<div class="winner-banner">' + esc(winner) + '</div>';
     html += renderRestartGate(st, seat);
     // Game's over -- unlike the elevator phase (where per-round delivery info stays private so
     // players can't read each other's moves mid-game), the ending screen reveals both players'
@@ -1847,31 +1958,31 @@ APP_JS_TEMPLATE = r"""
       + '<div class="chip">' + esc(seatName("1", st)) + ' 총점<span class="n">' + fmtWon(s1) + '</span></div>'
       + '<div class="chip">' + esc(seatName("2", st)) + ' 총점<span class="n">' + fmtWon(s2) + '</span></div>'
       + '</div>';
-    html += cartClose() + '</main>';
+    html += '</main>';
     return html;
   }
 
   function renderLoading() {
-    return '<main class="stage"><div class="center-screen">' + cartWrap('<div class="lobby-box card"><h2>연결 중...</h2>'
-      + '<p>서버에 접속하고 있어요. 잠시만 기다려 주세요.</p></div>', 'cart--lobby') + '</div></main>';
+    return '<main class="stage"><div class="center-screen"><div class="lobby-box card"><h2>연결 중...</h2>'
+      + '<p>서버에 접속하고 있어요. 잠시만 기다려 주세요.</p></div></div></main>';
   }
 
   function renderBody() {
     if (RAIL && !ROOM) return renderRailJoin();
-    if (!ROOM) return '<main class="stage"><div class="center-screen">' + cartWrap('<div class="lobby-box card"><h2>잘못된 링크예요</h2><p>방 코드가 없어요. 처음 받은 링크로 다시 들어와 주세요.</p></div>', 'cart--lobby') + '</div></main>';
+    if (!ROOM) return '<main class="stage"><div class="center-screen"><div class="lobby-box card"><h2>잘못된 링크예요</h2><p>방 코드가 없어요. 처음 받은 링크로 다시 들어와 주세요.</p></div></div></main>';
     if (MAIN) return renderMain();
     if (RAIL) return renderRail();
     if (!state) return renderTopbarShell() + renderLoading();
     var seat = mySeat();
     var body = renderTopbar(state, seat);
-    if (!seat) { body += renderSeatPicker(); return body; }
+    if (!seat) return renderSeatPicker();
     if (state.phase === "lobby") {
       // 방어적 체크 (2026-08-28 버그 수정): 이 좌석이 서버에 등록돼 있어도(seat truthy) courierPick이
       // 비어 있으면(재접속 유예 로직으로도 못 막은 예외적 타이밍, 혹은 방이 스윕돼 새로 만들어진 뒤
-      // sessionStorage만 남아있던 경우 등) 절대 "스페이스바 대기" 화면을 보여주지 않는다 -- 택배사를
-      // 안 골랐는데 대기 화면만 뜨면 사용자가 다시 고를 방법이 없다("한번씩 대기 시간에 택배사 선택이
-      // 안 떠" 버그 리포트). 내 택배사가 실제로 정해져 있을 때만 대기 화면, 아니면 선택 화면.
-      body += (state.courierPick && state.courierPick[seat]) ? renderLobby(state, seat) : renderSeatPicker();
+      // sessionStorage만 남아있던 경우 등) 절대 "스페이스바 대기" 화면을 보여주지 않는다 -- 셰프를
+      // 안 골랐는데 대기 화면만 뜨면 사용자가 다시 고를 방법이 없다("한번씩 대기 시간에 셰프 선택이
+      // 안 떠" 버그 리포트). 내 셰프가 실제로 정해져 있을 때만 대기 화면, 아니면 선택 화면.
+      body += renderLobby(state, seat);
     }
     else if (state.phase === "secure") {
       // 우봉고 오버레이를 열어둔 사이 그 칸(또는 그 종류)이 상대에게 다 넘어갔으면 오버레이를 닫는다 (공유 보드).
@@ -1880,139 +1991,242 @@ APP_JS_TEMPLATE = r"""
         if (blocked) { local.openCellId = null; notifyGameClosed(); setTimeout(function () { showToast(blocked); }, 0); }
       }
       // 레일 화면이 접속해 있으면 버튼은 그쪽에 있다 -- 내 화면은 "기다리는 화면"이고, 게임은 레일에서 눌렀을 때 뜬다.
-      if (state.race) body += renderRace(state, seat); // 2026-10-14 레이스 라운드 (레일 화면 접속 여부와 무관)
-      else body += (railInfo.count > 0 ? renderRailWaiting(state, seat) : renderBoard(state, seat)) + renderPuzzleOverlay(state);
+      body += (railMode() ? renderRailSeat(state, seat) : renderBoard(state, seat)) + renderPuzzleOverlay(state) + introHtml(state, false);
     }
     else if (state.phase === "elevator") body += renderElevator(state, seat);
     else if (state.phase === "halftime") body += renderHalftime(state, seat);
     else if (state.phase === "end") body += renderEnd(state, seat);
     return body;
   }
+  // 시작 10초 3컷 설명 (2026-10-12, 평가 G1): 전반 제작 단계가 시작되면 화면 아래에 컷 3개가 3.3초씩 지나간다.
+  // 조작을 막지 않고(pointer-events 없음) 시간도 안 뺏는다. 다시 그려져도 경과 시간만큼 애니메이션이 이어지게 음수 지연을 쓴다.
+  function introHtml(st, big) {
+    if (!st || st.phase !== "secure" || st.half !== 1 || !st.secureEndsAt) return '';
+    var elapsed = Math.max(0, SECURE_PHASE_MS - (st.secureEndsAt - nowMs()));
+    if (elapsed >= INTRO_MS) return '';
+    var cuts = [
+      ['초밥을 만들어요', '레일에서 손질해 회를 만들고, 내 자리에서 퍼즐로 조립해요'],
+      ['주문표가 붙어요', '초밥마다 서빙할 접시가 정해져요 · 상대에겐 비밀'],
+      ['벨트를 돌려 서빙!', '내 접시에 맞추면 돈, 못 팔면 마이너스']
+    ];
+    return '<div class="intro3' + (big ? ' big' : '') + '" style="--el:' + (elapsed / 1000).toFixed(2) + 's">'
+      + cuts.map(function (c, i) {
+        return '<div class="cut" style="--d:' + (i * 3.34).toFixed(2) + 's"><i>' + (i + 1) + '</i><div><b>' + c[0] + '</b><span>' + c[1] + '</span></div></div>';
+      }).join('') + '</div>';
+  }
+  // 2026-10-13 플레이 시작 전 게임 설명: 대기실(플레이어)·메인 화면·레일 화면 대기 중에 같은 4단계 카드를 먼저 보여 준다.
+  function howtoHtml() {
+    var steps = [
+      ['손질', '레일 화면', '레일 화면에서 손질 미니게임을 해서 <b>회</b>를 만들어요 (1번 W A S D · 2번 방향키 + Shift)'],
+      ['조립', '내 자리', '회로 퍼즐을 풀어 <b>초밥</b>을 완성해요. 주문표가 붙고 상대에겐 비밀이에요'],
+      ['서빙', '회전 벨트', '접시를 맞춰 서빙해요. 벨트는 <b>메인 화면</b>에서 돌려요 (1번 A·D · 2번 4·6)'],
+      ['점수', '전반 · 후반', '팔면 +, 못 팔면 원재료값 −. 전반·후반을 합산하고 후반엔 초밥도둑이 나와요']
+    ];
+    return '<ol class="howto">' + steps.map(function (s, i) {
+      return '<li><i>' + (i + 1) + '</i><div><small>' + s[1] + '</small><b>' + s[0] + '</b><span>' + s[2] + '</span></div></li>';
+    }).join('') + '</ol>';
+  }
+  // 단계별 규칙은 3줄 이내 (평가 G2).
+  function rules3(lines) {
+    return '<ol class="rules3">' + lines.map(function (l) { return '<li>' + l + '</li>'; }).join('') + '</ol>';
+  }
+  // 게이트(idle/result) 자동 진행 카운트다운 (서버가 GATE_AUTO_MS 뒤 둘 다 준비로 처리한다).
+  function gateAuto(el) {
+    if (!el.gateEndsAt) return '';
+    return '<span class="gate-count" data-ends="' + el.gateEndsAt + '">' + Math.max(0, Math.ceil((el.gateEndsAt - nowMs()) / 1000)) + '초 뒤 자동 진행</span>';
+  }
+  // 메인 모니터 G4: 제작 중 실시간 현황 / 라운드 서빙 결과(이유 포함, 서빙된 주문표는 공개)
+  function mvLive(st) {
+    return '<div class="mv-live">' + ["1", "2"].map(function (sn) {
+      var made = st.board.filter(function (c) { return c.takenBy === sn; }).length;
+      var mk = railInfo.making && railInfo.making[sn];
+      var now = mk ? (TYPES[mk.catIdx].name + (mk.stage === "prep" ? ' 손질 중' : (railInfo.count > 0 ? ' 조립 중' : ' 제작 중'))) : (st.seatOwners[sn] ? '다음 초밥 고르는 중' : '입장 대기');
+      var kai = 0; TYPES.forEach(function (t, ci) { kai += stockOf(st, sn, ci); });
+      return '<div class="mv-live-card' + (mk ? ' is-active' : '') + '"><b>' + esc(seatName(sn, st)) + '</b><span class="mv-live-now">' + esc(now) + '</span><small>만든 초밥 ' + made + '개' + (railInfo.count > 0 ? ' · 회 ' + kai + '개' : '') + '</small></div>';
+    }).join('') + '</div>';
+  }
+  function mvResult(st) {
+    var el = st.elevator, entry = el.log && el.log[el.log.length - 1];
+    if (!entry || entry.round !== el.round) return '';
+    return '<div class="mv-res">' + ["1", "2"].map(function (sn) {
+      var d = null; entry.delivered.forEach(function (x) { if (x.seat === sn) d = x; });
+      var line, cls;
+      var invs = st.players[sn].invoices, done = invs.filter(function (v) { return v.deliveredRound !== null; }).length;
+      if (d) {
+        var t = TYPES[d.catIdx], iv = findInvoiceById(d.invoiceId), sname = iv ? sushiShort(iv.sushi) : '';
+        var nm = sname ? sname + ' 초밥' : t.name;
+        if (d.stolen) { line = FLOORS[d.floorIdx] + ' 접시 · ' + nm + ' — 초밥도둑에게 도난! ' + fmtWon(-t.penalty); cls = ' is-bad'; }
+        else { line = FLOORS[d.floorIdx] + ' 접시 · ' + nm + ' — 서빙 성공 ' + fmtWon(d.priority ? t.reward * PRIORITY_MULTIPLIER : t.reward) + (d.priority ? ' (우선 x' + PRIORITY_MULTIPLIER + ')' : ''); cls = ' is-ok'; }
+      } else {
+        line = (invs.length - done) ? (FLOORS[entry.floorIdx] + ' 접시에 맞는 주문이 없었어요') : '남은 주문이 없어요';
+        cls = ' is-none';
+      }
+      return '<div class="mv-res-row' + cls + '"><b>' + esc(seatName(sn, st)) + '</b><span>' + esc(line) + '</span><small>만든 초밥 ' + invs.length + '개 · 처리 ' + done + '개</small></div>';
+    }).join('') + '</div>';
+  }
   function renderTopbarShell() {
-    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>택배 배송 게임</h1></div>'
+    return '<div class="topbar"><div class="brand"><span class="eyebrow">BeatPhobia · Live</span><h1>초밥 서빙 게임</h1></div>'
       + '<div class="right"><span class="room-chip">방 ' + esc(ROOM) + '</span></div></div>';
   }
 
 
-  // ---------- 레일 사이트 (2026-10-07, /rail) ----------
-  // 두 플레이어가 같이 보는 공용 화면. 확보 단계에서 종류마다 한 줄: 가운데 레일 위에 택배 상자(남은 개수 점), 왼쪽 = 1번 자리 버튼,
-  // 오른쪽 = 2번 자리 버튼. 버튼을 누르면 서버(rail-press)가 그 자리 플레이어의 기기에 해당 종류 미니게임을 띄운다. 이 화면은 좌석이 없고
-  // 비공개 정보(내가 확보한 호수, 우선 택배 등)는 어디에도 그리지 않는다 -- 남은 개수와 누가 지금 게임 중인지만 보인다.
+  // ---------- 레일 사이트 (/rail) ---------- 입장 화면. 제작 단계 화면은 아래 "레일 화면 (2026-10-12 개편)" 참고.
   function renderRailJoin() {
     return '<main class="stage"><div class="center-screen"><div class="lobby-box card"><h2>레일 화면</h2>'
       + '<p>메인 화면에 뜬 방 코드를 입력하세요.</p>'
       + '<p><input id="rail-code" class="rv-code" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="방 코드"> '
       + '<button class="btn ok" data-action="rail-join">입장</button></p></div></div></main>';
   }
+  // ---------- 레일 화면 (2026-10-12 개편) ----------
+  // 공용 화면 하나를 좌/우로 나눠 두 플레이어가 동시에 손질(회 만들기) 미니게임을 한다. 1번 자리(왼쪽) = W A S D + SPACE,
+  // 2번 자리(오른쪽) = 방향키 + ENTER. 손질을 끝내면 서버가 그 종류의 공급량에서 1개를 선점해 그 자리의 재료함(state.stock)에 회를 쌓는다.
+  // 게임 DOM은 #app을 갈아끼우는 render() 밖(#rail-live 안의 .rp-game)에 두고 패널 머리/메뉴만 갱신한다 (진행 중인 게임이 안 사라지게).
+  var railUi = { "1": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 }, "2": { sel: 0, ctl: null, cat: null, msg: "", ok: true, msgT: 0 } };
+  var RAIL_KEYS = {
+    "1": { KeyA: "ArrowLeft", KeyD: "ArrowRight", KeyW: "ArrowUp", KeyS: "Space" },
+    "2": { ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", ArrowUp: "ArrowUp", ShiftRight: "Space" }
+  };
+  // 레일 화면은 W A S D / 방향키만 쓴다 (2026-10-13). ←→(A D) = 고르기·좌우, ↑(W) = 위, ↓(S) = "행동" 키 한 개(시작·확인·썰기·휘젓기·굽기).
+  var RAIL_KEY_HINT = { "1": "A D 고르기 · S 시작/행동 · W 위", "2": "← → 고르기 · 오른쪽 Shift 시작/행동 · ↑ 위" };
+  var RAIL_ACT_LABEL = { "1": "S", "2": "Shift" };
+  function railHead(label) {
+    return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live</span><h1>레일 화면</h1></div>'
+      + '<div class="rv-chips">' + (label ? '<span class="rv-chip phase">' + esc(label) + '</span>' : '') + '<span class="rv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
+  }
   function railSideHead(st, side) {
     var key = st.courierPick && st.courierPick[side];
     var c = key ? courierByKey(key) : null;
     var idx = c ? COURIERS.indexOf(c) : -1;
     var here = !!st.seatOwners[side];
-    var busy = railInfo.busy && railInfo.busy[side];
-    return '<span class="rv-side' + (c ? ' is-on' : '') + (busy ? ' is-busy' : '') + '" data-side="' + side + '"' + (c ? ' style="--c:' + c.color + '"' : '') + '>'
+    return '<span class="rv-side' + (c ? ' is-on' : '') + '" data-side="' + side + '"' + (c ? ' style="--c:' + c.color + '"' : '') + '>'
       + (c ? '<span class="rv-side-icon">' + COURIER_ICONS[idx] + '</span>' : '')
-      + '<b>' + esc(c ? c.name : '플레이어 ' + side) + '</b>'
-      + '<small>' + (!here ? '입장 대기' : (busy ? '게임 중...' : '버튼을 누르세요')) + '</small></span>';
+      + '<b>' + esc(seatName(side, st)) + '</b>'
+      + '<small>' + (!here ? '입장 대기' : '자리에 앉았어요') + '</small></span>';
   }
-  function railSideButtons(st, side, t, catIdx, left) {
-    var here = !!st.seatOwners[side];
-    var busy = !!(railInfo.busy && railInfo.busy[side]);
-    var html = '<div class="rail-side mine side-' + side + '" style="--c:' + t.color + '">';
-    if (t.fixedFloor) {
-      html += '<div class="floor-btns">';
-      for (var num = 0; num < t.count; num++) {
-        var cell = boardCell(st, t.key + "-" + (num + 1));
-        var off = !here || busy || (cell && cell.taken);
-        html += '<button class="floor-btn' + (cell && cell.taken ? ' is-gone' : '') + '" data-action="rail-press" data-side="' + side + '" data-cat="' + catIdx + '" data-cell="' + t.key + '-' + (num + 1) + '"'
-          + (off ? ' disabled' : '') + '><span>' + esc(FLOORS[num]) + '</span><small>' + fmtWon(Math.round(t.reward * floorMult(num))) + '</small></button>';
-      }
-      html += '</div>';
-    } else {
-      var off2 = !here || busy || left === 0;
-      html += '<button class="rail-btn' + (busy ? ' is-busy' : '') + '" data-action="rail-press" data-side="' + side + '" data-cat="' + catIdx + '"' + (off2 ? ' disabled' : '') + '>'
-        + '<span class="rbt">' + (left === 0 ? '소진' : (busy ? '게임 중...' : esc(MINI_NAME[t.mini] || '택배 쌓기') + ' 시작')) + '</span>'
-        + '<span class="rbp">성공 ' + rewardRange(t) + ' · 실패 ' + fmtWon(-t.penalty) + '</span></button>';
-    }
-    return html + '</div>';
-  }
-  // 엘리베이터 단계의 상태 문구/마감 (메인 모니터와 레일 화면 공용)
-  function elevStateInfo(st) {
-    var el = st.elevator, r = { label: "", ends: null, wait: "" };
-    if (el.state === "idle") { r.label = "출발 준비 중"; r.wait = "두 플레이어가 준비하면 출발해요"; }
-    else if (el.state === "priority") { r.label = (MERGE_PRIORITY_THIEF && st.half === 2) ? "우선 택배 지정 · 택배도둑 배치 시간" : "우선 택배 지정 시간"; r.ends = el.priorityWindowEndsAt; }
-    else if (el.state === "thief") { r.label = "택배도둑 배치 시간"; r.ends = el.thiefWindowEndsAt; }
-    else if (el.state === "voting") { r.label = "엘리베이터 이동 중!"; r.ends = el.votingEndsAt; }
-    else if (el.state === "choosing") { r.label = "같은 층 택배 선택 중"; r.ends = el.pendingChoice && el.pendingChoice.endsAt; }
-    else if (el.state === "result") { r.label = elevJolt(el) ? "팽팽! 덜컹! 엘리베이터가 " + (elevJolt(el).dir === "up" ? "튀어 올랐어요" : "떨어졌어요") : "라운드 결과 확인 중"; if (el.resultEndsAt) r.ends = el.resultEndsAt; else r.wait = "다음 라운드 준비 대기"; }
-    else { r.label = "배송 종료"; }
-    return r;
-  }
-  // 2026-10-14 (사용자 요청): 레일 화면도 엘리베이터 단계엔 엘리베이터 그림 -- 건물 단면도(움직임) + 엘리베이터 안 그림 + 라운드/상태/남은 시간
-  function renderRailElevator(st, head, halfName) {
-    var el = st.elevator, esi = elevStateInfo(st);
-    return '<div class="rv">' + head("엘리베이터 · " + halfName) + '<div class="rv-elev">'
-      + '<div class="rv-elev-bld">' + renderBuilding(el) + '</div>'
-      + '<div class="rv-elev-main">' + renderElevArt(el)
-      + '<div class="rv-elev-info"><span class="round-pill">라운드 ' + el.round + ' / ' + ELEVATOR_ROUNDS + '</span>'
-      + '<span class="rv-elev-floor">현재 층 <b>' + esc(FLOORS[el.floorIdx]) + '</b></span>'
-      + '<span class="rv-elev-state">' + esc(esi.label) + '</span>'
-      + (esi.ends ? raceCount(esi.ends, '', '초') : (esi.wait ? '<span class="rv-elev-wait">' + esc(esi.wait) + '</span>' : ''))
-      + '</div></div></div></div>';
-  }
-  // 2026-10-14 (사용자 요청): 레이스 중 레일 화면엔 택배 쌓기 문제만. 누군가 첫 게임을 끝내면 문제가 화면 가득,
-  //   그 전엔 "곧 문제가 나와요" 대기 화면. 택배·진행 단계·송장은 그리지 않는다 (택배 고르기는 각자 플레이어 화면).
-  function railPuzzleOn(r) { return !!r.first || ["1", "2"].some(function (s) { return r.stage[s] === "ubongo" || r.stage[s] === "done"; }); }
-  function renderRailRace(st) {
-    var r = st.race;
-    if (!railPuzzleOn(r)) {
-      return '<div class="rv rv-race-wait"><div class="rv-center"><span class="round-pill">레이스 ' + r.round + '</span>'
-        + '<h2>' + esc(raceGameName(r)) + ' 중</h2><p>먼저 끝낸 사람이 나오면 여기에 택배 쌓기 문제가 떠요</p></div></div>';
-    }
-    var meta = cellMeta(r.puzzleId, st.half);
-    return '<div class="rv rv-puzzle-only"><div class="race-puzzle">'
-      + '<div class="rp-cap">레이스 ' + r.round + ' · 택배 쌓기 · 조각 ' + racePieces(st, r) + '개</div>'
-      + (meta && meta.src ? '<img src="' + meta.src + '" alt="택배 쌓기 문제">' : '') + '</div></div>';
-  }
+  // 제작 단계가 아닐 때의 레일 화면 (제작 단계는 railRenderSecure가 따로 그린다)
   function renderRail() {
     var st = state;
-    var head = function (label) {
-      return '<header class="rv-head"><div><span class="rv-eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>레일 화면</h1></div>'
-        + '<div class="rv-chips">' + (label ? '<span class="rv-chip phase">' + esc(label) + '</span>' : '') + '<span class="rv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
-    };
-    if (!st) return '<div class="rv">' + head('') + '<div class="rv-center"><h2>연결 중...</h2></div></div>';
+    if (!st) return '<div class="rv">' + railHead('') + '<div class="rv-center"><h2>연결 중...</h2></div></div>';
     var halfName = st.half === 2 ? "후반" : "전반";
-    if (st.phase === "elevator" && st.elevator) return renderRailElevator(st, head, halfName);
-    if (st.phase !== "secure") {
-      var msg = st.phase === "lobby" ? ['참가자를 기다리고 있어요', '두 플레이어가 준비하면 이 화면에 레일이 열려요']
-        : st.phase === "elevator" ? ['배송 중이에요', '다음 택배 확보 단계에서 레일이 다시 열려요']
-        : st.phase === "halftime" ? ['하프타임', '후반이 시작되면 레일이 새 택배로 채워져요']
-        : ['게임이 끝났어요', '다시 시작하면 레일이 열려요'];
-      return '<div class="rv">' + head(st.phase === "lobby" ? '대기 중' : halfName) + '<div class="rv-center"><h2>' + msg[0] + '</h2><p>' + msg[1] + '</p>'
-        + '<div class="rv-sides">' + railSideHead(st, "1") + railSideHead(st, "2") + '</div></div></div>';
-    }
-    if (st.race) return renderRailRace(st);
-    var endsAt = st.secureEndsAt || nowMs();
-    var html = '<div class="rv">' + head('택배 확보 · ' + halfName);
-    html += '<div class="rv-clockrow"><span class="rv-clock-label">남은 시간</span><b id="rv-clock" data-ends="' + endsAt + '">' + fmtClock(endsAt - nowMs()) + '</b>'
+    var msg = st.phase === "lobby" ? ['참가자를 기다리고 있어요', '두 플레이어가 준비하면 이 화면에서 손질(회 만들기)을 시작해요']
+      : st.phase === "elevator" ? ['서빙 중이에요', '다음 초밥 제작 단계에서 레일이 다시 열려요']
+      : st.phase === "halftime" ? ['하프타임', '후반이 시작되면 레일이 새 초밥으로 채워져요']
+      : ['게임이 끝났어요', '다시 시작하면 레일이 열려요'];
+    return '<div class="rv">' + railHead(st.phase === "lobby" ? '대기 중' : halfName) + '<div class="rv-center"><h2>' + msg[0] + '</h2><p>' + msg[1] + '</p>' + (st.phase === "lobby" ? howtoHtml() : '')
+      + '<div class="rv-sides">' + railSideHead(st, "1") + railSideHead(st, "2") + '</div></div></div>';
+  }
+  function railBuildSecure() {
+    var shell = function (side) { return '<section class="rp rp-' + side + '" id="rp-' + side + '" data-side="' + side + '"><div class="rp-top"></div><div class="rp-menu"></div><div class="rp-game"></div></section>'; };
+    document.getElementById("app").innerHTML = '<div class="rv rv-live" id="rail-live"><div id="rl-head"></div><div id="rl-clock"></div>'
+      + '<div class="rp-wrap">' + shell("1") + shell("2") + '</div><div id="rl-intro"></div></div>';
+  }
+  function railPaneTop(st, side) {
+    var key = st.courierPick && st.courierPick[side], c = key ? courierByKey(key) : COURIERS[Number(side) - 1], idx = COURIERS.indexOf(c);
+    var u = railUi[side], chips = TYPES.map(function (t, ci) {
+      var n = stockOf(st, side, ci);
+      return '<span class="rp-chip' + (n ? ' has' : '') + '" style="--c:' + t.color + '"><span class="rp-chip-ico">' + CAT_ICONS[ci] + '</span>' + (PREP_LABEL[t.sushi[0]] ? esc(SUSHI_NAME_SHORT(t)) : '') + ' 회 <b>' + n + '</b></span>';
+    }).join('');
+    return '<div class="rp-name" style="--c:' + c.color + '"><span class="rp-name-ico">' + COURIER_ICONS[idx] + '</span><b>' + esc(seatName(side, st)) + '</b>'
+      + (st.seatOwners[side] ? '' : '<small>입장 대기</small>') + '</div>'
+      + '<div class="rp-stock"><span class="rp-stock-label">내 재료함</span>' + chips + '</div>'
+      + '<div class="rp-keys">' + esc(RAIL_KEY_HINT[side]) + '</div>'
+      + '<div class="rp-msg' + (u.msg ? (u.ok ? ' is-ok' : ' is-bad') : '') + '">' + esc(u.msg || '') + '</div>';
+  }
+  function SUSHI_NAME_SHORT(t) { return t.name.replace(" 초밥", ""); }
+  function railPaneMenu(st, side) {
+    var here = !!st.seatOwners[side], u = railUi[side];
+    var cards = TYPES.map(function (t, ci) {
+      var left = prepLeft(st, ci), off = !here || left <= 0;
+      return '<button type="button" class="rp-card' + (u.sel === ci ? ' is-sel' : '') + (left <= 0 ? ' is-out' : '') + '" data-action="rail-start" data-side="' + side + '" data-cat="' + ci + '" style="--c:' + t.color + '"' + (off ? ' disabled' : '') + '>'
+        + '<span class="rp-ico">' + (PREP_IMGS[PREP_CARD_IMG[t.sushi[0]]] ? '<img src="' + PREP_IMGS[PREP_CARD_IMG[t.sushi[0]]] + '" alt="">' : CAT_ICONS[ci]) + '</span>'
+        + '<b>' + esc(t.name) + '</b>'
+        + '<small>' + esc(PREP_LABEL[t.sushi[0]] || '손질') + '</small>'
+        + '<span class="rp-left">' + (left <= 0 ? '소진' : '남은 재료 <b>' + left + '</b>') + '</span></button>';
+    }).join('');
+    return '<div class="rp-pick">무엇을 손질할까요?</div><div class="rp-cards">' + cards + '</div>'
+      + '<p class="rp-help">' + (side === "1" ? 'A / D' : '← / →') + ' 로 고르고 ' + RAIL_ACT_LABEL[side] + ' 로 시작 · 손질이 끝나면 <b>내 자리 화면</b>에서 퍼즐로 조립해요</p>';
+  }
+  function railRenderSecure() {
+    var st = state;
+    if (!document.getElementById("rail-live")) railBuildSecure();
+    var halfName = st.half === 2 ? "후반" : "전반", endsAt = st.secureEndsAt || nowMs();
+    document.getElementById("rl-head").innerHTML = railHead('초밥 제작 · ' + halfName);
+    document.getElementById("rl-clock").innerHTML = '<div class="rv-clockrow"><span class="rv-clock-label">남은 시간</span><b id="rv-clock" data-ends="' + endsAt + '">' + fmtClock(endsAt - nowMs()) + '</b>'
       + '<div class="rv-bar"><i id="rv-bar" data-ends="' + endsAt + '"></i></div></div>';
-    html += '<div class="board-grid rv-board">';
-    html += '<div class="rail-head">' + railSideHead(st, "1") + '<span>레일</span>' + railSideHead(st, "2") + '</div>';
-    TYPES.forEach(function (t, catIdx) {
-      var left = boardLeft(st, catIdx), pips = '';
-      for (var k = 0; k < t.count; k++) pips += '<span class="pip' + (k < left ? '' : ' gone') + '"></span>';
-      var mid = '<div class="rail-mid"><div class="rail-box" style="background:' + t.color + ';--c:' + t.color + '">'
-        + '<span class="cell-art" style="background-image:url(\'' + BOX_ART[catIdx] + '\')"></span>'
-        + '<span class="rb-name"><span class="cat-icon">' + CAT_ICONS[catIdx] + '</span>' + esc(t.name) + '</span>'
-        + '<span class="rb-game">' + esc(MINI_NAME[t.mini] || '택배 쌓기') + '</span>'
-        + '<span class="pips">' + pips + '</span>'
-        + '<span class="cat-left">남은 <b>' + left + '</b> / ' + t.count + '</span>'
-        + (left === 0 ? '<span class="stamp">소진</span>' : '')
-        + '</div></div>';
-      html += '<div class="board-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '">'
-        + railSideButtons(st, "1", t, catIdx, left) + mid + railSideButtons(st, "2", t, catIdx, left) + '</div>';
+    ["1", "2"].forEach(function (side) {
+      var pane = document.getElementById("rp-" + side), u = railUi[side];
+      pane.classList.toggle("is-playing", !!u.ctl);
+      pane.querySelector(".rp-top").innerHTML = railPaneTop(st, side);
+      if (!u.ctl) pane.querySelector(".rp-menu").innerHTML = railPaneMenu(st, side);
     });
-    return html + '</div></div>';
+    document.getElementById("rl-intro").innerHTML = introHtml(st, false);
+  }
+  function railStart(side, cat) {
+    var u = railUi[side];
+    if (!u || u.ctl || !state || state.phase !== "secure" || !window.MiniGames || !TYPES[cat]) return;
+    if (!state.seatOwners[side]) return;
+    if (prepLeft(state, cat) <= 0) { railFlash(side, "이 종류는 재료가 다 떨어졌어요", false); return; }
+    var host = document.querySelector("#rp-" + side + " .rp-game");
+    if (!host) return;
+    var sushi = TYPES[cat].sushi[0], ik = side + ":" + sushi;
+    var o = { kind: "prep", sushi: sushi, pieces: TYPES[cat].pieces, testHooks: TEST_HOOKS, keyTarget: host, relabel: { space: RAIL_ACT_LABEL[side], wasd: side === "1" },
+      onCancel: function () { railStop(side, true); },
+      onDone: function (res) {
+        var c = u.cat; railStop(side, false);
+        send({ type: "rail-prep-done", side: side, cat: c, ms: res && res.ms, mistakes: res && res.mistakes });
+      } };
+    if (!introSeen[ik]) { introSeen[ik] = true; o.intro = true; }
+    u.cat = cat; u.sel = cat; u.msg = "";
+    host.innerHTML = "";
+    u.ctl = MiniGames.start(host, o);
+    SFX.select();
+    send({ type: "rail-stage", side: side, cat: cat });
+    railRenderSecure();
+  }
+  function railStop(side, notify) {
+    var u = railUi[side];
+    if (u.ctl) { try { u.ctl.destroy(); } catch (e) { /* ignore */ } u.ctl = null; }
+    u.cat = null;
+    var host = document.querySelector("#rp-" + side + " .rp-game"); if (host) host.innerHTML = "";
+    if (notify) send({ type: "rail-stage", side: side, cat: null });
+    if (state && state.phase === "secure" && document.getElementById("rail-live")) railRenderSecure();
+  }
+  function railStopAll() {
+    ["1", "2"].forEach(function (side) { var u = railUi[side]; if (u.ctl) { try { u.ctl.destroy(); } catch (e) { /* ignore */ } u.ctl = null; u.cat = null; } });
+  }
+  function railFlash(side, text, ok) {
+    var u = railUi[side]; u.msg = text; u.ok = ok;
+    clearTimeout(u.msgT); u.msgT = setTimeout(function () { u.msg = ""; if (document.getElementById("rail-live")) railRenderSecure(); }, 3200);
+    if (document.getElementById("rail-live")) railRenderSecure();
+  }
+  // 서버의 손질 결과(내가 보낸 rail-prep-done에 대한 답)
+  function railResult(m) {
+    if (!railUi[m.side]) return;
+    if (m.ok) { SFX.ok(); railFlash(m.side, "회 완성! 내 자리 화면에서 퍼즐로 조립하세요", true); }
+    else { SFX.bad(); railFlash(m.side, m.code === "sold_out" ? "한발 늦었어요 — 이 종류 재료는 이미 다 확보됐어요" : "처리하지 못했어요", false); }
+  }
+  // 키 라우팅: 물리 키 -> (자리, 논리 키). 게임 중이면 그 패널의 게임에만 합성 키 이벤트로 전달하고, 아니면 메뉴 조작이다.
+  function railKey(e, type) {
+    if (!RAIL || !state || state.phase !== "secure" || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!e.isTrusted) return; // 우리가 게임으로 전달하려고 만든 합성 이벤트는 다시 라우팅하지 않는다 (캡처 단계에서 document도 거치므로 무한 재귀 방지)
+    if (e.target && e.target.tagName === "INPUT") return;
+    var side = null, logical = null;
+    ["1", "2"].forEach(function (sd) { if (!side && RAIL_KEYS[sd][e.code]) { side = sd; logical = RAIL_KEYS[sd][e.code]; } });
+    if (!side) return;
+    e.preventDefault(); e.stopPropagation();
+    var u = railUi[side];
+    if (u.ctl) {
+      var host = document.querySelector("#rp-" + side + " .rp-game");
+      if (host) host.dispatchEvent(new KeyboardEvent(type, { code: logical, key: logical === "Space" ? " " : logical, repeat: e.repeat, bubbles: false, cancelable: true }));
+      return;
+    }
+    if (type !== "keydown" || e.repeat) return;
+    if (logical === "ArrowLeft" || logical === "ArrowRight") { u.sel = (u.sel + (logical === "ArrowLeft" ? TYPES.length - 1 : 1)) % TYPES.length; SFX.click(); railRenderSecure(); }
+    else if (logical === "Space") railStart(side, u.sel);
+  }
+  if (RAIL) {
+    document.addEventListener("keydown", function (e) { railKey(e, "keydown"); }, true);
+    document.addEventListener("keyup", function (e) { railKey(e, "keyup"); }, true);
   }
   function railTick() {
     var c = document.getElementById("rv-clock"), b = document.getElementById("rv-bar");
@@ -2022,44 +2236,69 @@ APP_JS_TEMPLATE = r"""
     c.classList.toggle("is-low", left < 30000);
     if (b) b.style.width = Math.max(0, Math.min(100, left / SECURE_PHASE_MS * 100)) + "%";
   }
-  // 플레이어 화면(레일 모드): 버튼은 레일 화면에 있다. 여기선 내 시간, 내 쪽 위치, 종류별 남은 개수와 내가 확보한 호수만 보여 준다.
-  function renderRailWaiting(st, seat) {
+  // 플레이어 자리 화면(레일 모드): 재료함의 회를 보고 종류별로 퍼즐 조립을 시작한다. 손질은 레일 화면에서 한다.
+  function renderRailSeat(st, seat) {
     var msLeft = st.secureEndsAt ? (st.secureEndsAt - nowMs()) : SECURE_PHASE_MS;
     var pct = Math.max(0, Math.min(100, (msLeft / SECURE_PHASE_MS) * 100));
     var html = '<main class="stage stage--secure">'
-      + '<div class="side-timer" id="side-timer"><span class="timer-label">택배 확보<br>남은 시간</span><span class="timer-num">' + fmtClock(msLeft) + '</span>'
+      + '<div class="side-timer" id="side-timer"><span class="timer-label">초밥 제작<br>남은 시간</span><span class="timer-num">' + fmtClock(msLeft) + '</span>'
       + '<div class="timer-bar"><i style="width:' + pct + '%"></i></div></div>';
-    var mine = st.players[seat].invoices;
-    var busy = !!(railInfo.busy && railInfo.busy[seat]);
-    html += cartOpen('cart--board') + '<div class="card rw" data-rail-wait="1"><h2>' + (busy ? '게임을 푸는 중이에요' : '레일 화면에서 버튼을 눌러 주세요') + '</h2>'
-      + '<p class="rw-sub">내 버튼은 레일 화면의 <b>' + (seat === "1" ? '왼쪽' : '오른쪽') + '</b>에 있어요. 누르면 이 화면에 게임이 떠요.</p><div class="rw-list">';
+    var mine = st.players[seat].invoices, total = 0;
+    TYPES.forEach(function (t, ci) { total += stockOf(st, seat, ci); });
+    html += '<div class="card rw" data-rail-wait="1"><h2>' + (total ? ('재료함에 회가 ' + total + '개 있어요 — 퍼즐로 조립하세요') : '레일 화면에서 손질해 회를 만드세요') + '</h2>'
+      + '<p class="rw-sub">내 레일은 공용 화면의 <b>' + (seat === "1" ? '왼쪽(W A S D 키)' : '오른쪽(방향키 + 오른쪽 Shift)') + '</b>이에요. 손질이 끝나면 여기 재료함에 회가 쌓여요.</p><div class="rw-list">';
     TYPES.forEach(function (t, catIdx) {
-      var left = boardLeft(st, catIdx);
+      var n = stockOf(st, seat, catIdx), left = boardLeft(st, catIdx);
       var chips = mine.filter(function (inv) { return inv.catIdx === catIdx; })
-        .map(function (inv) { return '<span class="my-chip">' + esc(roomCode(inv.floorIdx, inv.room)) + '</span>'; }).join('');
-      html += '<div class="rw-row' + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '" style="--c:' + t.color + '">'
-        + '<span class="rw-ico">' + CAT_ICONS[catIdx] + '</span><span class="rw-name">' + esc(t.name) + '<small>' + esc(MINI_NAME[t.mini] || '택배 쌓기') + '</small></span>'
-        + '<span class="rw-left">남은 <b>' + left + '</b>/' + t.count + '</span><span class="rw-mine">' + (chips || '<small>아직 없음</small>') + '</span></div>';
+        .map(function (inv) { return '<span class="my-chip">' + esc(chipText(inv)) + '</span>'; }).join('');
+      var act;
+      if (t.fixedFloor) {
+        act = '<div class="floor-btns">';
+        for (var num = 0; num < t.count; num++) {
+          var cell = boardCell(st, t.key + "-" + (num + 1));
+          var gone = !cell || cell.taken;
+          act += '<button class="floor-btn' + (gone ? ' is-gone' : '') + '" data-action="open-cell" data-cell="' + t.key + '-' + (num + 1) + '"' + ((gone || n <= 0) ? ' disabled' : '') + '>' + esc(FLOORS[num]) + '</button>';
+        }
+        act += '</div>';
+      } else {
+        act = '<button class="rail-btn" data-action="open-type" data-cat="' + catIdx + '"' + (n <= 0 ? ' disabled' : '') + '><span class="rbt">' + (n > 0 ? esc(MINI_NAME[t.mini] || '조립') + ' 시작' : '회 없음') + '</span>'
+          + '<span class="rbp">팔면 ' + fmtWon(t.reward) + ' · 못 팔면 ' + fmtWon(-t.penalty) + '</span></button>';
+      }
+      html += '<div class="rw-row' + (n > 0 ? ' has-kai' : '') + (left === 0 ? ' is-empty' : '') + '" data-cat="' + catIdx + '" style="--c:' + t.color + '">'
+        + '<span class="rw-ico">' + CAT_ICONS[catIdx] + '</span><span class="rw-name">' + esc(t.name) + '<small>손질 ' + esc(PREP_LABEL[t.sushi[0]] || '') + ' → 조립 ' + esc(MINI_NAME[t.mini] || '우봉고') + '</small></span>'
+        + '<span class="rw-left">회 <b class="rw-kai">' + n + '</b> · 남음 ' + left + '/' + t.count + '</span>'
+        + '<span class="rw-mine">' + act + '<span class="rw-chips">' + (chips || '<small>아직 없음</small>') + '</span></span></div>';
     });
-    return html + '</div></div>' + cartClose() + '</main>';
+    return html + '</div></div></main>';
   }
 
   // ---------- 메인 모니터 (2026-10-06, ?view=main) ----------
   // 현장 TV/프로젝터에 띄우는 관전 화면. 요청된 것만 크게 보여준다:
-  //   확보 단계    -> 남은 시간 + 종류별 남은 박스 수
-  //   엘리베이터   -> 엘리베이터 위치(현재 층) + 남은 시간
-  // 그 외(대기/하프타임/종료)는 흐름이 끊기지 않게 최소한만 (참가 안내, 점수). 플레이어별 비공개 정보(송장 내용,
-  // 우선 택배 지정, 택배도둑 배치 위치)는 어디에도 그리지 않는다. 카운트다운 숫자는 data-ends(서버 시각)를 보고
+  //   제작 단계    -> 남은 시간 + 종류별 남은 상자 수
+  //   회전 벨트   -> 회전 벨트 위치(현재 접시) + 남은 시간
+  // 그 외(대기/하프타임/종료)는 흐름이 끊기지 않게 최소한만 (참가 안내, 점수). 플레이어별 비공개 정보(주문표 내용,
+  // 우선 초밥 지정, 초밥도둑 배치 위치)는 어디에도 그리지 않는다. 카운트다운 숫자는 data-ends(서버 시각)를 보고
   // mainTick()이 200ms마다 갱신하므로, 상태가 안 바뀌어도 시계는 계속 간다.
-  var mvPrevFloor = null;
+  var mvPrevFloor = null, mvCont = 0;
   function mvSeatCard(st, seatNo, readyMap, readyWord) {
     var key = st.courierPick && st.courierPick[seatNo];
     var c = key ? courierByKey(key) : null;
     var idx = c ? COURIERS.indexOf(c) : -1;
+    var team = c || COURIERS[Number(seatNo) - 1];   // 아직 입장 전이어도 이 자리의 팀(초밥왕/스시헌터)은 정해져 있다
+    var tIdx = COURIERS.indexOf(team);
     var ready = !!(readyMap && readyMap[seatNo]);
     return '<div class="mv-seat' + (c ? ' is-on' : '') + (ready ? ' is-ready' : '') + '"' + (c ? ' style="--c:' + c.color + '"' : '') + '>'
-      + (c ? '<span class="mv-seat-icon">' + COURIER_ICONS[idx] + '</span>' + esc(c.name) : '<span style="color:var(--muted)">플레이어 ' + seatNo + '</span>')
-      + '<small>' + (!c ? '택배사 선택 대기' : (readyMap ? (ready ? readyWord + ' 완료' : '대기 중') : '입장 완료')) + '</small></div>';
+      + (c ? '<span class="mv-seat-icon">' + COURIER_ICONS[idx] + '</span>' + esc(seatName(seatNo, st)) : '<span class="mv-seat-icon" style="color:var(--muted)">' + COURIER_ICONS[tIdx] + '</span><span style="color:var(--muted)">' + esc(seatName(seatNo, st)) + '</span>')
+      + '<small>' + (!c ? '입장 대기' : (readyMap ? (ready ? readyWord + ' 완료' : '대기 중') : '입장 완료')) + '</small></div>';
+  }
+  // 엿보기 현황 (하프타임: 획득 횟수 / 후반 벨트: 사용 횟수). 내용(무슨 주문표인지)은 보여주지 않는다.
+  function mvPeekRow(st, mode) {
+    if (!st.peek) return '';
+    return '<div class="mv-peek">' + ["1", "2"].map(function (sn) {
+      var pk = st.peek[sn];
+      var txt = mode === "halftime" ? (pk.played ? ('엿보기 ' + pk.charges + '회 획득') : '엿보기 도전 전') : ('엿보기 ' + pk.used + '회 사용 · 남은 ' + pk.charges + '회');
+      return '<span class="mv-peek-chip">' + esc(seatName(sn, st)) + ' · ' + txt + '</span>';
+    }).join('') + '</div>';
   }
   function mvTime(endsAt, totalMs, opts) {
     // 큰 시계 한 덩어리. 값은 mainTick()이 채운다 (초기 문자열만 같은 규칙으로 미리 넣어 깜빡임을 막는다).
@@ -2075,7 +2314,7 @@ APP_JS_TEMPLATE = r"""
   function renderMain() {
     var st = state;
     var head = function (label) {
-      return '<header class="mv-head"><div><span class="mv-eyebrow">BeatPhobia · Live · ' + BUILD_TAG + '</span><h1>택배 배송 게임</h1></div>'
+      return '<header class="mv-head"><div><span class="mv-eyebrow">BeatPhobia · Live</span><h1>초밥 서빙 게임</h1></div>'
         + '<div class="mv-chips">' + (label ? '<span class="mv-chip phase">' + esc(label) + '</span>' : '')
         + '<span class="mv-chip room">방 ' + esc(ROOM) + '</span></div></header>';
     };
@@ -2087,43 +2326,57 @@ APP_JS_TEMPLATE = r"""
     if (st.phase === "lobby") {
       var joinUrl = location.origin + "/?room=" + ROOM;
       html = head("대기 중") + '<div class="mv-body"><div class="mv-center">'
-        + '<h2>참가자를 기다리고 있어요</h2>'
+        + '<div class="mv-panel"><h2>참가자를 기다리고 있어요</h2>'
         + '<div class="mv-seats">' + mvSeatCard(st, "1", st.ready, "준비") + mvSeatCard(st, "2", st.ready, "준비") + '</div>'
         + '<div class="mv-join">각자 기기에서 이 주소로 들어오세요<b>' + esc(joinUrl) + '</b></div>'
         + '<div class="mv-join mv-join-rail">레일 화면(공용)은 이 주소로<b>' + esc(location.origin + "/rail?room=" + ROOM) + '</b></div>'
+        + '<div class="howto-title">게임 방법</div>' + howtoHtml() + '</div>'
         + '</div></div>';
     }
     else if (st.phase === "secure") {
       var endsAt = st.secureEndsAt || nowMs();
       var cats = TYPES.map(function (t, catIdx) {
         var left = boardLeft(st, catIdx), pips = '';
-        for (var i = 0; i < t.count; i++) pips += '<span class="mv-pip' + (i < left ? '' : ' is-gone') + '"></span>';
+        for (var i = 0; i < t.count; i++) pips += '<span class="mv-pip' + (i < left ? '' : ' is-gone') + '">' + FISH_PIP + '</span>';
         return '<div class="mv-cat' + (left === 0 ? ' is-empty' : (left <= 2 ? ' is-few' : '')) + '" style="--c:' + t.color + '">'
           + '<div class="mv-cat-head"><span class="mv-cat-icon">' + CAT_ICONS[catIdx] + '</span><span class="mv-cat-name">' + esc(t.name) + '</span></div>'
-          + '<div class="mv-cat-game">' + esc(MINI_NAME[t.mini] || "택배 쌓기") + '</div>'
+          + '<div class="mv-cat-game">' + esc(MINI_NAME[t.mini] || "우봉고") + '</div>'
           + '<div class="mv-left">' + left + '<small>/ ' + t.count + '</small></div>'
           + '<div class="mv-pips">' + pips + '</div></div>';
       }).join('');
-      if (st.race) {
-        html = head("택배 확보 · " + halfName) + '<div class="mv-body">' + raceStage(st, null) + '</div>';
-        return '<div class="mv">' + html + '</div>';
-      }
-      html = head("택배 확보 · " + halfName) + '<div class="mv-body">'
-        + '<div class="mv-secure-top"><div class="mv-label">확보 남은 시간</div>'
+      html = head("초밥 제작 · " + halfName) + '<div class="mv-body">'
+        + '<div class="mv-secure-top"><div class="mv-label">제작 남은 시간</div>'
         + mvTime(endsAt, SECURE_PHASE_MS, { lowMs: 30000 })
         + '<div class="mv-bar"><i data-ends="' + endsAt + '" data-total="' + SECURE_PHASE_MS + '"></i></div></div>'
-        + '<div class="mv-cats">' + cats + '</div></div>';
+        + '<div class="mv-cats">' + cats + '</div>' + mvLive(st) + '</div>' + introHtml(st, true);
     }
     else if (st.phase === "elevator") {
       var el = st.elevator, floorIdx = el.floorIdx;
-      var esi = elevStateInfo(st), stateLabel = esi.label, ends = esi.ends, wait = esi.wait;
-      html = head("엘리베이터 · " + halfName) + '<div class="mv-body"><div class="mv-elev">'
-        + '<div class="mv-bld">' + renderBuilding(el) + '</div>'
-        + '<div class="mv-elev-main">'
+      var stateLabel = "", ends = null, wait = "";
+      if (el.state === "idle") { stateLabel = "출발 준비 중"; wait = "두 플레이어가 준비하면 출발해요"; }
+      else if (el.state === "priority") { stateLabel = "우선 초밥 지정 시간"; ends = el.priorityWindowEndsAt; }
+      else if (el.state === "thief") { stateLabel = "초밥도둑 배치 시간"; ends = el.thiefWindowEndsAt; }
+      else if (el.state === "voting") { stateLabel = "회전 벨트 이동 중!"; ends = el.votingEndsAt; }
+      else if (el.state === "choosing") { stateLabel = "같은 접시 초밥 선택 중"; ends = el.pendingChoice && el.pendingChoice.endsAt; }
+      else if (el.state === "result") { stateLabel = "라운드 결과 확인 중"; wait = "다음 라운드 준비 대기"; }
+      else { stateLabel = "서빙 종료"; }
+      // 누적 위치: 벨트가 끝에서 처음으로 넘어가도(순환) 항상 최단 방향으로 도는 것처럼 보이게 한다.
+      var mvDelta = 0;
+      if (mvPrevFloor === null) mvCont = floorIdx;
+      if (mvPrevFloor !== null) { mvDelta = (((floorIdx - mvPrevFloor) % FLOORS.length) + FLOORS.length) % FLOORS.length; if (mvDelta > FLOORS.length / 2) mvDelta -= FLOORS.length; }
+      var carFrom = mvCont;
+      mvCont += mvDelta;
+      html = head("회전 벨트 · " + halfName) + '<div class="mv-body"><div class="mv-elev">'
+        + '<div class="mv-shaft">' + ringHtml(carFrom, 'mv', 'mv-car', mvCont) + '</div>'
+        + '<div class="mv-elev-main' + (el.state === "result" ? ' is-result' : '') + '">'
         + '<span class="mv-round">라운드 ' + el.round + ' / ' + ELEVATOR_ROUNDS + '</span>'
-        + '<div class="mv-nowfloor"><span class="mv-label">현재 층</span><span class="mv-floor-big">' + FLOORS[floorIdx] + '</span></div>'
+        + '<div class="mv-nowfloor"><span class="mv-label">현재 접시</span><span class="mv-floor-big">' + FLOORS[floorIdx] + '</span></div>'
         + '<div class="mv-state">' + esc(stateLabel) + '</div>'
-        + (ends ? mvTime(ends, 0, { sec: true }) : (wait ? '<div class="mv-wait">' + esc(wait) + '</div>' : ''))
+        + (el.state === "voting" ? '<div class="mv-votekeys"><span style="--c:' + COURIERS[0].color + '"><b>' + esc(seatName("1", st)) + '</b> <kbd>A</kbd> 시계 · <kbd>D</kbd> 반시계</span><span style="--c:' + COURIERS[1].color + '"><b>' + esc(seatName("2", st)) + '</b> <kbd>4</kbd> 시계 · <kbd>6</kbd> 반시계</span></div>' : '')
+        + (ends ? mvTime(ends, 0, { sec: true }) : (wait && !((el.state === "idle" || el.state === "result") && el.gateEndsAt) ? '<div class="mv-wait">' + esc(wait) + '</div>' : ''))
+        + ((el.state === "idle" || el.state === "result") && el.gateEndsAt ? '<div class="mv-wait">' + esc(wait) + ' · <b class="mv-time mv-auto" data-ends="' + el.gateEndsAt + '" data-fmt="sec">' + mvFormat(el.gateEndsAt, 'sec') + '</b> 뒤 자동 진행</div>' : '')
+        + (el.state === "result" ? mvResult(st) : '')
+        + (st.half === 2 ? mvPeekRow(st, "elevator") : '')
         + '</div></div></div>';
       mvPrevFloor = floorIdx;
       return '<div class="mv">' + html + '</div>';
@@ -2134,6 +2387,7 @@ APP_JS_TEMPLATE = r"""
         + (h1 ? '<div class="mv-scores">' + ["1", "2"].map(function (sn) { return '<div class="mv-score">' + esc(seatName(sn, st)) + '<b>' + fmtWon(h1.scores[sn]) + '</b></div>'; }).join('') + '</div>' : '')
         + '<p>잠시 후 후반이 시작돼요</p>'
         + '<div class="mv-seats">' + mvSeatCard(st, "1", st.halftimeReady, "준비") + mvSeatCard(st, "2", st.halftimeReady, "준비") + '</div>'
+        + mvPeekRow(st, "halftime")
         + '</div></div>';
     }
     else if (st.phase === "end") {
@@ -2143,18 +2397,18 @@ APP_JS_TEMPLATE = r"""
         + '<div class="mv-scores">' + ["1", "2"].map(function (sn) { return '<div class="mv-score">' + esc(seatName(sn, st)) + ' 총점<b>' + fmtWon(sn === "1" ? s1 : s2) + '</b></div>'; }).join('') + '</div>'
         + '</div></div>';
     }
-    if (st.phase !== "elevator") mvPrevFloor = null; // 다음에 엘리베이터가 시작되면 제자리에서 시작
-    return '<div class="mv">' + html + '</div>';
+    if (st.phase !== "elevator") mvPrevFloor = null; // 다음에 회전 벨트가 시작되면 제자리에서 시작
+    return '<div class="mv' + (st.phase === "lobby" ? ' mv-splash' : '') + '">' + (st.phase === "lobby" ? splashArt() : '') + html + '</div>';
   }
-  // 그린 직후: 엘리베이터 칸을 새 층으로 옮긴다 (이전 층에서 출발한 모습으로 그려 두었다가 다음 프레임에 이동 -> CSS transition)
+  // 그린 직후: 회전 벨트 칸을 새 접시로 옮긴다 (이전 접시에서 출발한 모습으로 그려 두었다가 다음 프레임에 이동 -> CSS transition)
   function mainAfterRender() {
     mainTick();
     var car = document.getElementById("mv-car");
     if (!car) return;
     var to = car.getAttribute("data-to");
-    if (car.style.getPropertyValue("--i") === to) return;
+    if (car.style.getPropertyValue("--cur") === to) return;
     void car.offsetWidth;
-    requestAnimationFrame(function () { requestAnimationFrame(function () { car.style.setProperty("--i", to); }); });
+    requestAnimationFrame(function () { requestAnimationFrame(function () { car.style.setProperty("--cur", to); }); });
   }
   function mainTick() {
     var n = nowMs();
@@ -2183,10 +2437,22 @@ APP_JS_TEMPLATE = r"""
   }
 
   function render() {
-    var _st = state;
-    if (!_st || _st.phase !== "elevator") bldPrevFloor = null; // 다음 엘리베이터 단계는 제자리에서 시작
+    // 팀 컬러 테마: 내 좌석이 정해져 있으면 body[data-team]이 king/hunter가 된다 (CSS가 색을 바꾼다). 관전/메인 모니터는 중립.
+    var tm = (!MAIN && !RAIL && mySeat()) ? COURIERS[Number(mySeat()) - 1] : null;
+    if (tm) document.body.setAttribute("data-team", tm.key); else document.body.removeAttribute("data-team");
+    // 이름 입력칸: 한글 조합 중이면 렌더를 미루고, 아니면 값/커서/포커스를 보존한다.
+    var ae = document.activeElement, keep = null;
+    if (ae && ae.classList && ae.classList.contains("name-in")) {
+      if (nameComposing) { renderPending = true; return; }
+      keep = { id: ae.id, v: ae.value, a: ae.selectionStart, b: ae.selectionEnd };
+    }
+    if (RAIL && ROOM && state && state.phase === "secure") { railRenderSecure(); railTick(); return; }
+    if (RAIL) railStopAll();
     document.getElementById("app").innerHTML = renderBody();
-    bldAfterRender();
+    if (keep) {
+      var ne = document.getElementById(keep.id);
+      if (ne) { ne.value = keep.v; try { ne.focus(); ne.setSelectionRange(keep.a, keep.b); } catch (e) {} }
+    }
     if (MAIN) mainAfterRender();
     if (RAIL) railTick();
   }
@@ -2197,19 +2463,20 @@ APP_JS_TEMPLATE = r"""
     if (!t) return;
     var action = t.getAttribute("data-action");
 
-    if (action === "pick-courier") {
-      // 좌석 번호는 서버가 정해서 돌려주므로(먼저 온 사람이 "1") 여기선 낙관적으로 세팅하지 않는다 --
+    if (action === "join-team") {
+      // 좌석 번호는 서버가 정해서 돌려주므로(먼저 온 사람이 "1" = 초밥왕) 여기선 낙관적으로 세팅하지 않는다 --
       // 다음 "state" 브로드캐스트에서 내 clientId가 어느 좌석의 주인이 됐는지 보고 그때 확정한다
       // (connectWS의 onmessage 참고). 여기선 그냥 요청만 보낸다.
-      send({ type: "pick-courier", courier: t.getAttribute("data-courier") });
+      var jn = document.getElementById("name-join");
+      var jname = jn ? jn.value : (nameDraft || "");
+      saveNameDraft(jname);
+      send({ type: "join-team", name: jname });
       return;
     }
     if (action === "open-cell") { openCell(t.getAttribute("data-cell")); return; }
-    if (action === "rail-press") {
-      // 레일 화면 전용: side(1/2) 쪽 플레이어에게 그 종류 게임을 띄우라고 서버에 요청한다. 칸 선택/중복 방지는 서버가 한다.
-      var rp = { type: "rail-press", side: t.getAttribute("data-side"), cat: parseInt(t.getAttribute("data-cat"), 10) };
-      var rcell = t.getAttribute("data-cell"); if (rcell) rp.cellId = rcell;
-      send(rp);
+    if (action === "rail-start") {
+      // 레일 화면: 그 쪽 패널에서 손질 시작 (마우스/터치로도 가능 -- 키보드는 railKey가 처리)
+      railStart(t.getAttribute("data-side"), parseInt(t.getAttribute("data-cat"), 10));
       return;
     }
     if (action === "rail-join") {
@@ -2221,6 +2488,7 @@ APP_JS_TEMPLATE = r"""
       // 레일 화면의 종류 버튼: 그 종류의 아직 안 가져간 칸 중 첫 번째를 연다 (칸끼리 구별이 없는 종류 전용)
       var typeIdx = parseInt(t.getAttribute("data-cat"), 10);
       var tt = TYPES[typeIdx];
+      if (railMode() && stockOf(state, mySeat(), typeIdx) <= 0) { showToast("재료함에 회가 없어요 — 레일 화면에서 먼저 손질하세요"); return; }
       var freeCell = null, sawPending = false;
       for (var fi = 0; fi < state.board.length; fi++) {
         var bc = state.board[fi];
@@ -2230,6 +2498,7 @@ APP_JS_TEMPLATE = r"""
       }
       if (!freeCell) { if (!sawPending) showToast(tt.name + "은(는) 이미 소진됐어요"); return; }
       if (tt.mini && window.MiniGames) { openMiniGame(freeCell.id); return; }
+      newSushiPick(freeCell.id);
       local.openCellId = freeCell.id; render(); return;
     }
     if (action === "give-up") { local.openCellId = null; notifyGameClosed(); render(); return; }
@@ -2237,20 +2506,8 @@ APP_JS_TEMPLATE = r"""
       var cid = t.getAttribute("data-cell");
       markPending(cid);
       local.openCellId = null;
-      send({ type: "secure-cell", seat: mySeat(), cellId: cid });
+      send({ type: "secure-cell", seat: mySeat(), cellId: cid, sushi: sushiFor(cid), fromStock: railMode() || undefined });
       render();
-      return;
-    }
-    if (action === "race-done") {
-      if (state && state.race) send({ type: "race-step", seat: mySeat(), step: "ubongo-done", round: state.race.round });
-      return;
-    }
-    if (action === "race-giveup") {
-      if (state && state.race) send({ type: "race-step", seat: mySeat(), step: "give-up", round: state.race.round });
-      return;
-    }
-    if (action === "race-pick") {
-      send({ type: "race-pick", seat: mySeat(), idx: parseInt(t.getAttribute("data-idx"), 10) });
       return;
     }
     if (action === "vote-up" || action === "vote-down") {
@@ -2270,6 +2527,8 @@ APP_JS_TEMPLATE = r"""
       send({ type: "choose-delivery", seat: mySeat(), invoiceId: t.getAttribute("data-inv") });
       return;
     }
+    if (action === "start-peek") { openPeekGame(); return; }
+    if (action === "use-peek") { usePeek(); return; }
     if (action === "place-thief") {
       send({ type: "place-thief", seat: mySeat(), floorIdx: parseInt(t.getAttribute("data-floor-idx"), 10) });
       return;
@@ -2288,7 +2547,15 @@ APP_JS_TEMPLATE = r"""
   });
 
   document.addEventListener("keydown", function (e) {
-    if (MAIN) return; // 메인 모니터는 입력을 받지 않는다 (스페이스/방향키가 게임에 영향 주면 안 됨)
+    if (MAIN) {
+      // 메인 화면은 좌석이 없다. 벨트 이동 투표만 받는다 (2026-10-13): 1번 팀 = A(시계)/D(반시계), 2번 팀 = 4(시계)/6(반시계) (숫자 윗줄·키패드 모두).
+      // 그 밖의 키(스페이스/방향키 등)는 게임에 영향 주면 안 되므로 무시한다.
+      if (!state || state.phase !== "elevator" || state.elevator.state !== "voting" || e.metaKey || e.ctrlKey || e.altKey) return;
+      var mk = MAIN_VOTE_KEYS[e.code];
+      if (mk) { e.preventDefault(); send({ type: "main-vote", seat: mk[0], dir: mk[1] }); }
+      return;
+    }
+    if (e.target && e.target.tagName === "INPUT") return; // 이름 입력 중엔 스페이스(준비)·방향키·E가 게임 조작으로 먹히면 안 된다
     if (e.code === "Space" || e.key === " " || e.key === "Spacebar") {
       var seat = mySeat();
       if (seat && state && state.phase === "lobby" && !e.repeat && !state.ready[seat]) {
@@ -2300,47 +2567,76 @@ APP_JS_TEMPLATE = r"""
       } else if (seat && state && state.phase === "elevator" && state.elevator.state === "priority" && !e.repeat && !state.elevator.priorityConfirmed[seat]) {
         e.preventDefault();
         send({ type: "confirm-priority", seat: seat });
-      } else if (seat && state && state.phase === "secure" && state.race && state.race.stage[seat] === "ubongo" && state.race.status !== "reveal" && !e.repeat) {
-        // 레이스: 우봉고 투입 (현장에서는 레일 앞 물리 버튼이 스페이스)
-        e.preventDefault();
-        send({ type: "race-step", seat: seat, step: "ubongo-done", round: state.race.round });
-      } else if (seat && state && state.phase === "halftime" && !e.repeat && !state.halftimeReady[seat]) {
+      } else if (seat && state && state.phase === "halftime" && !mg && !e.repeat && !state.halftimeReady[seat]) {
         e.preventDefault();
         send({ type: "halftime-ready", seat: seat });
       }
       return;
     }
-    if (!e.repeat && /^(ArrowLeft|ArrowUp|ArrowDown|ArrowRight|Digit1|Digit2|Digit3)$/.test(e.code)) {
-      // 레이스: 택배 고르기 (← = 왼쪽, ↑/↓ = 가운데, → = 오른쪽, 숫자 1/2/3도 가능)
-      var seat3 = mySeat(), rr = state && state.phase === "secure" ? state.race : null;
-      if (seat3 && rr && raceCanPick(rr, seat3)) {
-        e.preventDefault();
-        var want = { ArrowLeft: 0, ArrowUp: 1, ArrowDown: 1, ArrowRight: 2, Digit1: 0, Digit2: 1, Digit3: 2 }[e.code];
-        if (rr.pair.length === 2 && e.code === "ArrowRight") want = 1;
-        if (rr.pair[want]) send({ type: "race-pick", seat: seat3, idx: want });
-        return;
-      }
-    }
-    if (e.code === "ArrowUp" || e.code === "ArrowDown") {
+    if (e.code === "KeyE" && !e.repeat && !mg && state && state.phase === "elevator" && state.half === 2) { usePeek(); return; }
+    if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
       var seat2 = mySeat();
       if (seat2 && state && state.phase === "elevator" && state.elevator.state === "voting") {
         e.preventDefault();
-        send({ type: "vote", seat: seat2, dir: e.code === "ArrowUp" ? "up" : "down" });
+        send({ type: "vote", seat: seat2, dir: e.code === "ArrowLeft" ? "up" : "down" });   // ← = 시계 방향(서버의 up), → = 반시계(down)
       }
     }
   });
+
+  var MAIN_VOTE_KEYS = { KeyA: ["1", "up"], KeyD: ["1", "down"], Digit4: ["2", "up"], Numpad4: ["2", "up"], Digit6: ["2", "down"], Numpad6: ["2", "down"] };
+
+  // ---------- 팀 이름 입력 (입장 화면 #name-join / 대기실 #name-lobby) ----------
+  var nameTimer = null;
+  function sendNameNow(el) {
+    clearTimeout(nameTimer);
+    var seat = mySeat();
+    if (!seat || !state || state.phase !== "lobby") return;
+    saveNameDraft(el.value);
+    send({ type: "set-name", name: el.value });
+  }
+  document.addEventListener("compositionstart", function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains("name-in")) nameComposing = true;
+  });
+  document.addEventListener("compositionend", function (e) {
+    if (!(e.target && e.target.classList && e.target.classList.contains("name-in"))) return;
+    nameComposing = false;
+    if (e.target.id === "name-lobby") sendNameNow(e.target);
+    if (renderPending) { renderPending = false; render(); }
+  });
+  document.addEventListener("input", function (e) {
+    var el = e.target;
+    if (!(el && el.classList && el.classList.contains("name-in"))) return;
+    saveNameDraft(el.value);
+    if (el.id === "name-lobby" && !nameComposing) { clearTimeout(nameTimer); nameTimer = setTimeout(function () { sendNameNow(el); }, 450); }
+  });
+  document.addEventListener("focusout", function (e) {
+    var el = e.target;
+    if (el && el.id === "name-lobby" && !nameComposing) sendNameNow(el);
+  });
+  document.addEventListener("keydown", function (e) {
+    var el = e.target;
+    if (!(el && el.classList && el.classList.contains("name-in")) || e.key !== "Enter" || e.isComposing) return;
+    e.preventDefault();
+    if (el.id === "name-join") { var jb = document.querySelector('[data-action="join-team"]'); if (jb && !jb.disabled) jb.click(); }
+    else { sendNameNow(el); el.blur(); }
+  });
+
+  // 5초 이상 조작이 없으면 눌러야 할 버튼이 깜빡인다 (제작 단계). 게이트 자동 진행 카운트다운도 여기서 갱신한다.
+  function nudgeTick() {
+    var idle = state.phase === "secure" && !mg && !local.openCellId && nowMs() - lastAct > 5000;
+    document.body.classList.toggle("nudge-on", idle);
+    Array.prototype.forEach.call(document.querySelectorAll(".gate-count[data-ends]"), function (e) {
+      e.textContent = Math.max(0, Math.ceil((parseInt(e.getAttribute("data-ends"), 10) - nowMs()) / 1000)) + "초 뒤 자동 진행";
+    });
+  }
+  document.addEventListener("pointerdown", function () { lastAct = Date.now(); });
+  document.addEventListener("keydown", function () { lastAct = Date.now(); });
 
   // ---------- local countdown display only: the server owns the actual round/phase transitions
   // via its own timers, so there is nothing for the client to "submit" or auto-advance here ----------
   setInterval(function () {
     if (!state) return;
-    // 레이스 카운트다운 (플레이어/레일/메인 공통)
-    Array.prototype.forEach.call(document.querySelectorAll(".race-count[data-ends]"), function (el) {
-      var left = Math.max(0, Math.ceil((parseInt(el.getAttribute("data-ends"), 10) - nowMs()) / 1000));
-      el.textContent = (el.getAttribute("data-prefix") || "") + left + (el.getAttribute("data-suffix") || "");
-    });
-    var rsc = document.getElementById("race-secure-clock");
-    if (rsc && state.secureEndsAt) rsc.textContent = fmtClock(state.secureEndsAt - nowMs());
+    if (!MAIN) nudgeTick();
     if (MAIN) { mainTick(); return; }
     if (RAIL) { railTick(); return; }
     updateMiniClock();
@@ -2354,12 +2650,6 @@ APP_JS_TEMPLATE = r"""
       var left = state.elevator.votingEndsAt - nowMs();
       var clockEl = document.getElementById("round-clock");
       if (clockEl) clockEl.textContent = "남은 시간 " + fmtClock(Math.max(0, left));
-    } else if (state.phase === "elevator" && state.elevator.state === "result" && state.elevator.resultEndsAt) {
-      var resEl = document.getElementById("result-clock");
-      if (resEl) {
-        var nextTxt = state.elevator.round >= ELEVATOR_ROUNDS ? "최종 결과" : "다음 라운드로";
-        resEl.textContent = Math.max(0, Math.ceil((state.elevator.resultEndsAt - nowMs()) / 1000)) + "초 뒤 자동으로 " + nextTxt;
-      }
     } else if (state.phase === "elevator" && state.elevator.state === "choosing" && state.elevator.pendingChoice) {
       var seatNow = mySeat();
       var alreadyChosen = seatNow && state.elevator.pendingChoice.chosen[seatNow];
@@ -2387,6 +2677,7 @@ APP_JS_TEMPLATE = r"""
     }
   }, 200);
 
+  sfxButton();
   render();
   connectWS();
 })();
@@ -2400,43 +2691,29 @@ APP_JS = (APP_JS_TEMPLATE
           .replace("@@ROOMS_JSON@@", ROOMS_JSON)
           .replace("@@COURIERS_JSON@@", COURIERS_JSON)
           .replace("@@BOX_ART_JSON@@", BOX_ART_JSON)
+          .replace("@@SUSHI_IMG_JSON@@", SUSHI_IMG_JSON)
+          .replace("@@PREP_IMG_JSON@@", PREP_IMG_JSON)
+          .replace("@@HERO_URL@@", HERO_URL)
           .replace("@@ELEVATOR_ROUNDS@@", str(ELEVATOR_ROUNDS))
           .replace("@@SECURE_PHASE_MS@@", str(SECURE_PHASE_MS))
+          .replace("@@VOTE_MS@@", str(VOTE_MS))
           .replace("@@PRIORITY_MULTIPLIER@@", str(PRIORITY_MULTIPLIER))
-          .replace("@@FLOOR_REWARD_MULT@@", json.dumps(FLOOR_REWARD_MULT))
-          .replace("@@RESULT_AUTO_ADVANCE_MS@@", str(RESULT_AUTO_ADVANCE_MS))
-          .replace("@@MERGE_PRIORITY_THIEF@@", "true" if MERGE_PRIORITY_THIEF else "false")
-          .replace("@@RACE_MODE@@", "true" if RACE_CONST["RACE_MODE"] else "false")
-          .replace("@@RACE_PICK_MS@@", str(RACE_CONST["RACE_PICK_MS"]))
-          .replace("@@RACE_SECOND_MS@@", str(RACE_CONST["RACE_SECOND_MS"]))
-          .replace("@@RACE_STICKER_LEVEL@@", json.dumps(RACE_CONST["RACE_STICKER_LEVEL"]))
-          .replace("@@ELEVATOR_JOLT@@", str(RACE_CONST["ELEVATOR_JOLT"]))
-          .replace("@@BUILD_TAG@@", "v" + __import__("datetime").datetime.now(__import__("datetime").timezone(__import__("datetime").timedelta(hours=9))).strftime("%m%d-%H%M"))
           .replace("@@SAME_FLOOR_CHOICE_MS@@", str(SAME_FLOOR_CHOICE_MS))
           .replace("@@HALVES@@", str(HALVES))
           .replace("@@THIEF_PLACE_MS@@", str(THIEF_PLACE_MS))
           .replace("@@PRIORITY_PICK_MS@@", str(PRIORITY_PICK_MS)))
 
-# 2026-10-06: 확보 미니게임(박스 포장/불량 검수/송장 붙이기) 모듈을 그대로 인라인한다. 단독 시험장
+# 2026-10-06: 제작 미니게임(상자 포장/불량 검수/주문표 붙이기) 모듈을 그대로 인라인한다. 단독 시험장
 # (build_minigame_proto.py)이 쓰는 것과 같은 파일이라, 시험장에서 확인한 동작이 게임에서도 똑같다.
 _here = os.path.dirname(os.path.abspath(__file__))
 MINIGAMES_CSS = open(os.path.join(_here, "minigames.css"), encoding="utf-8").read()
 MINIGAMES_JS = open(os.path.join(_here, "minigames.js"), encoding="utf-8").read()
 MAINVIEW_CSS = open(os.path.join(_here, "mainview.css"), encoding="utf-8").read()   # 메인 모니터(?view=main) 전용 스타일
-# 2026-10-14 UI 리스킨: 창고 배경 + 빨간 카트 틀 + 요금표 (ui_theme.css). 배경 그림은 ui_art/warehouse.jpg를 data URI로 박는다.
-UI_THEME_CSS = open(os.path.join(_here, "ui_theme.css"), encoding="utf-8").read()
-with open(os.path.join(_here, "ui_art", "warehouse.jpg"), "rb") as _f:
-    UI_THEME_CSS = UI_THEME_CSS.replace("@@WAREHOUSE_BG@@", "data:image/jpeg;base64," + base64.b64encode(_f.read()).decode("ascii"))
-with open(os.path.join(_here, "ui_art", "elevator.jpg"), "rb") as _f:   # 2026-10-14 엘리베이터 단계 일러스트
-    UI_THEME_CSS = UI_THEME_CSS.replace("@@ELEVATOR_BG@@", "data:image/jpeg;base64," + base64.b64encode(_f.read()).decode("ascii"))
-with open(os.path.join(_here, "ui_art", "building.jpg"), "rb") as _f:   # 2026-10-14 엘리베이터 이동 표시(건물 단면도)
-    UI_THEME_CSS = UI_THEME_CSS.replace("@@BUILDING_BG@@", "data:image/jpeg;base64," + base64.b64encode(_f.read()).decode("ascii"))
-assert "@@" not in UI_THEME_CSS and "</style" not in UI_THEME_CSS
 assert "</style" not in MAINVIEW_CSS
 assert "</script" not in MINIGAMES_JS and "</style" not in MINIGAMES_CSS
 
 full_html = (
-    HEAD_HTML.replace("</style>\n</head>", MINIGAMES_CSS + "\n" + MAINVIEW_CSS + "\n" + UI_THEME_CSS + "\n</style>\n</head>", 1)
+    HEAD_HTML.replace("@@HERO_URL@@", HERO_URL).replace("</style>\n</head>", MINIGAMES_CSS + "\n" + MAINVIEW_CSS + "\n</style>\n</head>", 1)
     + '<script>' + MINIGAMES_JS + "</script>\n"
     + '<script>' + APP_JS + "</script>\n"
     + "</body></html>\n"

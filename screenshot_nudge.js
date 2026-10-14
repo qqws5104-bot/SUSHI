@@ -30,10 +30,10 @@ async function main() {
   const p2 = await ctx2.newPage();
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
-  await waitFor(async () => (await p1.locator(".seat-pick").count()) > 0, { label: "seat picker" });
+  await waitFor(async () => (await p1.locator(".splash").count()) > 0, { label: "seat picker" });
   await clickSel(p1, '[data-action="pick-courier"][data-courier="cookbang"]');
   await clickSel(p2, '[data-action="pick-courier"][data-courier="cheonil"]');
-  await waitFor(async () => (await bodyText(p1)).includes("내 좌석 · 쿡방"), { label: "p1 seat" });
+  await waitFor(async () => (await bodyText(p1)).includes("내 팀 · 쿡방"), { label: "p1 seat" });
   await pressSpace(p1);
   await pressSpace(p2);
   await waitFor(async () => (await bodyText(p1)).includes("택배 확보"), { label: "secure phase" });

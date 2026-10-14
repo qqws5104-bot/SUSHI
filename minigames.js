@@ -1,34 +1,60 @@
-/* minigames.js -- 택배 확보 미니게임 7종 (박스 포장 / 이상 확인 / 송장 붙이기 / 지도 배달 + 2026-10-14 레이스용 택배 짝 찾기 / 무게 맞추기 / 테이프 봉하기)
+/* minigames.js -- 초밥 제작 미니게임 4종 (상자 포장 / 이상 확인 / 주문표 붙이기 / 주문 서빙)
  *
  * 바닐라 JS, 의존성 없음. 게임 본체(build_client.py)에 그대로 인라인하거나, 단독 시험장 페이지에서
  * 똑같이 쓸 수 있게 만들었다.
  *
  *   var ctl = MiniGames.start(hostElement, {
- *     kind: "pack" | "inspect" | "sticker" | "map" | "match" | "weigh" | "tape",
+ *     kind: "pack" | "inspect" | "sticker" | "map" | "soko" | "ice" | "route" | "twin" | "pipe" | "hanoi",
  *     level: 1 | 2 | 3,              // 쉬움 / 보통 / 어려움
- *     label: "B08호",                // 송장 붙이기에서 송장에 찍을 목적지 (없으면 임의 생성)
+ *     label: "B08호",                // 주문표 붙이기에서 주문표에 찍을 목적지 (없으면 임의 생성)
  *     onDone:   function (res) {},   // res = { ok:true, kind, level, ms, mistakes }
  *     onCancel: function () {},      // "포기" 버튼
  *   });
  *   ctl.destroy();                   // 키 입력 리스너/타이머 정리 (오버레이를 닫을 때 반드시 호출)
  *
- * 한 칸의 시간제한은 따로 없다 -- 전체 확보 시간(3분)이 곧 시계다. 실패 상태도 없고, 다 풀어야 끝난다.
+ * 한 칸의 시간제한은 따로 없다 -- 전체 제작 시간(3분)이 곧 시계다. 실패 상태도 없고, 다 풀어야 끝난다.
  */
 (function (root) {
   "use strict";
 
   var KINDS = {
-    pack:    { name: "박스 포장" },
+    pack:    { name: "상자 포장" },
     inspect: { name: "이상 확인" },
-    sticker: { name: "송장 붙이기" },
-    map:     { name: "지도 배달" },
-    match:   { name: "택배 짝 찾기" },   // 2026-10-14 레이스 라운드용 짧은 게임
-    weigh:   { name: "무게 맞추기" },
-    tape:    { name: "테이프 봉하기" },
+    sticker: { name: "주문표 붙이기" },
+    map:     { name: "주문 서빙" },
+    soko:    { name: "재료 정리" },
+    ice:     { name: "초밥 담기" },
+    route:   { name: "도마 닦기" },
+    twin:    { name: "쌍둥이 서빙" },
+    pipe:    { name: "컨베이어 잇기" },
+    hanoi:   { name: "초밥 쌓기" },
+    prep:    { name: "손질", noLevel: true },      // 2026-10-12: 제작 퍼즐 앞의 액션형(칼질 타이밍) -- 생각 공백 없이 움직이는 시간
+    peek:    { name: "손님 응대", noLevel: true }, // 2026-10-12: 전반-후반 사이(엿보기 얻기). 손님이 원하는 간장·와사비를 잘 가져다주면 후반에 상대 주문표를 엿볼 수 있다 (최대 2회)
   };
   var LEVEL_NAME = ["쉬움", "보통", "어려움"];
 
-  // 박스 포장에서 방향키를 잘못 눌렀을 때의 규칙 (2026-10-06 결정: 영상처럼 "reset" -- 처음부터 다시).
+  // 제작하는 초밥 (표시 전용 -- 어떤 키가 어떤 종류에 속하는지는 game-data.js의 TYPES[].sushi가 정한다).
+  // 그림은 위에서 본 니기리: 밥 + 네타(topping). 헤더 칩, 초밥 담기의 수집 아이템, 주문표 목록에서 같이 쓴다.
+  var SUSHI_TOP = {
+    egg: '<rect x="26" y="34" width="48" height="26" rx="6" fill="#f4cf4a"/><rect x="45" y="30" width="10" height="32" rx="2" fill="#1f2a24"/>',
+    tofu: '<path d="M24 56q-2-22 26-24q28 2 26 24z" fill="#d9922e"/><path d="M30 44h40" stroke="#b36f17" stroke-width="2.4" stroke-dasharray="4 4"/><ellipse cx="50" cy="35" rx="14" ry="5" fill="#fdfbf4"/>',
+    salmon: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#f08a4b"/><path d="M28 44q10-5 18 0M44 39q10-5 18 0M52 50q9-4 16 0" stroke="#ffd9bd" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    whitefish: '<ellipse cx="50" cy="45" rx="29" ry="13" fill="#f6e4d8"/><path d="M24 46q26-14 52-3q-6 8-26 9q-20 1-26-6z" fill="#fff6ee"/><path d="M30 47q20-9 40-3" stroke="#f0b9a2" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="50" cy="36" r="3.2" fill="#8fbf4d"/><circle cx="46" cy="38" r="2.4" fill="#6ba536"/><circle cx="54" cy="38" r="2.4" fill="#6ba536"/>',
+    ikura: '<rect x="28" y="36" width="44" height="26" rx="9" fill="#1f2a24"/><ellipse cx="50" cy="38" rx="19" ry="8" fill="#f26a2e"/><circle cx="41" cy="36" r="3.4" fill="#ff9a58"/><circle cx="50" cy="33" r="3.4" fill="#ff8a45"/><circle cx="59" cy="36" r="3.4" fill="#ff9a58"/><circle cx="46" cy="40" r="3.2" fill="#e85a22"/><circle cx="55" cy="40" r="3.2" fill="#e85a22"/>',
+    eel: '<ellipse cx="50" cy="46" rx="29" ry="13" fill="#6b3a1e"/><path d="M26 44q24-9 48 0" stroke="#b27a47" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M34 52q16 4 32 0" stroke="#3f200d" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    tuna: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#b3262e"/><path d="M30 46q20-8 40 0" stroke="#e7727a" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    shrimp: '<path d="M24 52q2-20 28-20q20 0 24 16q-6 6-26 6q-20 0-26-2z" fill="#f4a79b"/><path d="M36 36q3 10 0 18M48 33q3 12 0 22M60 34q3 11 0 20" stroke="#dd6f64" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M74 46l10-6l-2 10z" fill="#dd6f64"/>',
+    octopus: '<ellipse cx="50" cy="46" rx="28" ry="13" fill="#f3dbe1"/><path d="M24 46q26-14 52 0" stroke="#9c4f73" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="38" cy="48" r="2.2" fill="#c98aa6"/><circle cx="50" cy="50" r="2.2" fill="#c98aa6"/><circle cx="62" cy="48" r="2.2" fill="#c98aa6"/>',
+  };
+  var SUSHI = {
+    egg: "계란", tofu: "유부", whitefish: "흰살생선", salmon: "연어", ikura: "연어알", eel: "장어", tuna: "참치", shrimp: "새우", octopus: "문어",
+  };
+  function sushiSvg(key, cls) {
+    return '<svg class="' + (cls || "mg-sushi-svg") + '" viewBox="12 24 76 50" aria-hidden="true"><ellipse cx="50" cy="58" rx="25" ry="12" fill="#fdfbf4" stroke="#d9d2c0"/>' + (SUSHI_TOP[key] || SUSHI_TOP.egg) + "</svg>";
+  }
+
+
+  // 상자 포장에서 방향키를 잘못 눌렀을 때의 규칙 (2026-10-06 결정: 영상처럼 "reset" -- 처음부터 다시).
   //   reset  : 입력한 순서 전체를 처음부터 다시
   //   freeze : 0.5초 멈췄다가 있던 자리부터 이어서
   //   ignore : 틀린 키는 무시(실수로만 기록)
@@ -55,7 +81,7 @@
   function fmtSec(ms) { return (ms / 1000).toFixed(1) + "초"; }
 
   // ======================================================================
-  // 박스 포장 -- 상자 칸에 물건(조각)들을 돌리고 옮겨서 빈틈없이 채워 넣기 (우봉고식 퍼즐)
+  // 상자 포장 -- 상자 칸에 물건(조각)들을 돌리고 옮겨서 빈틈없이 채워 넣기 (우봉고식 퍼즐)
   //   ← ↑ ↓ → 조각 이동   SPACE 회전   ENTER 놓기   BACKSPACE 되돌리기   TAB 다른 조각 고르기
   // 2026-10-07 재설계 (사용자 피드백: "방향키 6키 -> 15키 -> 30키는 손가락 노동이다. 우봉고에서 가져올 건 해결 과정 --
   //   내가 판단하고, 직접 조작하고, 실수하면 다시 생각하는 것"). 예전엔 화면에 뜬 방향키 순서를 따라 누르는 게임이었다.
@@ -298,18 +324,18 @@
   }
 
   // ======================================================================
-  // 이상 확인 (택배 검수) -- 벨트로 들어오는 택배의 "앞면 · 옆면 · 송장"을 서로 맞춰 보고,
+  // 이상 확인 (초밥 검수) -- 벨트로 들어오는 초밥의 "앞면 · 옆면 · 주문표"을 서로 맞춰 보고,
   //   셋이 모두 같은 종류를 가리키면 그 종류 칸으로 보내고, 하나라도 다르면 폐기한다.
-  //   ← 일반   ↓ 깨지기   → 귀중품   SPACE 정보가 안 맞는 택배 폐기
+  //   ← 일반   ↓ 중급   → 특선 초밥   SPACE 정보가 안 맞는 초밥 폐기
   // 2026-10-07 재설계 (사용자 피드백: "분류 + 이상품 SPACE는 반응속도 게임이다. 두 정보가 일치하지 않을 때만 폐기하게 해서
   //   판단이 들어가게") + 같은 날 "정보가 너무 많아 오히려 복잡하다" -> 단서를 두 개로 줄였다:
-  //     옆면 = 취급 그림 (일반=위 화살표 박스, 깨지기=유리잔, 귀중품=보석)
-  //     송장 = 내용물 글자 (예: 옷/책 = 일반, 유리컵/도자기 = 깨지기, 시계/노트북 = 귀중품)
+  //     옆면 = 취급 그림 (일반=위 화살표 상자, 중급=유리잔, 특선 초밥=보석)
+  //     주문표 = 내용물 글자 (예: 옷/책 = 일반, 유리컵/도자기 = 중급, 시계/노트북 = 특선 초밥)
   //   둘이 같은 종류면 그 칸으로, 서로 다르면 SPACE 폐기. 앞면 띠/흠집 같은 추가 정보는 없다(맨 상자).
-  // 분류 3종은 게임의 실제 카테고리(일반/깨지기/귀중품)와 같은 색을 쓴다.
+  // 분류 3종은 게임의 실제 카테고리(일반/중급/특선 초밥)와 같은 색을 쓴다.
   // 내부 kind 키는 그대로 "inspect" (game-data.js의 TYPES.mini와 시험장이 이 이름을 쓴다).
   // ======================================================================
-  //   n 택배 수, bad 그림과 글자가 안 맞는 택배 수, hard 송장 내용물을 덜 뻔한 단어로(0 쉬움/1 어려움)
+  //   n 초밥 수, bad 그림과 글자가 안 맞는 초밥 수, hard 주문표 내용물을 덜 뻔한 단어로(0 쉬움/1 어려움)
   var INSPECT_CFG = [
     { n: 6,  bad: 2, hard: 0 },
     { n: 9,  bad: 3, hard: 0 },
@@ -317,11 +343,11 @@
   ];
   var CLASSES = [
     { key: "left",  name: "일반",   tag: "일반",   color: "#C9A576", light: "#ddc08f", keyGlyph: "←", hint: "옷 · 책 · 생활용품" },
-    { key: "down",  name: "깨지기", tag: "깨짐주의", color: "#C7E29A", light: "#dcefb8", keyGlyph: "↓", hint: "유리 · 도자기 · 화분" },
-    { key: "right", name: "귀중품", tag: "귀중품", color: "#F0B84A", light: "#f7d37e", keyGlyph: "→", hint: "시계 · 보석 · 전자기기" },
+    { key: "down",  name: "중급", tag: "깨짐주의", color: "#C7E29A", light: "#dcefb8", keyGlyph: "↓", hint: "유리 · 도자기 · 화분" },
+    { key: "right", name: "특선 초밥", tag: "특선 초밥", color: "#F0B84A", light: "#f7d37e", keyGlyph: "→", hint: "시계 · 보석 · 전자기기" },
   ];
   var ACT_CLASS = { left: 0, down: 1, right: 2 };
-  // 송장 내용물 단어. 쉬운 단어 + (hard일 때) 덜 뻔한 단어도 섞는다. 종류 사이에 겹치는 단어는 없다.
+  // 주문표 내용물 단어. 쉬운 단어 + (hard일 때) 덜 뻔한 단어도 섞는다. 종류 사이에 겹치는 단어는 없다.
   var SLIP_WORDS = [
     [["옷", "책", "수건", "양말", "담요"], ["이불", "운동화", "프라이팬", "필통", "베개"]],
     [["유리컵", "화분", "도자기", "거울", "접시"], ["전구", "와인", "찻잔", "유리병", "꽃병"]],
@@ -330,7 +356,7 @@
 
   // 옆면의 취급 그림 (가운데 좌표 0,0 기준 -- 호출하는 쪽이 translate)
   function sideIcon(clsIdx) {
-    if (clsIdx === 0) { // 위 화살표가 있는 박스
+    if (clsIdx === 0) { // 위 화살표가 있는 상자
       return '<rect x="-9" y="-3" width="18" height="14" rx="1.5" fill="none" stroke="#3a2812" stroke-width="1.8"/>'
         + '<path d="M0 -14v13M-5 -9l5-5 5 5" fill="none" stroke="#3a2812" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
     }
@@ -342,7 +368,7 @@
       + '<path d="M-10 -6h20M-3 -6l3 14 3-14" fill="none" stroke="#3a2812" stroke-width="1.1"/>'; // 보석
   }
 
-  // 택배 하나를 그린다: 옆면(그림) + 송장(내용물). 앞면은 모두 같은 맨 상자(정보 없음). item = { side, slip(단어), bad }.
+  // 초밥 하나를 그린다: 옆면(그림) + 주문표(내용물). 앞면은 모두 같은 맨 상자(정보 없음). item = { side, slip(단어), bad }.
   function pkgSvg(item) {
     var s = '<svg viewBox="0 0 190 100" aria-hidden="true">'
       + '<ellipse cx="95" cy="92" rx="88" ry="5" fill="rgba(43,29,18,.18)"/>'
@@ -352,10 +378,10 @@
     // 옆면: 취급 그림
     s += '<polygon points="76,24 104,16 104,78 76,86" fill="#d9b982" stroke="#6b4e26" stroke-width="1.8" stroke-linejoin="round"/>'
       + '<g transform="translate(90 51) scale(0.95)">' + sideIcon(item.side) + '</g>';
-    // 송장: 종이 라벨, 내용물 글자
+    // 주문표: 종이 라벨, 내용물 글자
     s += '<rect x="112" y="22" width="72" height="62" rx="2.5" fill="#fffefa" stroke="#9a8460" stroke-width="1.4"/>'
       + '<rect x="112" y="22" width="72" height="11" rx="2.5" fill="#E8681C"/>'
-      + '<text x="148" y="30.5" text-anchor="middle" font-size="8" font-weight="800" fill="#fff8ef" letter-spacing="2">송장</text>'
+      + '<text x="148" y="30.5" text-anchor="middle" font-size="8" font-weight="800" fill="#fff8ef" letter-spacing="2">주문표</text>'
       + '<text x="148" y="62" text-anchor="middle" font-size="' + (item.slip.length > 3 ? 14 : 17) + '" font-weight="800" fill="#2b1d12">' + item.slip + '</text>';
     return s + "</svg>";
   }
@@ -391,7 +417,7 @@
       + '<p class="mg-progress">처리 <em class="mg-found">0</em> / ' + cfg.n + '개</p>'
       + '<p class="mg-freeze-note"></p>'
       + '<div class="mg-bins">' + binsHtml + '</div>'
-      + '<button type="button" class="mg-bin mg-discard" data-a="space" aria-label="정보가 안 맞는 택배 폐기"><span class="mg-bin-k">SPACE</span><span class="mg-bin-n">그림과 글자가 다르면 폐기</span></button>';
+      + '<button type="button" class="mg-bin mg-discard" data-a="space" aria-label="정보가 안 맞는 초밥 폐기"><span class="mg-bin-k">SPACE</span><span class="mg-bin-n">그림과 글자가 다르면 폐기</span></button>';
 
     var queue = body.querySelector(".mg-queue");
     var doneEl = body.querySelector(".mg-found");
@@ -421,7 +447,7 @@
         if (idx === cfg.n) c.later(c.finish, 380);
         return;
       }
-      // 오입력: 실수 +1, 앞 택배는 그대로 남고 잠깐 멈춘다
+      // 오입력: 실수 +1, 앞 초밥은 그대로 남고 잠깐 멈춘다
       c.addMistake();
       locked = true;
       restartAnim(els[idx], "mg-shake");
@@ -449,32 +475,32 @@
       b.addEventListener("pointerdown", function (e) { e.preventDefault(); act(b.getAttribute("data-a")); });
     });
     setFront();
-    return { hint: function () { return "옆면 그림과 송장 글자가 같은 종류면 그 칸으로(← 일반 · ↓ 깨지기 · → 귀중품), 서로 다르면 SPACE로 폐기. 틀리면 잠깐 멈춰요."; } };
+    return { hint: function () { return "옆면 그림과 주문표 글자가 같은 종류면 그 칸으로(← 일반 · ↓ 중급 · → 특선 초밥), 서로 다르면 SPACE로 폐기. 틀리면 잠깐 멈춰요."; } };
   }
 
   // ======================================================================
-  // 송장 붙이기 -- 송장의 정보(배송코드 + 취급 + 층)와 "일부만 적힌" 박스들을 맞춰 보고, 딱 하나로 특정되는 박스에 붙이기
+  // 주문표 붙이기 -- 주문표의 정보(서빙코드 + 취급 + 접시)와 "일부만 적힌" 상자들을 맞춰 보고, 딱 하나로 특정되는 상자에 붙이기
   // ======================================================================
-  // (2026-10-06 개편) 코드를 읽고 같은 박스를 찾는 게임이었다.
-  // (2026-10-07 재설계, 사용자 피드백: "코드 확인 -> 같은 코드 박스 찾기 -> 붙이기는 너무 명확하다. 박스에 코드가 온전히 안 적혀 있고
-  //  일부 정보만 있어서, 여러 정보를 조합해야 하나로 특정되게") 송장은 B-17 / 깨짐 / 4F 처럼 세 정보를 갖고,
-  // 박스에는 코드의 한 글자가 가려져 있고(B-□7), 취급과 층은 있거나 없다(? 표시). 박스 하나의 보이는 정보가 전부 송장과 맞아야만
-  // "맞는 박스"고, 그런 박스는 항상 정확히 하나다 -- 코드만 맞는 박스(B-□7인데 취급이 다름)가 일부러 섞여 있어서
+  // (2026-10-06 개편) 코드를 읽고 같은 상자를 찾는 게임이었다.
+  // (2026-10-07 재설계, 사용자 피드백: "코드 확인 -> 같은 코드 상자 찾기 -> 붙이기는 너무 명확하다. 상자에 코드가 온전히 안 적혀 있고
+  //  일부 정보만 있어서, 여러 정보를 조합해야 하나로 특정되게") 주문표는 B-17 / 깨짐 / 4F 처럼 세 정보를 갖고,
+  // 상자에는 코드의 한 글자가 가려져 있고(B-□7), 취급과 접시는 있거나 없다(? 표시). 상자 하나의 보이는 정보가 전부 주문표와 맞아야만
+  // "맞는 상자"고, 그런 상자는 항상 정확히 하나다 -- 코드만 맞는 상자(B-□7인데 취급이 다름)가 일부러 섞여 있어서
   // "B-17이니까 이거?" -> "아니네, 취급이 달라" -> "그럼 이거다" 처럼 조합해서 추리해야 한다. (틀리면 실수 + 멈춤)
-  var STK_BOXES  = [4, 7, 8];   // 레벨별 박스 수
-  var STK_LABELS = [2, 4, 5];   // 레벨별 송장 장수 (붙일 박스 수)
-  var STK_HIDE   = [0.25, 0.5, 0.62]; // 박스에서 취급/층 정보를 가릴 확률 (높을수록 코드와 조합해야 한다)
+  var STK_BOXES  = [4, 7, 8];   // 레벨별 상자 수
+  var STK_LABELS = [2, 4, 5];   // 레벨별 주문표 장수 (붙일 상자 수)
+  var STK_HIDE   = [0.25, 0.5, 0.62]; // 상자에서 취급/접시 정보를 가릴 확률 (높을수록 코드와 조합해야 한다)
   var STK_FLOOR_FIELD = ["1F", "2F", "3F", "4F", "5F"];
   var STK_LETTERS = ["A", "B", "C", "D", "E"];
-  var STK_LOCK_MS = 900;        // 틀린 박스에 붙인 뒤 멈춤 -- 다시 추리할 시간 (이상 확인과 같은 값)
-  var LW = 22, LH = 22.5;       // 송장 크기 (스테이지 대비 %, 스테이지 520:320)
+  var STK_LOCK_MS = 900;        // 틀린 상자에 붙인 뒤 멈춤 -- 다시 추리할 시간 (이상 확인과 같은 값)
+  var LW = 22, LH = 22.5;       // 주문표 크기 (스테이지 대비 %, 스테이지 520:320)
   var TRAY_X = (100 - LW) / 2, TRAY_Y = 75.5;
 
   function pad2(n) { return (n < 10 ? "0" : "") + n; }
 
-  // 송장 코드 "B-17": 글자 1 + 숫자 2. 마스크 위치 0 = 글자, 1 = 십의 자리, 2 = 일의 자리.
+  // 주문표 코드 "B-17": 글자 1 + 숫자 2. 마스크 위치 0 = 글자, 1 = 십의 자리, 2 = 일의 자리.
   function codeChars(b) { return [b.letter, String(b.num).charAt(0), String(b.num).charAt(1)]; }
-  // box(가려진 정보 포함)가 inv와 "보이는 부분이 전부 일치"하는가. codeOnly면 취급/층은 무시.
+  // box(가려진 정보 포함)가 inv와 "보이는 부분이 전부 일치"하는가. codeOnly면 취급/접시는 무시.
   function stkCompat(box, inv, codeOnly) {
     var bc = codeChars(box), ic = codeChars(inv);
     for (var i = 0; i < 3; i++) if (i !== box.mask && bc[i] !== ic[i]) return false;
@@ -484,12 +510,12 @@
     return true;
   }
 
-  // 박스 n개(정답 k개 포함)와 송장 순서를 만든다. 모든 정답 송장이 정확히 한 박스와만 맞고, 코드만 맞는 박스가 따로 있도록 시도한다.
+  // 상자 n개(정답 k개 포함)와 주문표 순서를 만든다. 모든 정답 주문표가 정확히 한 상자와만 맞고, 코드만 맞는 상자가 따로 있도록 시도한다.
   function makeStickerPlan(level, n, k) {
     var hide = STK_HIDE[level - 1];
     var best = null;
     for (var attempt = 0; attempt < 4000; attempt++) {
-      // 모든 박스가 비슷해 보이도록 숫자는 작은 집합(3개)에서만, 글자도 2개에서만 뽑는다
+      // 모든 상자가 비슷해 보이도록 숫자는 작은 집합(3개)에서만, 글자도 2개에서만 뽑는다
       var digits = shuffle(["1", "2", "3", "7", "8", "9"]).slice(0, 3), letters = shuffle(STK_LETTERS).slice(0, 2);
       var used = {}, boxes = [], guard = 0;
       while (boxes.length < n && guard++ < 300) {
@@ -514,7 +540,7 @@
         if (near >= 1) nearCode++;
       }
       if (!ok) continue;
-      // 레벨 2 이상은 정답 송장 대부분에 "코드만 맞는 함정 박스"가 있어야 한다 (조합해야 풀리게)
+      // 레벨 2 이상은 정답 주문표 대부분에 "코드만 맞는 함정 상자"가 있어야 한다 (조합해야 풀리게)
       var need = level === 1 ? 0 : (level === 2 ? Math.ceil(k * 0.6) : k);
       var plan = { boxes: boxes, seq: shuffle(targets), near: nearCode };
       if (nearCode >= need) return plan;
@@ -556,30 +582,29 @@
       + '<button type="button" class="mg-key" data-k="space" aria-label="스페이스">SPACE · 붙이기</button>'
       + "</div>";
     var stage = body.querySelector(".mg-stage");
-    // 좁은 화면(폰): 박스 안 글자가 읽히도록 무대를 세로로 늘리고 박스를 한 줄 3개로 키운다. 송장도 가로로 넓힌다.
+    // 좁은 화면(폰): 상자 안 글자가 읽히도록 무대를 세로로 늘리고 상자를 한 줄 3개로 키운다. 주문표도 가로로 넓힌다.
     var narrow = stage.clientWidth > 0 && stage.clientWidth < 460;
     var lw = LW, lh = LH, ty = TRAY_Y;
     if (narrow) { stage.classList.add("is-narrow"); lw = 38; lh = 19.5; ty = 76.5; }
-    if (n === 4) stage.classList.add("is-2x2"); // 2026-10-14: 박스 4개는 3+1이 아니라 2x2로 가지런히 (사용자 요청)
     if (n > 6) { stage.style.setProperty("--bw", narrow ? "29cqw" : "21cqw"); stage.style.setProperty("--ggap", narrow ? "2.6cqw 2.4cqw" : "2.2cqw 2.2cqw"); } // 7개 이상: 한 줄 4개(넓은 화면) / 3개(폰)
     if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ seq: plan.seq, near: plan.near }));
     var boxes = Array.prototype.slice.call(body.querySelectorAll(".mg-bx"));
     var note = body.querySelector(".mg-tray-note");
     var placed = 0, current = null;
-    var cursor = 0, keyLocked = false; // 지금 고른 박스(boxes 인덱스)
+    var cursor = 0, keyLocked = false; // 지금 고른 상자(boxes 인덱스)
 
 
-    // ---- 조작은 키보드 전용 (2026-10-07: 마우스 끌어다 놓기 제거): ←→ 박스 고르기, ↑↓ 윗줄/아랫줄 박스로, 스페이스 = 지금 송장을 고른 박스에 붙이기.
+    // ---- 조작은 키보드 전용 (2026-10-07: 마우스 끌어다 놓기 제거): ←→ 상자 고르기, ↑↓ 윗줄/아랫줄 상자로, 스페이스 = 지금 주문표를 고른 상자에 붙이기.
     // 화면 아래 방향키/스페이스 버튼은 다른 미니게임과 같은 터치용 패드(폰) -- 누르면 같은 동작이다. ----
     function paintCursor() { boxes.forEach(function (x, i) { x.classList.toggle("is-cursor", i === cursor && !x.classList.contains("is-done")); }); }
-    function nextOpen(from, step) { // from에서 step(+1/-1) 방향으로 아직 안 붙인 박스 (한 바퀴 돎)
+    function nextOpen(from, step) { // from에서 step(+1/-1) 방향으로 아직 안 붙인 상자 (한 바퀴 돎)
       for (var i = 1; i <= boxes.length; i++) {
         var j = (from + step * i + boxes.length * 2) % boxes.length;
         if (!boxes[j].classList.contains("is-done")) return j;
       }
       return from;
     }
-    function moveRow(dir) { // dir -1 = 위, +1 = 아래: 다른 줄의 안 붙인 박스 중 가로 위치가 가장 가까운 것
+    function moveRow(dir) { // dir -1 = 위, +1 = 아래: 다른 줄의 안 붙인 상자 중 가로 위치가 가장 가까운 것
       var me = boxes[cursor].getBoundingClientRect(), mx = me.left + me.width / 2, my = me.top + me.height / 2;
       var best = -1, bestD = 1e9;
       boxes.forEach(function (x, i) {
@@ -598,7 +623,7 @@
       if (boxes.indexOf(b) === plan.seq[placed]) { var lb = current; stick(lb, b); return; }
       c.addMistake();
       restartAnim(b, "is-wrong");
-      keyLocked = true; // 틀린 뒤 잠깐 멈춤 -- 방향키+스페이스를 번갈아 눌러 박스를 하나씩 찍어 보는 걸 막는다
+      keyLocked = true; // 틀린 뒤 잠깐 멈춤 -- 방향키+스페이스를 번갈아 눌러 상자를 하나씩 찍어 보는 걸 막는다
       c.later(function () { keyLocked = false; }, STK_LOCK_MS);
     }
     function press(k) {
@@ -629,12 +654,12 @@
       b.addEventListener("pointerdown", function (e) { e.preventDefault(); press(b.getAttribute("data-k")); });
     });
 
-    // 송장은 트레이에 한 장씩 나온다(끌 수 없음 -- 붙이는 건 스페이스뿐).
+    // 주문표는 트레이에 한 장씩 나온다(끌 수 없음 -- 붙이는 건 스페이스뿐).
     function spawnLabel() {
       var inv = plan.boxes[plan.seq[placed]];
-      note.textContent = "남은 송장 " + (k - placed) + "장";
+      note.textContent = "남은 주문표 " + (k - placed) + "장";
       var lb = el("div", "mg-label",
-        '<div class="lb-bar"><span>송장</span></div><div class="lb-main"><b class="lb-room">' + codeHtml(inv, false) + '</b>'
+        '<div class="lb-bar"><span>주문표</span></div><div class="lb-main"><b class="lb-room">' + codeHtml(inv, false) + '</b>'
         + '<div class="lb-meta"><span class="bx-chip g' + inv.grade + '">' + GRADE_NAME[inv.grade] + '</span><span class="bx-chip fl">' + inv.floor + '</span></div></div><div class="lb-code"></div>');
       if (c.testHooks) lb.setAttribute("data-want", String(plan.seq[placed]));
       lb.style.width = lw + "%"; lb.style.height = lh + "%";
@@ -644,7 +669,7 @@
       current = lb;
     }
 
-    // 송장이 박스 앞면의 송장 자리로 줄어들며 붙는다
+    // 주문표가 상자 앞면의 주문표 자리로 줄어들며 붙는다
     function stick(lb, b) {
       var sr = stage.getBoundingClientRect(), slot = b.querySelector(".bx-slot").getBoundingClientRect();
       var lw = lb.offsetWidth, lh = lb.offsetHeight;
@@ -657,7 +682,7 @@
       b.classList.add("is-done");
       placed++;
       current = null;
-      if (placed < k) cursor = nextOpen(cursor, 1); // 붙인 박스에서 다음 안 붙인 박스로 커서를 옮겨 둔다
+      if (placed < k) cursor = nextOpen(cursor, 1); // 붙인 상자에서 다음 안 붙인 상자로 커서를 옮겨 둔다
       paintCursor();
       if (placed === k) { note.textContent = "모두 붙였어요"; c.later(c.finish, 320); }
       else { c.later(spawnLabel, 300); }
@@ -665,66 +690,86 @@
 
     spawnLabel();
     paintCursor();
-    return { hint: function () { return "송장(배송코드 · 취급 · 층)과 보이는 정보가 전부 맞는 박스는 딱 하나예요 (" + k + "장). 박스에는 코드 한 글자가 가려져 있고, 취급/층은 없을 수도 있어요 -- 조합해서 찾으세요. 방향키(←→↑↓)로 박스를 고르고 스페이스로 붙여요. 틀린 박스에 붙이면 실수!"; } };
+    return { hint: function () { return "주문표(서빙코드 · 취급 · 접시)과 보이는 정보가 전부 맞는 상자는 딱 하나예요 (" + k + "장). 상자에는 코드 한 글자가 가려져 있고, 취급/접시는 없을 수도 있어요 -- 조합해서 찾으세요. 방향키(←→↑↓)로 상자를 고르고 스페이스로 붙여요. 틀린 상자에 붙이면 실수!"; } };
   }
 
 
   // ======================================================================
-  // 지도 배달 (2026-10-07: 귀중품의 우봉고를 대체)
-  //   1) 송장 단계: 지도는 가려져 있고, "송장만 붙은 택배" 여러 개(예: 103호, 201호 ...)가 순서대로 팝업으로 떴다가 사라진다.
-  //   2) 지도 단계: 택배가 사라지고 지도가 뜬다 -- 집마다 호실 번호가 적혀 있어서, 외운 호실의 집을 지도에서 찾아
-  //      방향키로 이동해 도착하면 스페이스로 배달한다. 외운 순서대로.
-  //   3) 게임 시작 20초 뒤부터(MAP_REPLAY_AFTER_MS) "송장 다시 보기"가 열린다: 택배 팝업을 다시 보여 준다(그동안 지도는 가려지고 이동 불가).
+  // 주문 서빙 (2026-10-07: 특선 초밥의 우봉고를 대체)
+  //   1) 주문표 단계: 지도는 가려져 있고, "주문표만 붙은 초밥" 여러 개(예: 103호, 201호 ...)가 순서대로 팝업으로 떴다가 사라진다.
+  //   2) 지도 단계: 초밥이 사라지고 지도가 뜬다 -- 집마다 호실 번호가 적혀 있어서, 외운 호실의 집을 지도에서 찾아
+  //      방향키로 이동해 도착하면 스페이스로 서빙한다. 외운 순서대로.
+  //   3) 게임 시작 20초 뒤부터(MAP_REPLAY_AFTER_MS) "주문표 다시 보기"가 열린다: 초밥 팝업을 다시 보여 준다(그동안 지도는 가려지고 이동 불가).
   //      공짜지만 그만큼 시간이 가므로 사실상의 비용은 시간이다. 그 전에는 못 본다 -- 처음에 제대로 외워야 한다.
-  //   (이력: 1차는 목표 집이 지도 위에서 번호와 함께 켜졌다. 2차는 호실 번호 목록만 먼저 띄웠다. 사용자가 "송장만 붙은 택배 4개가
+  //   (이력: 1차는 목표 집이 지도 위에서 번호와 함께 켜졌다. 2차는 호실 번호 목록만 먼저 띄웠다. 사용자가 "주문표만 붙은 초밥 4개가
   //    팝업으로 보였다 사라지고, 이후 지도가 표시되고, 20초 뒤부터는 다시 호수를 확인"으로 정정해서 지금 형태가 됐다.)
-  //   입력은 박스 포장과 같은 방향키 4개 + 스페이스(화면 버튼도 같다).
+  //   입력은 상자 포장과 같은 방향키 4개 + 스페이스(화면 버튼도 같다).
   //   난이도 레버는 전부 MAP_CFG 한 군데:
-  //     targets  외울 택배(호실) 수     flashMs  택배 팝업이 떠 있는 시간(ms)
+  //     targets  외울 초밥(호실) 수     flashMs  초밥 팝업이 떠 있는 시간(ms)
   //     cols/rows 지도 크기            houses   집 개수 (목표 + 미끼)
-  //     similar  목표와 비슷한 번호(같은 층 / 같은 호)를 가진 미끼 집 수 -- 잘못 외우거나 대충 보면 틀리는 함정
+  //     similar  목표와 비슷한 번호(같은 접시 / 같은 호)를 가진 미끼 집 수 -- 잘못 외우거나 대충 보면 틀리는 함정
   //     blocks   지나갈 수 없는 칸(공사장) 수 -- 돌아가야 해서 길을 직접 짜야 한다
   //   레벨 1은 시험장 전용, 게임에서는 전반 2 / 후반 3 (game-data.js의 TYPES.valuable.miniLevel).
-  //   틀린 배달(엉뚱한 집/도로/이미 배달한 집/순서 틀림)은 실수 +1 이고 0.8초 멈춘다 -- 진행은 유지.
+  //   틀린 서빙(엉뚱한 집/도로/이미 서빙한 집/순서 틀림)은 실수 +1 이고 0.8초 멈춘다 -- 진행은 유지.
   // ======================================================================
-  // targets = 외워야 할 송장(택배) 수: 전반(레벨 2) 3개, 후반(레벨 3) 4개 (2026-10-07 사용자 요청). 레벨 1은 시험장 전용.
+  // targets = 외워야 할 주문표(초밥) 수: 전반(레벨 2) 3개, 후반(레벨 3) 4개 (2026-10-07 사용자 요청). 레벨 1은 시험장 전용.
   var MAP_CFG = [
     { cols: 5, rows: 4, houses: 8,  targets: 2, flashMs: 4500, similar: 0, blocks: 0 },
-    // 2026-10-07 난이도 업: 외울 개수(3/4)와 송장 다시 보기 20초는 사용자 지정값이라 그대로 두고, 팝업 시간을 줄이고 미끼/공사장을 늘렸다.
+    // 2026-10-07 난이도 업: 외울 개수(3/4)와 주문표 다시 보기 20초는 사용자 지정값이라 그대로 두고, 팝업 시간을 줄이고 미끼/공사장을 늘렸다.
     { cols: 6, rows: 4, houses: 11, targets: 3, flashMs: 3000, similar: 4, blocks: 2 },
-    { cols: 7, rows: 5, houses: 14, targets: 4, flashMs: 2500, similar: 6, blocks: 6 },
+    { cols: 7, rows: 5, houses: 14, targets: 4, flashMs: 2500, similar: 6, blocks: 6 },   // 2026-10-12: 손질 단계가 앞에 붙어 원래 7x5로 되돌림
   ];
-  var MAP_REPLAY_AFTER_MS = 20000; // 게임 시작 후 이 시간이 지나야 "송장 다시 보기"가 열린다
-  var MAP_POP_STAGGER_MS = 150;    // 택배 팝업이 하나씩 뜨는 간격(순서 단서)
-  var MAP_LOCK_MS = 800;   // 틀린 배달 뒤 멈춤
+  var MAP_REPLAY_AFTER_MS = 20000; // 게임 시작 후 이 시간이 지나야 "주문표 다시 보기"가 열린다
+  var MAP_POP_STAGGER_MS = 150;    // 초밥 팝업이 하나씩 뜨는 간격(순서 단서)
+  var MAP_LOCK_MS = 800;   // 틀린 서빙 뒤 멈춤
   var MAP_STEP_MS = 70;    // 방향키를 꾹 누를 때 한 칸씩 가는 최소 간격
   var MAP_VEC = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-  var HOUSE_SVG = '<svg class="mg-hsvg" viewBox="0 0 40 40" aria-hidden="true"><path d="M5 19 20 6l15 13Z" class="mg-roof"/><rect x="9" y="19" width="22" height="15" class="mg-wall"/><rect x="17" y="25" width="6" height="9" class="mg-door"/></svg>';
-  var VAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="11" width="21" height="17" rx="2" class="mg-van-box"/><path d="M25 16h7l4 5v7H25Z" class="mg-van-cab"/><circle cx="12" cy="30" r="3.4" class="mg-van-wh"/><circle cx="30" cy="30" r="3.4" class="mg-van-wh"/></svg>';
+  // 손님 자리(테이블): 위에서 본 나무 테이블 + 접시 + 젓가락. 지도 서빙의 "집" 대신 쓴다 (CSS 클래스 이름은 mg-roof 등을 그대로 재사용).
+  // 지도를 돌아다니는 셰프 (쟁반을 든 모습). 이름은 예전 VAN_SVG 그대로 두고 그림만 교체.
+  var VAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="31" rx="16" ry="5" class="mg-van-box"/><circle cx="20" cy="17" r="7" class="sk-m-face"/><path d="M12 13c-2-6 3-9 6-6 1-3 6-3 7 0 3-3 8 0 6 6-4-1-15-1-19 0Z" class="sk-m-cap"/><path d="M11 36c0-7 4-11 9-11s9 4 9 11Z" class="sk-m-body"/><circle cx="17.3" cy="17.5" r="1" class="sk-m-eye"/><circle cx="22.7" cy="17.5" r="1" class="sk-m-eye"/></svg>';
 
   function mapKey(x, y) { return x + "," + y; }
-  // 호실 번호: 층(1~5) + 0 + 호(1~9) = 101 ~ 509. 목표는 무작위, 미끼 중 similar개는 목표와 같은 층 또는 같은 호(번갈아)를 가진다.
+  // 주문 번호: 접시 색(빨강~보라) + 번호(1~9) = "주황 3번". 게임 본체의 주문표 표기(roomCode)와 같다.
+  // 목표는 무작위, 미끼 중 similar개는 목표와 같은 접시 색 또는 같은 번호(번갈아)를 가진다.
+  var MAP_PLATES = ["빨강", "주황", "노랑", "초록", "파랑", "보라"];
+  // 접시 색: 게임 본체의 PLATE_HEX(build_client.py)와 같은 순서/색. rim은 접시 가장자리(진한 색).
+  var MAP_PLATE_FILL = ["#E0443E", "#F28C28", "#F4D03F", "#3FAE5A", "#3D7FD9", "#8E5BC8"];
+  var MAP_PLATE_RIM  = ["#A92B27", "#B8641A", "#B8961C", "#27783C", "#2658A6", "#623A92"];
+  // 2026-10-12: 주문 번호를 "빨강 3번" 글자가 아니라 접시 그림으로 -- 그 색의 접시 위에 번호가 적힌 모양 (사용자 요청).
+  //   글자는 화면에 없고, 접근성/시험용으로 data-label / aria-label에만 "빨강 3번" 형태로 남긴다.
+  function plateSvg(f, r) {
+    return '<svg class="mg-psvg" viewBox="0 0 64 64" aria-hidden="true">'
+      + '<circle cx="32" cy="32" r="30" fill="' + MAP_PLATE_RIM[f] + '" stroke="#2b1d12" stroke-width="2.4"/>'
+      + '<circle cx="32" cy="32" r="24.5" fill="' + MAP_PLATE_FILL[f] + '"/>'
+      + '<circle cx="32" cy="32" r="19" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="1.6"/>'
+      + '<path d="M13 24a21 21 0 0 1 14-10" fill="none" stroke="#fff" stroke-opacity="0.6" stroke-width="2.6" stroke-linecap="round"/>'
+      + '<text x="32" y="33" text-anchor="middle" dominant-baseline="central" class="mg-pnum">' + r + '</text></svg>';
+  }
+  function plateHtml(cls, label, meta) {
+    return '<span class="' + cls + '" data-label="' + label + '" role="img" aria-label="' + label + '">' + plateSvg(meta.f, meta.r) + '</span>';
+  }
   function assignRoomLabels(houses, targets, similar) {
-    var used = {};
-    function code(f, r) { return String(f * 100 + r); }
+    var used = {}, meta = {};
+    function code(f, r) { var cd = MAP_PLATES[f] + " " + r + "번"; meta[cd] = { f: f, r: r }; return cd; }
     function takeRandom() {
-      for (;;) { var cd = code(1 + rand(5), 1 + rand(9)); if (!used[cd]) { used[cd] = 1; return cd; } }
+      for (;;) { var cd = code(rand(MAP_PLATES.length), 1 + rand(9)); if (!used[cd]) { used[cd] = 1; return cd; } }
     }
-    targets.forEach(function (t) { t.label = takeRandom(); });
+    targets.forEach(function (t) { t.label = takeRandom(); t.f = meta[t.label].f; t.r = meta[t.label].r; });
     var tset = {}; targets.forEach(function (t) { tset[mapKey(t.x, t.y)] = 1; });
     var decoys = shuffle(houses.filter(function (h) { return !tset[mapKey(h.x, h.y)]; }));
     var n = Math.min(similar, decoys.length, targets.length);
     for (var i = 0; i < decoys.length; i++) {
       var cand = [];
       if (i < n) {
-        var f = parseInt(targets[i].label.charAt(0), 10), r = parseInt(targets[i].label.charAt(2), 10);
-        for (var a = 1; a <= 5; a++) for (var b = 1; b <= 9; b++) {
-          var same = i % 2 === 0 ? (a === f && b !== r) : (b === r && a !== f); // 짝수: 같은 층 다른 호 / 홀수: 같은 호 다른 층
+        var m = meta[targets[i].label], f = m.f, r = m.r;
+        for (var a = 0; a < MAP_PLATES.length; a++) for (var b = 1; b <= 9; b++) {
+          var same = i % 2 === 0 ? (a === f && b !== r) : (b === r && a !== f); // 짝수: 같은 접시 다른 번호 / 홀수: 같은 번호 다른 접시
           if (same && !used[code(a, b)]) cand.push(code(a, b));
         }
       }
       if (cand.length) { var pick = cand[rand(cand.length)]; used[pick] = 1; decoys[i].label = pick; }
       else decoys[i].label = takeRandom();
+      decoys[i].f = meta[decoys[i].label].f; decoys[i].r = meta[decoys[i].label].r;
     }
   }
   function makeMapPlan(cfg, noBlocks) {
@@ -773,8 +818,8 @@
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       var k = mapKey(x, y), h = houseAt[k], isDepot = x === plan.depot.x && y === plan.depot.y;
       tiles += '<div class="mg-tile' + (h ? " is-house" : "") + (blockAt[k] ? " is-block" : "") + (isDepot ? " is-depot" : "") + '" data-x="' + x + '" data-y="' + y + '">'
-        + (h ? HOUSE_SVG + '<b class="mg-lab">' + h.label + '</b><span class="mg-chk">✓</span>'
-          : blockAt[k] ? '<span class="mg-fence"></span>' : isDepot ? '<span class="mg-dep">센터</span>' : "")
+        + (h ? plateHtml("mg-lab", h.label, h) + '<span class="mg-chk">✓</span>'
+          : blockAt[k] ? '<span class="mg-fence"></span>' : isDepot ? '<span class="mg-dep">주방</span>' : "")
         + "</div>";
     }
     var dots = ""; for (var di = 0; di < N; di++) dots += '<span class="mg-dot"></span>';
@@ -782,15 +827,15 @@
       '<div class="mg-map-top"><div class="mg-flashbar"><i></i></div><p class="mg-phase"></p></div>'
       + '<div class="mg-map is-covered" style="--cols:' + W + ';--rows:' + H + '">' + tiles
       + '<div class="mg-courier" style="--cx:' + plan.depot.x + ';--cy:' + plan.depot.y + '">' + VAN_SVG + '</div>'
-      + '<div class="mg-cover"><div class="mg-parcels"></div><span class="mg-cover-note">지도는 택배를 확인한 뒤에 나와요</span></div></div>'
-      + '<div class="mg-map-foot"><div class="mg-dots">' + dots + '</div><button type="button" class="mg-replay" tabindex="-1" disabled>송장 다시 보기</button></div>'
+      + '<div class="mg-cover"><div class="mg-parcels"></div><span class="mg-cover-note">홀 지도는 주문표를 확인한 뒤에 나와요</span></div></div>'
+      + '<div class="mg-map-foot"><div class="mg-dots">' + dots + '</div><button type="button" class="mg-replay" tabindex="-1" disabled>주문표 다시 보기</button></div>'
       + '<p class="mg-freeze-note"></p>'
       + '<div class="mg-pad">'
       + '<button type="button" class="mg-key" data-k="up" aria-label="위">↑</button>'
       + '<button type="button" class="mg-key" data-k="left" aria-label="왼쪽">←</button>'
       + '<button type="button" class="mg-key" data-k="down" aria-label="아래">↓</button>'
       + '<button type="button" class="mg-key" data-k="right" aria-label="오른쪽">→</button>'
-      + '<button type="button" class="mg-key" data-k="space" aria-label="스페이스">SPACE · 배달</button>'
+      + '<button type="button" class="mg-key" data-k="space" aria-label="스페이스">SPACE · 서빙</button>'
       + "</div>";
 
     var map = body.querySelector(".mg-map"), courier = body.querySelector(".mg-courier");
@@ -805,7 +850,7 @@
     function paintDots() {
       dotEls.forEach(function (d, i) { d.classList.toggle("is-done", i < idx); d.classList.toggle("is-current", i === idx && phase === "play"); });
     }
-    // 송장 단계: 지도를 가리고 그 위에 "송장만 붙은 택배"를 순서대로 팝업으로 띄운다(이미 배달한 호실은 흐리게 + 체크로 같이 보여 줘서
+    // 주문표 단계: 지도를 가리고 그 위에 "주문표만 붙은 초밥"를 순서대로 팝업으로 띄운다(이미 서빙한 호실은 흐리게 + 체크로 같이 보여 줘서
     // 번호 순서가 그대로 유지된다). 처음 한 번 + "다시 보기" 때.
     function showInvoice() {
       phase = "invoice";
@@ -813,10 +858,10 @@
       var html = "";
       for (var i = 0; i < N; i++) {
         html += '<div class="mg-parcel' + (i < idx ? " is-done" : "") + '" style="--d:' + (i * MAP_POP_STAGGER_MS) + 'ms">'
-          + '<i class="pn">' + (i + 1) + '</i><span class="pbox"><b class="pl">' + plan.targets[i].label + '호</b></span><span class="pk">✓</span></div>';
+          + '<i class="pn">' + (i + 1) + '</i>' + plateHtml("pbox", plan.targets[i].label, plan.targets[i]) + '<span class="pk">✓</span></div>';
       }
       parcelsEl.innerHTML = html; // 새로 그려야 팝업 애니메이션이 처음부터 다시 돈다
-      phaseEl.textContent = "택배 송장을 외우세요! 이 순서대로 배달해요";
+      phaseEl.textContent = "초밥 주문표를 외우세요! 이 순서대로 서빙해요";
       barEl.style.transition = "none"; barEl.style.width = "100%";
       void barEl.offsetWidth;
       barEl.style.transition = "width " + cfg.flashMs + "ms linear"; barEl.style.width = "0%";
@@ -824,20 +869,20 @@
       paintDots();
       c.later(showMap, cfg.flashMs);
     }
-    // 지도 단계: 택배가 사라지고 지도가 뜬다.
+    // 지도 단계: 초밥이 사라지고 지도가 뜬다.
     function showMap() {
       phase = "play";
       map.classList.remove("is-covered");
-      phaseEl.textContent = "지도가 나왔어요! 호실을 찾아 순서대로 배달하세요";
+      phaseEl.textContent = "홀 지도가 나왔어요! 주문 번호의 자리를 찾아 순서대로 서빙하세요";
       paintDots();
       updateReplay();
     }
-    // "송장 다시 보기": 게임 시작 후 replayAfter(20초)가 지나야 열린다. 그 전에는 남은 시간을 버튼에 표시.
+    // "주문표 다시 보기": 게임 시작 후 replayAfter(20초)가 지나야 열린다. 그 전에는 남은 시간을 버튼에 표시.
     function updateReplay() {
       var left = replayAfter - (performance.now() - startedAt);
-      if (left <= 0) { replay.textContent = "송장 다시 보기"; replay.disabled = phase !== "play"; return; }
+      if (left <= 0) { replay.textContent = "주문표 다시 보기"; replay.disabled = phase !== "play"; return; }
       replay.disabled = true;
-      replay.textContent = "송장 다시 보기 (" + Math.ceil(left / 1000) + "초 뒤)";
+      replay.textContent = "주문표 다시 보기 (" + Math.ceil(left / 1000) + "초 뒤)";
       c.later(updateReplay, Math.min(500, left));
     }
     function place() { courier.style.setProperty("--cx", pos.x); courier.style.setProperty("--cy", pos.y); }
@@ -863,7 +908,7 @@
       c.addMistake();
       locked = true;
       restartAnim(tile, "is-wrong");
-      note.textContent = tile.classList.contains("is-house") ? "그 호실이 아니에요!" : "배달할 집이 아니에요";
+      note.textContent = tile.classList.contains("is-house") ? "그 주문 번호가 아니에요!" : "손님 자리가 아니에요";
       c.later(function () { locked = false; note.textContent = ""; }, MAP_LOCK_MS);
     }
     function press(k) {
@@ -899,232 +944,1145 @@
     updateReplay();
     return {
       hint: function () {
-        return "먼저 송장만 붙은 택배가 순서대로 잠깐 떠요 -- 호실 번호와 순서를 외우세요. 그다음 지도가 나오면 그 호실의 집을 찾아 방향키로 이동하고, 도착하면 스페이스로 배달해요. "
-          + "비슷한 번호의 집이 섞여 있어요. 엉뚱한 집에서 배달하면 실수예요. 시작 " + Math.round(replayAfter / 1000) + "초 뒤부터는 송장을 다시 볼 수 있어요.";
+        return "먼저 주문표가 순서대로 잠깐 떠요 -- 주문 번호(접시 색 + 번호)와 순서를 외우세요. 그다음 홀 지도가 나오면 그 번호의 손님 자리를 찾아 방향키로 이동하고, 도착하면 스페이스로 서빙해요. "
+          + "비슷한 번호의 자리가 섞여 있어요. 엉뚱한 자리에서 서빙하면 실수예요. 시작 " + Math.round(replayAfter / 1000) + "초 뒤부터는 주문표를 다시 볼 수 있어요.";
       },
     };
   }
 
   // ======================================================================
-  // 2026-10-14 레이스 라운드용 짧은 게임 3종 (10~20초). 입력은 레일 앞 물리 버튼과 같은 ← ↑ → / SPACE만 쓴다.
+  // 재료 정리 (소코반) -- 방향키로 걸으며 초밥 상자를 밀어 노란 접시 칸에 모두 넣기
+  //   ← ↑ ↓ → 이동(상자는 밀기만 가능, 당기기 없음)   Z / BACKSPACE 되돌리기(무료)   R 처음부터
+  //   2026-10-08: 실물 우봉고 복귀 뒤 "우봉고가 아닌 형태로 우봉고처럼 생각이 필요한 미니게임" 후보로 추가한 시험용 게임.
+  //   (사용자: 키보드로 진행하는 게 좋다.) 한 번 잘못 밀면 다시 생각해야 하는 시행착오 + 상자가 하나씩 제자리에 들어가는 완성 장면이 목적.
+  //   판은 gen 스크립트(역방향 당기기로 섞은 뒤 BFS 풀이기로 최적 이동 수를 검증)로 미리 만들어 SOKO_POOL에 넣었다 -- 전부 풀 수 있다.
+  //   판 형식: '#' 벽, ' ' 바닥, '.' 접시 칸, '$' 상자, '@' 플레이어, '+' 접시 칸 위 플레이어.
+  //   막다른 길(상자가 풀 수 없는 위치에 끼임)을 만들면 실수 +1이 기록되고 안내가 뜬다 -- 되돌리기는 무료.
   // ======================================================================
-  var PICK_KEYS = [{ a: "left", g: "←" }, { a: "up", g: "↑" }, { a: "right", g: "→" }];
-  function arrowAct(e) {
-    if (e.key === "ArrowLeft") return "left";
-    if (e.key === "ArrowUp") return "up";
-    if (e.key === "ArrowRight") return "right";
-    if (e.code === "Space" || e.key === " ") return "space";
-    if (e.key === "ArrowDown") return "down";
-    return null;
+  var SOKO_POOL = /*SOKO_POOL*/[
+    // 레벨 1 (8판)
+    [["######","#  ###","#  $@#","#   .#","######"],
+     ["######","# #  #","#@$  #","#.   #","######"],
+     ["######","#   .#","#  $@#","#  ###","######"],
+     ["######","#.   #","#@$  #","###  #","######"],
+     ["######","###  #","#@$  #","#.   #","######"],
+     ["######","#.   #","#@$  #","# #  #","######"],
+     ["######","#  # #","#  $@#","#   .#","######"],
+     ["######","#   .#","#  $@#","#  # #","######"]],
+    // 레벨 2 (16판)
+    [["#######","####  #","#@$   #","#   $ #","#..   #","#######"],
+     ["#######","# .   #","# # # #","# $ $@#","# #.  #","#######"],
+     ["#######","#   #.#","#   #.#","##$  $#","# @   #","#######"],
+     ["#######","#   #.#","#  $@ #","#  #$ #","# .#  #","#######"],
+     ["#######","#     #","# .#$ #","#   $@#","#  .# #","#######"],
+     ["#######","#  .  #","#   $@#","### $##","#.    #","#######"],
+     ["#######","##.@ ##","#  $$ #","#.  # #","#     #","#######"],
+     ["#######","#  #  #","# $#. #","#@$   #","#.#   #","#######"],
+     ["#######","#.#   #","#  #  #","#  $$ #","#. #@ #","#######"],
+     ["#######","#.  # #","# $#  #","#@$   #","#   #.#","#######"],
+     ["#######","#.  # #","##.   #","#@$ $ #","# #   #","#######"],
+     ["#######","# ##@ #","#  $$ #","# .   #","# . # #","#######"],
+     ["#######","#  @. #","#  $$ #","# #.# #","#     #","#######"],
+     ["#######","#..   #","### $ #","#   $@#","#   # #","#######"],
+     ["#######","##  . #","# @$  #","# $#  #","## .  #","#######"],
+     ["#######","#  .  #","#   $@#","# $## #","#  . ##","#######"]],
+    // 레벨 3 (104판 · 최적 38~44번 -- 2026-10-12 손질 단계가 앞에 붙어 제작 퍼즐은 20~30초대로 완화: 원래 판에서 44번 이하만 남기고 8방향 변형)
+    [["########","#   $@.#","# # $###","# # $  #","#    ..#","########"],
+     ["########","#.@$   #","###$ # #","#  $ # #","#..    #","########"],
+     ["########","#    ..#","# # $  #","# # $###","#   $@.#","########"],
+     ["########","#..    #","#  $ # #","###$ # #","#.@$   #","########"],
+     ["######","#    #","# ## #","#    #","#$$$ #","#@# .#","#.# .#","######"],
+     ["######","#    #","# ## #","#    #","# $$$#","#. #@#","#. #.#","######"],
+     ["######","#.# .#","#@# .#","#$$$ #","#    #","# ## #","#    #","######"],
+     ["######","#. #.#","#. #@#","# $$$#","#    #","# ## #","#    #","######"],
+     ["########","#   #  #","##  #$ #","#  . $@#","# $ .#.#","########"],
+     ["########","#  #   #","# $#  ##","#@$ .  #","#.#. $ #","########"],
+     ["########","# $ .#.#","#  . $@#","##  #$ #","#   #  #","########"],
+     ["########","#.#. $ #","#@$ .  #","# $#  ##","#  #   #","########"],
+     ["######","# #  #","#   $#","#  . #","### .#","# $$##","#  @.#","######"],
+     ["######","#  # #","#$   #","# .  #","#. ###","##$$ #","#.@  #","######"],
+     ["######","#  @.#","# $$##","### .#","#  . #","#   $#","# #  #","######"],
+     ["######","#.@  #","##$$ #","#. ###","# .  #","#$   #","#  # #","######"],
+     ["########","#  #   #","#+$ .  #","#.#$$  #","#    # #","########"],
+     ["########","#   #  #","#  . $+#","#  $$#.#","# #    #","########"],
+     ["########","#    # #","#.#$$  #","#+$ .  #","#  #   #","########"],
+     ["########","# #    #","#  $$#.#","#  . $+#","#   #  #","########"],
+     ["######","# +. #","# $# #","## $ #","# .$ #","#   ##","#    #","######"],
+     ["######","# .+ #","# #$ #","# $ ##","# $. #","##   #","#    #","######"],
+     ["######","#    #","#   ##","# .$ #","## $ #","# $# #","# +. #","######"],
+     ["######","#    #","##   #","# $. #","# $ ##","# #$ #","# .+ #","######"],
+     ["########","##    .#","# $##  #","#@$  $ #","#.#   .#","########"],
+     ["########","#.    ##","#  ##$ #","# $  $@#","#.   #.#","########"],
+     ["########","#.#   .#","#@$  $ #","# $##  #","##    .#","########"],
+     ["########","#.   #.#","# $  $@#","#  ##$ #","#.    ##","########"],
+     ["######","## @.#","# $$##","# #  #","# #  #","#  $ #","#.  .#","######"],
+     ["######","#.@ ##","##$$ #","#  # #","#  # #","# $  #","#.  .#","######"],
+     ["######","#.  .#","#  $ #","# #  #","# #  #","# $$##","## @.#","######"],
+     ["######","#.  .#","# $  #","#  # #","#  # #","##$$ #","#.@ ##","######"],
+     ["########","#   . ##","# # #$ #","# $ $+ #","#    #.#","########"],
+     ["########","## .   #","# $# # #","# +$ $ #","#.#    #","########"],
+     ["########","#    #.#","# $ $+ #","# # #$ #","#   . ##","########"],
+     ["########","#.#    #","# +$ $ #","# $# # #","## .   #","########"],
+     ["######","#    #","# #$ #","#    #","#.#$ #","# $+##","##  .#","######"],
+     ["######","#    #","# $# #","#    #","# $#.#","##+$ #","#.  ##","######"],
+     ["######","##  .#","# $+##","#.#$ #","#    #","# #$ #","#    #","######"],
+     ["######","#.  ##","##+$ #","# $#.#","#    #","# $# #","#    #","######"],
+     ["########","#.  .  #","# $ #$ #","###@$  #","#.   # #","########"],
+     ["########","#  .  .#","# $# $ #","#  $@###","# #   .#","########"],
+     ["########","#.   # #","###@$  #","# $ #$ #","#.  .  #","########"],
+     ["########","# #   .#","#  $@###","# $# $ #","#  .  .#","########"],
+     ["######","#. #.#","# $# #","#  @ #","#.#$ #","# $ ##","#    #","######"],
+     ["######","#.# .#","# #$ #","# @  #","# $#.#","## $ #","#    #","######"],
+     ["######","#    #","# $ ##","#.#$ #","#  @ #","# $# #","#. #.#","######"],
+     ["######","#    #","## $ #","# $#.#","# @  #","# #$ #","#.# .#","######"],
+     ["########","##     #","# $  $@#","# $ # .#","#   #..#","########"],
+     ["########","#     ##","#@$  $ #","#. # $ #","#..#   #","########"],
+     ["########","#   #..#","# $ # .#","# $  $@#","##     #","########"],
+     ["########","#..#   #","#. # $ #","#@$  $ #","#     ##","########"],
+     ["######","##   #","# $$ #","#    #","#  ###","# $ .#","# @..#","######"],
+     ["######","#   ##","# $$ #","#    #","###  #","#. $ #","#..@ #","######"],
+     ["######","# @..#","# $ .#","#  ###","#    #","# $$ #","##   #","######"],
+     ["######","#..@ #","#. $ #","###  #","#    #","# $$ #","#   ##","######"],
+     ["########","#     ##","# # #$ #","# $  $@#","# .. #.#","########"],
+     ["########","##     #","# $# # #","#@$  $ #","#.# .. #","########"],
+     ["########","# .. #.#","# $  $@#","# # #$ #","#     ##","########"],
+     ["########","#.# .. #","#@$  $ #","# $# # #","##     #","########"],
+     ["######","#    #","# #$.#","#   .#","# #  #","# $$##","## @.#","######"],
+     ["######","#    #","#.$# #","#.   #","#  # #","##$$ #","#.@ ##","######"],
+     ["######","## @.#","# $$##","# #  #","#   .#","# #$.#","#    #","######"],
+     ["######","#.@ ##","##$$ #","#  # #","#.   #","#.$# #","#    #","######"],
+     ["########","#    # #","# $$## #","#    $@#","# . .. #","########"],
+     ["########","# #    #","# ##$$ #","#@$    #","# .. . #","########"],
+     ["########","# . .. #","#    $@#","# $$## #","#    # #","########"],
+     ["########","# .. . #","#@$    #","# ##$$ #","# #    #","########"],
+     ["######","#    #","# $ .#","# $  #","# # .#","###$.#","#  @ #","######"],
+     ["######","#    #","#. $ #","#  $ #","#. # #","#.$###","# @  #","######"],
+     ["######","#  @ #","###$.#","# # .#","# $  #","# $ .#","#    #","######"],
+     ["######","# @  #","#.$###","#. # #","#  $ #","#. $ #","#    #","######"],
+     ["########","# ##   #","#@$   .#","# $$#. #","#   # .#","########"],
+     ["########","#   ## #","#.   $@#","# .#$$ #","#. #   #","########"],
+     ["########","#   # .#","# $$#. #","#@$   .#","# ##   #","########"],
+     ["########","#. #   #","# .#$$ #","#.   $@#","#   ## #","########"],
+     ["######","# @  #","##$$ #","## $ #","#  ###","#  . #","# . .#","######"],
+     ["######","#  @ #","# $$##","# $ ##","###  #","# .  #","#. . #","######"],
+     ["######","# . .#","#  . #","#  ###","## $ #","##$$ #","# @  #","######"],
+     ["######","#. . #","# .  #","###  #","# $ ##","# $$##","#  @ #","######"],
+     ["########","# . .###","# $. $@#","# #  $ #","# #    #","########"],
+     ["########","###. . #","#@$ .$ #","# $  # #","#    # #","########"],
+     ["########","# #    #","# #  $ #","# $. $@#","# . .###","########"],
+     ["########","#    # #","# $  # #","#@$ .$ #","###. . #","########"],
+     ["######","#    #","#.$###","# .  #","#.   #","##$$ #","##@  #","######"],
+     ["######","#    #","###$.#","#  . #","#   .#","# $$##","#  @##","######"],
+     ["######","##@  #","##$$ #","#.   #","# .  #","#.$###","#    #","######"],
+     ["######","#  @##","# $$##","#   .#","#  . #","###$.#","#    #","######"],
+     ["########","#    . #","#@$  $ #","### #$ #","#  .# .#","########"],
+     ["########","# .    #","# $  $@#","# $# ###","#. #.  #","########"],
+     ["########","#  .# .#","### #$ #","#@$  $ #","#    . #","########"],
+     ["########","#. #.  #","# $# ###","# $  $@#","# .    #","########"],
+     ["######","# @# #","# $# #","#   .#","#  ###","#.$$ #","#   .#","######"],
+     ["######","# #@ #","# #$ #","#.   #","###  #","# $$.#","#.   #","######"],
+     ["######","#   .#","#.$$ #","#  ###","#   .#","# $# #","# @# #","######"],
+     ["######","#.   #","# $$.#","###  #","#.   #","# #$ #","# #@ #","######"],
+     ["########","#     .#","# $#$ ##","##   $@#","#.. #  #","########"],
+     ["########","#.     #","## $#$ #","#@$   ##","#  # ..#","########"],
+     ["########","#.. #  #","##   $@#","# $#$ ##","#     .#","########"],
+     ["########","#  # ..#","#@$   ##","## $#$ #","#.     #","########"],
+     ["######","#  #.#","# $ .#","# #  #","# $ ##","#  $ #","#.#@ #","######"],
+     ["######","#.#  #","#. $ #","#  # #","## $ #","# $  #","# @#.#","######"],
+     ["######","#.#@ #","#  $ #","# $ ##","# #  #","# $ .#","#  #.#","######"],
+     ["######","# @#.#","# $  #","## $ #","#  # #","#. $ #","#.#  #","######"]]
+  ]/*END_SOKO_POOL*/;
+  var SOKO_STEP_MS = 85;  // 방향키를 꾹 누를 때 한 칸씩 가는 최소 간격
+  var SOKO_DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+  function sokoParse(rows) {
+    var H = rows.length, W = 0, y, x, i;
+    rows.forEach(function (r) { W = Math.max(W, r.length); });
+    var wall = [], tgt = [], boxes = [], player = 0;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+      var ch = rows[y].charAt(x) || "#"; i = y * W + x;
+      wall[i] = ch === "#"; tgt[i] = ch === "." || ch === "*" || ch === "+";
+      if (ch === "$" || ch === "*") boxes.push(i);
+      if (ch === "@" || ch === "+") player = i;
+    }
+    return { W: W, H: H, wall: wall, tgt: tgt, boxes: boxes, player: player };
   }
-  function bindKeys(c, fn) {
+  // 풀 수 없게 된 상자: 접시 칸이 아닌 구석, 또는 양 끝이 벽으로 막힌 벽 줄(그 줄에 접시 칸이 없음)
+  function sokoDead(S, i) {
+    if (S.tgt[i]) return false;
+    var W = S.W, x = i % W, y = (i / W) | 0, k, side;
+    var open = function (xx, yy) { return xx >= 0 && yy >= 0 && xx < W && yy < S.H && !S.wall[yy * W + xx]; };
+    var wU = !open(x, y - 1), wD = !open(x, y + 1), wL = !open(x - 1, y), wR = !open(x + 1, y);
+    if ((wU || wD) && (wL || wR)) return true;
+    // 벽을 따라 늘어선 줄 검사 (옆으로만 밀 수 있다)
+    for (side = 0; side < 4; side++) {
+      var vertWall = side < 2 ? (side === 0 ? wU : wD) : (side === 2 ? wL : wR);
+      if (!vertWall) continue;
+      var horiz = side < 2, dx = horiz ? 1 : 0, dy = horiz ? 0 : 1, nx = side === 0 ? 0 : side === 1 ? 0 : side === 2 ? -1 : 1, ny = side === 0 ? -1 : side === 1 ? 1 : 0;
+      var hasT = false, closed = true, dir;
+      for (dir = -1; dir <= 1; dir += 2) {
+        var cx = x, cy = y;
+        for (;;) {
+          if (S.tgt[cy * W + cx]) hasT = true;
+          var ax = cx + dx * dir, ay = cy + dy * dir;
+          if (!open(ax, ay)) break;                       // 줄 끝이 벽
+          if (open(ax + nx, ay + ny)) { closed = false; break; } // 이 칸은 벽을 벗어나 있다 -> 빠져나갈 수 있음
+          cx = ax; cy = ay;
+        }
+        if (!closed) break;
+      }
+      if (closed && !hasT) return true;
+    }
+    return false;
+  }
+
+  // 재료 상자(생선 상자): 나무 상자 + 흰 생선 무늬. 재료 정리의 "상자"다 (CSS 클래스 이름은 sk-bx-*를 그대로 재사용).
+  var SK_BOX_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="7" width="32" height="28" rx="2.5" class="sk-bx-body"/><rect x="4" y="7" width="32" height="8" rx="2.5" class="sk-bx-top"/><path class="sk-bx-tape" d="M9 25c4-6 11-6 15 0c-4 6-11 6-15 0ZM24 25l6-4.5v9Z"/><path class="sk-bx-ok" d="M12 25l6 6 11-12"/></svg>';
+  // 셰프: 흰 조리모(토크) + 흰 조리복. 도마 미끄럼/재료 정리/도마 닦기에서 플레이어 말이다 (클래스 이름은 sk-m-*를 그대로 재사용).
+  var SK_MAN_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="17" r="7.5" class="sk-m-face"/><path d="M11.5 14c-3.5-5 1-9.5 5-7.5 1.5-3.5 7-3.5 8 0 4-2 8.5 2.5 5 7.5-5-1.4-13-1.4-18 0Z" class="sk-m-cap"/><rect x="11.6" y="12.6" width="16.8" height="3" rx="1.4" class="sk-m-brim"/><path d="M9 37c0-8 5-13 11-13s11 5 11 13Z" class="sk-m-body"/><path d="M20 24v13" class="sk-m-line"/><circle cx="16.6" cy="18" r="1.1" class="sk-m-eye"/><circle cx="23.4" cy="18" r="1.1" class="sk-m-eye"/></svg>';
+
+  function sokoGame(body, c) {
+    var pool = SOKO_POOL[c.level - 1] && SOKO_POOL[c.level - 1].length ? SOKO_POOL[c.level - 1] : SOKO_POOL[1];
+    var rows = pool[rand(pool.length)];
+    var S = sokoParse(rows), W = S.W, H = S.H, N = W * H;
+    var start = { p: S.player, boxes: S.boxes.slice() };
+    var p = start.p, boxes = start.boxes.slice(), hist = [], lastStep = 0, stuck = false, moves = 0;
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: rows }));
+
+    var floorHtml = "", i;
+    for (i = 0; i < N; i++) floorHtml += '<i class="sk-cell' + (S.wall[i] ? " is-wall" : S.tgt[i] ? " is-tgt" : "") + '"></i>';
+    var boxHtml = boxes.map(function () { return '<span class="sk-box">' + SK_BOX_SVG + "</span>"; }).join("");
+    body.innerHTML =
+      '<div class="sk-wrap"><div class="sk-board so-board" style="--cols:' + W + ';--rows:' + H + '">'
+      + '<div class="sk-floor">' + floorHtml + "</div>" + boxHtml + '<span class="sk-man">' + SK_MAN_SVG + "</span></div></div>"
+      + '<p class="sk-status"><span>상자 <b class="sk-in">0</b> / ' + boxes.length + '</span><span>움직임 <b class="sk-moves">0</b></span></p>'
+      + '<p class="mg-freeze-note"></p>'
+      + '<div class="pk-pad sk-pad">'
+      + '<button type="button" class="mg-key" data-sk="up" aria-label="위">↑</button>'
+      + '<button type="button" class="mg-key" data-sk="left" aria-label="왼쪽">←</button>'
+      + '<button type="button" class="mg-key" data-sk="down" aria-label="아래">↓</button>'
+      + '<button type="button" class="mg-key" data-sk="right" aria-label="오른쪽">→</button>'
+      + '<button type="button" class="mg-key pk-act" data-sk="undo">되돌리기<small>Z · ⌫</small></button>'
+      + '<button type="button" class="mg-key pk-act" data-sk="restart">처음부터<small>R</small></button>'
+      + "</div>";
+    var boxEls = Array.prototype.slice.call(body.querySelectorAll(".sk-box"));
+    var manEl = body.querySelector(".sk-man"), inEl = body.querySelector(".sk-in"), movesEl = body.querySelector(".sk-moves");
+    var note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".sk-board");
+
+    function place(node, idx) { node.style.setProperty("--x", idx % W); node.style.setProperty("--y", (idx / W) | 0); }
+    function onTarget() { return boxes.filter(function (b) { return S.tgt[b]; }).length; }
+    function anyDead() { return boxes.some(function (b) { return sokoDead(S, b); }); }
+    function paint() {
+      place(manEl, p);
+      boxEls.forEach(function (e, bi) { place(e, boxes[bi]); e.classList.toggle("is-in", !!S.tgt[boxes[bi]]); e.classList.toggle("is-dead", sokoDead(S, boxes[bi])); });
+      inEl.textContent = onTarget(); movesEl.textContent = moves;
+      if (!stuck) note.textContent = "";
+      if (c.testHooks) body.setAttribute("data-sk", [p % W, (p / W) | 0, onTarget(), moves].join(","));
+    }
+    function act(a) {
+      if (c.isFinished()) return;
+      if (a === "undo") {
+        if (!hist.length) return;
+        var h = hist.pop(); p = h.p; boxes = h.boxes; moves = Math.max(0, moves - 1);
+        stuck = anyDead(); note.textContent = stuck ? "상자가 막다른 곳에 끼어 있어요 — 더 되돌리세요 (Z)" : "";
+        paint(); return;
+      }
+      if (a === "restart") {
+        p = start.p; boxes = start.boxes.slice(); hist = []; moves = 0; stuck = false; note.textContent = ""; paint(); return;
+      }
+      var d = SOKO_DIRS[a]; if (!d) return;
+      var x = p % W, y = (p / W) | 0, nx = x + d[0], ny = y + d[1];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
+      var ni = ny * W + nx; if (S.wall[ni]) { restartAnim(manEl, "is-bump"); return; }
+      var bi = boxes.indexOf(ni), nb = boxes;
+      if (bi >= 0) {
+        var mx = nx + d[0], my = ny + d[1];
+        if (mx < 0 || my < 0 || mx >= W || my >= H) { restartAnim(manEl, "is-bump"); return; }
+        var mi = my * W + mx;
+        if (S.wall[mi] || boxes.indexOf(mi) >= 0) { restartAnim(manEl, "is-bump"); return; }
+        nb = boxes.slice(); nb[bi] = mi;
+      }
+      hist.push({ p: p, boxes: boxes.slice() });
+      p = ni; boxes = nb; moves++;
+      if (bi >= 0) {
+        var dead = anyDead();
+        if (dead && !stuck) {
+          c.addMistake();
+          note.textContent = "상자가 막다른 곳에 끼었어요 — Z로 되돌려 보세요";
+          restartAnim(boardEl, "is-shake");
+        }
+        stuck = dead;
+      }
+      paint();
+      if (onTarget() === boxes.length) {
+        note.textContent = "재료 정리 끝!";
+        c.later(c.finish, 420);
+      }
+    }
+
     function onKey(e) {
       if (c.isFinished()) return;
-      var a = arrowAct(e);
+      var a = null;
+      if (e.key === "ArrowLeft") a = "left";
+      else if (e.key === "ArrowRight") a = "right";
+      else if (e.key === "ArrowUp") a = "up";
+      else if (e.key === "ArrowDown") a = "down";
+      else if (e.key === "Backspace" || e.key === "z" || e.key === "Z") a = "undo";
+      else if (e.key === "r" || e.key === "R") a = "restart";
       if (!a) return;
-      e.preventDefault(); e.stopPropagation();
-      fn(a, e);
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat) {
+        if (a === "restart") return;
+        var now = performance.now(); if (now - lastStep < SOKO_STEP_MS) return; lastStep = now;
+      } else lastStep = performance.now();
+      act(a);
     }
     document.addEventListener("keydown", onKey, true);
     c.onCleanup(function () { document.removeEventListener("keydown", onKey, true); });
-  }
-  function bindPads(body, fn) {
-    Array.prototype.forEach.call(body.querySelectorAll("[data-a]"), function (b) {
-      b.addEventListener("pointerdown", function (e) { e.preventDefault(); fn(b.getAttribute("data-a")); });
+    Array.prototype.forEach.call(body.querySelectorAll(".mg-key[data-sk]"), function (b) {
+      b.addEventListener("pointerdown", function (e) { e.preventDefault(); act(b.getAttribute("data-sk")); });
     });
+    paint();
+    return {
+      hint: function () {
+        return "방향키(←↑↓→)로 걸으며 재료 상자를 밀어 동그란 접시 칸에 모두 올리세요. 상자는 밀기만 되고 당길 수는 없어요! 구석에 끼면 Z(백스페이스)로 되돌리고, R로 처음부터 다시 해요.";
+      },
+    };
   }
 
-  // ---- 택배 짝 찾기 (2026-10-14 사용자 요청으로 재설계): 뒤집힌 카드 8장 = 4쌍. 카드 앞면은 모양이 조금씩 다른 택배 그림
-  //   (상자 비율 / 테이프 / 송장 위치 / 취급 표시 중 일부만 다르다). 두 장을 뒤집어 같으면 열린 채로, 다르면 잠깐 보여 주고 다시 덮는다.
-  //   입력: ← → 커서 이동, ↑(↓) 윗줄/아랫줄, SPACE 뒤집기 (레일 앞 버튼과 같은 키). 카드를 직접 눌러도 된다.
-  //   난이도: 쉬움 = 쌍끼리 두 군데 다름, 보통 이상 = 한 군데만 다름 (더 헷갈림).
-  var MEMO_CARDS = 8, MEMO_COLS = 4;
-  var MEMO_SHOW_MS = 750;   // 틀린 두 장을 보여 주는 시간
-  var MEMO_ATTRS = [3, 3, 3, 3]; // shape, tape, label, mark 각각의 경우 수
-  function memoVariants(diff) {
-    var base = MEMO_ATTRS.map(function (n) { return rand(n); });
-    var out = [base];
-    var key = function (v) { return v.join(""); };
-    var guard = 0;
-    while (out.length < 4 && guard++ < 500) {
-      var v = base.slice();
-      shuffle([0, 1, 2, 3]).slice(0, diff).forEach(function (k) { v[k] = (v[k] + 1 + rand(MEMO_ATTRS[k] - 1)) % MEMO_ATTRS[k]; });
-      if (!out.some(function (o) { return key(o) === key(v); })) out.push(v);
-    }
-    return out;
-  }
-  // 택배 그림: v = [shape(0 넓음 / 1 높음 / 2 정육면체), tape(0 세로 / 1 십자 / 2 가로), label(0 없음 / 1 왼쪽 아래 / 2 오른쪽 위), mark(0 없음 / 1 위 화살표 / 2 유리잔)]
-  function memoSvg(v) {
-    var W = [74, 52, 62][v[0]], H = [48, 66, 58][v[0]];
-    var x = (100 - W) / 2, y = 92 - H, cx = 50, cy = y + H / 2;
-    var s = '<svg viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="50" cy="94" rx="40" ry="3.5" fill="rgba(43,29,18,.18)"/>'
-      + '<rect x="' + x + '" y="' + y + '" width="' + W + '" height="' + H + '" rx="2.5" fill="#cfae7a" stroke="#6b4e26" stroke-width="2"/>';
-    if (v[1] === 0 || v[1] === 1) s += '<rect x="' + (cx - 5.5) + '" y="' + y + '" width="11" height="' + H + '" fill="#ead8b0"/>';
-    if (v[1] === 1 || v[1] === 2) s += '<rect x="' + x + '" y="' + (cy - 5.5) + '" width="' + W + '" height="11" fill="#ead8b0"/>';
-    if (v[2] === 1) s += '<rect x="' + (x + 5) + '" y="' + (y + H - 19) + '" width="22" height="14" rx="1.5" fill="#fffefa" stroke="#9a8460" stroke-width="1.2"/><rect x="' + (x + 5) + '" y="' + (y + H - 19) + '" width="22" height="4" fill="#E8681C"/>';
-    if (v[2] === 2) s += '<rect x="' + (x + W - 27) + '" y="' + (y + 5) + '" width="22" height="14" rx="1.5" fill="#fffefa" stroke="#9a8460" stroke-width="1.2"/><rect x="' + (x + W - 27) + '" y="' + (y + 5) + '" width="22" height="4" fill="#E8681C"/>';
-    var mx = v[2] === 2 ? x + 13 : x + W - 13, my = v[2] === 2 ? y + H - 14 : y + 14;
-    if (v[3] === 1) s += '<path d="M' + (mx - 4) + ' ' + (my + 6) + 'v-7M' + (mx - 7) + ' ' + (my - 1) + 'l3-4 3 4M' + (mx + 4) + ' ' + (my + 6) + 'v-7M' + (mx + 1) + ' ' + (my - 1) + 'l3-4 3 4" fill="none" stroke="#3a2812" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>';
-    if (v[3] === 2) s += '<path d="M' + (mx - 5) + ' ' + (my - 7) + 'h10l-1.2 6.5a3.8 3.8 0 0 1-7.6 0Z M' + mx + ' ' + (my + 3) + 'v4M' + (mx - 3.5) + ' ' + (my + 7) + 'h7" fill="rgba(255,255,255,.6)" stroke="#3a2812" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>';
-    return s + '</svg>';
-  }
-  function matchGame(body, c) {
-    var vars = memoVariants(c.level === 1 ? 2 : 1);
-    var deck = shuffle([0, 0, 1, 1, 2, 2, 3, 3]);
-    if (c.testHooks) {
-      var pairs = [0, 1, 2, 3].map(function (k) { var at = []; deck.forEach(function (d, i) { if (d === k) at.push(i); }); return at.join("-"); });
-      body.setAttribute("data-seq", pairs.join(","));
-    }
-    var cards = '';
-    deck.forEach(function (d, i) {
-      cards += '<button type="button" class="mg-mm-card" data-a="card-' + i + '"><span class="mg-mm-in"><span class="mg-mm-back">?</span>'
-        + '<span class="mg-mm-face">' + memoSvg(vars[d]) + '</span></span></button>';
-    });
-    body.innerHTML = '<div class="mg-mm">' + cards + '</div>'
-      + '<p class="mg-progress">찾은 짝 <em class="mg-found">0</em> / 4</p><p class="mg-freeze-note"></p>';
-    var els = body.querySelectorAll(".mg-mm-card"), found = body.querySelector(".mg-found"), note = body.querySelector(".mg-freeze-note");
-    var cur = 0, open = [], done = {}, nDone = 0, locked = false;
-    function draw() {
-      Array.prototype.forEach.call(els, function (e, i) {
-        e.classList.toggle("is-cur", i === cur);
-        e.classList.toggle("is-open", !!done[i] || open.indexOf(i) >= 0);
-        e.classList.toggle("is-done", !!done[i]);
-      });
-      found.textContent = nDone;
-    }
-    function flip(i) {
-      if (locked || done[i] || open.indexOf(i) >= 0) return;
-      cur = i; open.push(i); draw();
-      if (open.length < 2) return;
-      var a = open[0], b = open[1];
-      if (deck[a] === deck[b]) {
-        done[a] = done[b] = true; nDone++; open = []; draw();
-        restartAnim(els[a], "is-ok"); restartAnim(els[b], "is-ok");
-        if (nDone === 4) c.later(c.finish, 300);
-        return;
-      }
-      c.addMistake(); locked = true;
-      note.textContent = "모양이 달라요 — 기억해 두세요";
-      c.later(function () { open = []; locked = false; note.textContent = ""; draw(); }, MEMO_SHOW_MS);
-    }
-    function act(a) {
-      if (a.indexOf("card-") === 0) { flip(parseInt(a.slice(5), 10)); return; }
-      if (a === "left") cur = (cur + MEMO_CARDS - 1) % MEMO_CARDS;
-      else if (a === "right") cur = (cur + 1) % MEMO_CARDS;
-      else if (a === "up" || a === "down") cur = (cur + MEMO_COLS) % MEMO_CARDS;
-      else if (a === "space") { flip(cur); return; }
-      draw();
-    }
-    bindKeys(c, function (a) { act(a); });
-    bindPads(body, act);
-    draw();
-    return { hint: function () { return "뒤집힌 카드 8장에서 똑같은 택배 4쌍을 찾으세요. ← → 이동, ↑ 윗줄/아랫줄, SPACE 뒤집기. 모양이 조금씩 달라요 — 테이프·송장·표시를 잘 보세요."; } };
-  }
+  // ======================================================================
+  // 2026-10-08 소코반 같은 류의 시험용 게임 4종 + 하노이 (사용자: "다 게임 테스트로만 만들어보자").
+  // 전부 키보드 + 되돌리기(Z / Backspace, 무료) + 처음부터(R) + 터치용 화면 버튼. 시험장 전용 -- TYPES.mini에는 연결하지 않았다.
+  //   ice   도마 미끄럼     방향키로 미끄러져 접시 칸에 정확히 멈추기 (초밥은 지나가면 수거)
+  //   route 벨트 경로     방향키로 선을 그어 모든 길을 한 번씩만 지나기 (한붓그리기)
+  //   twin  쌍둥이 서빙   방향키 하나로 두 초밥원이 동시에 움직여 각자의 접시 칸에 넣기
+  //   pipe  컨베이어 잇기 커서로 타일을 골라 SPACE로 돌려 입구에서 출구까지 잇기
+  //   hanoi 초밥 쌓기     큰 상자 위에 작은 상자만 올려 가며 탑을 옆 칸으로 옮기기
+  //   빙판/쌍둥이 판은 오프라인 생성기 + BFS로 풀이를 검증한 풀, 한붓그리기/컨베이어는 항상 풀리게 만드는 방식으로 실행 중 생성한다.
+  // ======================================================================
+  var ICE_POOL = /*ICE_POOL*/[
+    // 레벨 1 (30판)
+    [[" #    ", "      ", "# ## S", " # G  ", "    # "],
+     [" # S  ", " #  ##", "#     ", "     G", " #    "],
+     ["#     ", "     #", "    # ", " S#G #", "     #"],
+     ["#  S##", "    G#", "      ", "  #   ", "      "],
+     ["# #   ", " S    ", " #    ", "   G  ", "#  # #"],
+     ["# # S ", "    # ", " # #  ", "   G  ", "  #   "],
+     ["     #", "   # G", " #  # ", "      ", "  S  #"],
+     ["    S ", " #    ", " G##  ", "  #  #", "  #   "],
+     ["      ", "  #   ", " #  G#", "#S    ", " #    "],
+     ["   S#G", "   ## ", "#  ## ", "      ", "      "],
+     ["  S   ", "      ", "     #", " ##  G", "# #   "],
+     ["   # #", "S     ", "    # ", "#G    ", "   #  "],
+     ["  #   ", "  ##S ", "   G# ", "      ", " ##   "],
+     ["S    #", "   # #", " #    ", "    # ", "  G # "],
+     ["      ", "   ###", "G#    ", "#S    ", " #    "],
+     [" #G   ", "      ", "   ## ", "  #   ", "#S   #"],
+     ["  G   ", " S   #", "   # #", "# #   ", "  #   "],
+     ["  S  #", "  ##G ", "      ", "#     ", "    # "],
+     ["#  ## ", "     #", "#     ", "  G#S ", "      "],
+     ["#   # ", "     #", "  #   ", "   #S ", " G #  "],
+     ["   G #", " S    ", "#    #", "    ##", "      "],
+     ["    ##", "      ", "    S ", "#     ", "   G #"],
+     ["#S   #", "G     ", "#     ", "   ###", "      "],
+     ["     #", "     S", " #   G", "  # # ", "   #  "],
+     ["#     ", "G #   ", " #    ", "# #   ", "   #S "],
+     ["#    #", "S     ", "   ## ", "#G    ", "   #  "],
+     ["      ", " #   G", "#S   #", "      ", "#  #  "],
+     ["S    #", "      ", " # #  ", "  #G #", "  #   "],
+     ["S   G ", "      ", "  #   ", "#  #  ", "#  #  "],
+     ["   #  ", " #  #S", "      ", " #G # ", "  #   "]],
+    // 레벨 2 (30판 · 8x8 · 초밥 2개 · 최적 10~13번 미끄러짐 -- gen_ice_pool.js로 생성. 손질 단계가 앞에 붙어 14~17번 판에서 완화)
+    [["  #   # ", "  #  P  ", "      ##", "   #   S", "      # ", "  #     ", "  ##    ", "G # # #P"],
+      ["    ##  ", "   #P   ", "  S     ", "     P  ", "       #", " #  #   ", "   #  # ", "G      #"],
+      ["   #    ", "  P##  #", "        ", "  #  ## ", "##GP    ", "    #   ", "S  ###  ", "  ## ###"],
+      ["     #S#", " G# P   ", "#     # ", " #      ", "        ", "P #  #  ", "  ##    ", "        "],
+      ["  P  #  ", "## # #  ", "##G #   ", "# P # # ", "    ### ", "  #    #", "  ##    ", "  #S    "],
+      ["    ##  ", "##     #", "P  #    ", "   # #  ", "   S # #", " #  P   ", "##  #   ", "    G#  "],
+      [" # #   G", "    P   ", "   S    ", "   # # #", "#       ", "        ", "  P     ", " # ##   "],
+      [" S # P #", "     G# ", "     #  ", "    ##  ", "  # # # ", " #   #  ", "     #  ", "  P  # #"],
+      [" S # P  ", "        ", "P#      ", "        ", "    #   ", "#     # ", "   #   #", " G#  #  "],
+      ["## # # #", "  #     ", "S #     ", "  ##  P ", "     #  ", "    PG  ", "   #   #", "#   #   "],
+      ["#  #  S ", "G ###   ", "     #  ", " P#P    ", "#       ", " #      ", "     ## ", " #  # # "],
+      ["    #   ", "P  ##   ", "#       ", "# # S#  ", "     #  ", "# #    #", " ##     ", "    P#G "],
+      ["  G     ", "#   ##  ", "#      P", "   #  ##", "# S    #", "P      #", "        ", "   #    "],
+      ["  #     ", "   P    ", "  # #  #", "G      #", "     #  ", " #    S ", " # # #  ", "  #  P  "],
+      ["      ##", "P  #  ##", "#       ", "    ##  ", "     # #", " ##G   #", "    # # ", "PS## #  "],
+      [" PG#    ", "#   # # ", "##      ", " #  # ##", "  #    #", "   #    ", "  P   S ", "    #   "],
+      ["   #G   ", "##  # # ", "      # ", "  #     ", "  # PS #", " P      ", "  #  #  ", "       #"],
+      ["     S  ", " ## # # ", "G#      ", "#  #    ", "   # ## ", "  #     ", " #      ", "  P  #P "],
+      ["        ", "    #   ", "   #  #S", "  #     ", " #     #", "  #     ", "# PG  # ", "#####P #"],
+      ["#      G", " #      ", "###     ", "  # #   ", "    ##  ", " P   # #", " ## P   ", "     S  "],
+      ["#G   S  ", "P# #    ", "   #   #", "      P ", "    #   ", "    #   ", "        ", "  ##    "],
+      ["  #    P", " S   #  ", "    #   ", "   # #  ", "  #  # #", "        ", "   #G  P", "    #  #"],
+      ["S#  # #P", "   #  # ", "        ", "  ####  ", "G     # ", " #  #   ", "    #P# ", "    #   "],
+      [" # #G   ", "#  ##   ", "        ", "   P #  ", "     ## ", "        ", "       S", "    # P "],
+      ["     #  ", "#    S #", "        ", "  ##   #", "##P G   ", "#   #P  ", " # # # #", "## ##   "],
+      ["   #    ", "    #  #", "        ", "#   #   ", "     P  ", " S # #  ", " P #    ", "    G # "],
+      [" P   #  ", " # #  S ", "#    ## ", "# #     ", "     ## ", "G       ", "P # #   ", "# #     "],
+      ["   #    ", " #   S #", " #  #   ", "#  #    ", " #  #  P", " ##     ", "#G     #", "## #   P"],
+      ["#  #    ", "#       ", "    P  #", "    #  #", "  #G # #", "  #  P  ", "  #  S  ", "     ## "],
+      ["#G#P  ##", "  #   ##", "      # ", " #      ", "    #S  ", "  ###   ", "   ##   ", "   P #  "]],
+    // 레벨 3 (30판)
+    [["   #  # ", "  P ## P", "#      #", "   #    ", " #    G ", " ## # ##", "#  S#   "],
+     ["#      S", " #      ", "#  P#   ", "   P  G#", "  #  #  ", "#      #", "# #  ## "],
+     ["##      ", "    #   ", "  #  #  ", " #G P#  ", "   #  # ", "P#  S  #", "##    # "],
+     ["# ##    ", " # S    ", "     # P", "# #  ###", "      P#", " ## #  G", "   #    "],
+     ["       #", "  ##  # ", "##   S G", "## ##  #", "   P #  ", "   #P # ", "#       "],
+     ["   G #  ", "  #  #  ", "     #  ", "SP      ", " #  #   ", " ##   ##", "P#   ###"],
+     [" #   #  ", " P     #", " ##    P", " S  # # ", " # # # G", "#    #  ", " # # # #"],
+     [" ##  # #", "# #  P# ", "#  ##   ", "  #SP  #", "#    #  ", "  # #  G", "    #   "],
+     ["#  # P# ", "  ##  # ", " S   ###", " #     G", " #  # # ", "        ", " #  P   "],
+     ["    #  #", "  #    #", "   GP#  ", "   # ## ", "   ## ##", "P  #S## ", "      # "],
+     ["#  #  # ", "P G ##  ", "  ## # S", "       #", "P   #   ", "    ## #", "  #     "],
+     ["        ", "#  S   #", "G     # ", "  ### ##", " P #    ", " #   #  ", "# # P#  "],
+     ["  #G # #", "   S#  P", "#       ", "     # P", "#  # #  ", "##  ##  ", "   ##   "],
+     ["#   P   ", "P## #   ", "        ", "  #  #  ", "     #  ", "#  #   G", "S ## # #"],
+     ["#       ", "    # P#", " ##     ", " ##    S", "G   ##  ", "P#     #", "   #    "],
+     ["    S  #", "        ", " # P##  ", " ##     ", " G ##P  ", "#    # #", "#    ###"],
+     ["#   ### ", "#  P  # ", "     S  ", "#  ##   ", " #    P#", "    #G  ", "  #     "],
+     ["   # #G ", "     P  ", "    ### ", "S       ", "  #  ## ", " # ##  P", "    ##  "],
+     [" #  #P  ", "P ## #  ", "#     # ", "    # # ", "#      G", "##  S## ", " #      "],
+     ["  # #P# ", " #   P  ", "    # S#", "###  ###", " #     #", "  ##    ", "#G      "],
+     ["#   # #G", " #   P  ", " #  #   ", "   P    ", " #S# # #", " #  #   ", " #     #"],
+     ["  ##   #", "     # #", "# ### PG", "  #  ## ", "S#P     ", "    # # ", "  #   # "],
+     ["P  # #  ", "   S  # ", "###     ", "     # #", "      # ", " P   ###", "  ##G   "],
+     [" ### GSP", "#     # ", "#      #", "   #P#  ", "##      ", "      # ", "    ## #"],
+     ["## P    ", "     ###", "  ##   #", "    #   ", "  #   PG", "   ##S# ", "     # #"],
+     ["#G  # # ", "   ##  #", "    S # ", "    P   ", " # # ## ", "       #", "  ##  P "],
+     [" #     #", "     #P#", "# P G # ", "  # ##  ", "#  #    ", "    #   ", " S #  # "],
+     ["        ", "  #   # ", "#   #GS#", "#   P  #", "  P  #  ", " #  #   ", "##   ## "],
+     ["  #  P  ", "##      ", " #S  #  ", "     #  ", "  #G    ", " #P   ##", " #   ###"],
+     [" # P#   ", "#     # ", "   #### ", "     ###", "  ##    ", " # S    ", " PG##   "]]
+  ]/*END_ICE_POOL*/;
+  var TWIN_POOL = /*TWIN_POOL*/[
+    // 레벨 1 (30판)
+    [{rows:["     ", "    a", "# ## ", "#   b", " # AB"]},
+     {rows:["a ## ", " B   ", " A   ", "# #  ", "  b  "]},
+     {rows:["#A  #", "     ", " b#a ", " ##  ", " B   "]},
+     {rows:["   b ", " A# a", "#   #", " #B# ", "     "]},
+     {rows:["##b# ", "     ", "   a ", "BA  #", "    #"]},
+     {rows:["     ", " #  #", "#  B ", "#  A ", "#  ab"]},
+     {rows:[" #  a", "  A# ", "    #", "B  # ", " # b "]},
+     {rows:["  #  ", "  A  ", "  Ba ", "###  ", "# b  "]},
+     {rows:["     ", "  # b", "B  # ", "    a", "  A# "]},
+     {rows:["  ## ", "a    ", " b  #", "  A# ", "    B"]},
+     {rows:["#    ", "    b", "#a   ", " #  B", "  # A"]},
+     {rows:["#    ", " b## ", "  a A", "    #", "  # B"]},
+     {rows:["#B   ", "  A# ", "#    ", "#  a ", "  b# "]},
+     {rows:["# b  ", "  #a ", "     ", "A#B  ", " #  #"]},
+     {rows:["ab  #", "  ## ", "    #", "     ", "  AB#"]},
+     {rows:[" ##  ", "###  ", "b    ", " BA  ", "    a"]},
+     {rows:[" A## ", "  a #", " bB  ", "   ##", "     "]},
+     {rows:["     ", "   # ", "#b aA", " #   ", "   #B"]},
+     {rows:[" B   ", " #ab#", "#    ", "#    ", "#A   "]},
+     {rows:["a ## ", "     ", "bA# B", "#  # ", "     "]},
+     {rows:[" #  B", "b aA ", "  #  ", "#    ", "#   #"]},
+     {rows:["#a B ", "   #b", "     ", "  A #", "  ## "]},
+     {rows:[" #   ", "  a A", "b    ", "  #B#", " # # "]},
+     {rows:["     ", "#    ", "B  # ", " ba#A", "  #  "]},
+     {rows:["     ", " b   ", "#   #", "#aB  ", "A  # "]},
+     {rows:["    a", "B# bA", "  #  ", " ##  ", "    #"]},
+     {rows:["  #  ", "#a   ", "  # b", " B   ", " A  #"]},
+     {rows:["    #", "#A #a", "  B  ", " b # ", "#    "]},
+     {rows:["  #  ", " #  #", "   # ", "  AaB", " b#  "]},
+     {rows:["#  B ", "ba## ", "   A ", "#   #", "     "]}],
+    // 레벨 2 (30판)
+    [{rows:["b B   ", "  # # ", "    a#", "A  ###", "  #   "]},
+     {rows:["    A#", " a#  b", " ##  #", "  #   ", "  B  #"]},
+     {rows:["B  # #", "a#    ", "      ", " #  b#", "A  ## "]},
+     {rows:["  #   ", "B    A", "#  #  ", "   b# ", "  #  a"]},
+     {rows:[" b   B", "A   # ", "    a ", " ###  ", "  # # "]},
+     {rows:["  # # ", "A  # #", " #  # ", "   b  ", " B#a #"]},
+     {rows:["#  A  ", " #    ", "###  b", "# #  #", "B    a"]},
+     {rows:["#     ", "#    A", "# ##  ", "  b # ", " B #a "]},
+     {rows:[" #   A", "      ", " ## B ", "   # #", "#a   b"]},
+     {rows:["  #   ", " ##  #", "B Ab# ", "      ", "a # # "]},
+     {rows:["#    #", "# ##  ", "  # # ", "B a b ", "  #A  "]},
+     {rows:["# #  b", "#  #  ", "   #  ", " a #  ", "    BA"]},
+     {rows:["  b # ", "  #  #", "a#    ", " BA   ", "  ### "]},
+     {rows:[" #  b ", " A    ", "   # #", "  #a  ", "# B# #"]},
+     {rows:[" a#B  ", "  ##  ", " A    ", "##b # ", "#  #  "]},
+     {rows:["   a# ", "B##   ", "  # ##", "A    b", "  #  #"]},
+     {rows:["  b   ", "  ##  ", "   # A", " B #  ", " #   a"]},
+     {rows:["# # # ", "a b  #", " #B   ", "     #", "# # A "]},
+     {rows:["  b   ", " #   #", "#  # a", " ##  #", " AB   "]},
+     {rows:["#b   #", "##  # ", "     #", " A #a ", "#B    "]},
+     {rows:["B #  a", "  ##b ", "# #   ", "#    #", "A     "]},
+     {rows:["   B#b", " #  A ", "a     ", "     #", "## ## "]},
+     {rows:["  #  b", "   A #", "  ##a#", "   #  ", "  B ##"]},
+     {rows:["# #a #", "  A   ", "      ", " #   #", "b  B##"]},
+     {rows:["  #   ", " # # #", "#  ##B", " #A   ", " b a  "]},
+     {rows:[" #    ", "A     ", "  a#  ", " ##   ", " b#B# "]},
+     {rows:["   ## ", "#A    ", "   #B ", "#  a# ", "  #b# "]},
+     {rows:["# b a ", " #    ", " A#   ", "  #  #", "  B  #"]},
+     {rows:[" b    ", "  #A a", "  # B#", "  ##  ", "   ## "]},
+     {rows:[" #   B", "#  #A#", "  ##  ", "  b   ", "#a#   "]}],
+    // 레벨 3 (30판)
+    [{rows:["   # #", "     #", "#  b #", "#     ", "##   a", "  AB  "],mirror:true},
+     {rows:["   #b ", "#     ", "#     ", "  # #A", "##    ", "B  a  "],mirror:true},
+     {rows:["##  # ", "  A #a", "   ## ", "B # # ", " b    ", "#     "],mirror:true},
+     {rows:["  #   ", " ##  A", "# #   ", "#     ", "Ba#   ", " # b  "],mirror:true},
+     {rows:["#  #  ", " # #B ", "#b #  ", "  a   ", "  #   ", "  A## "],mirror:true},
+     {rows:["  #  a", "#     ", "  b  #", " #   #", " A  # ", "##B   "],mirror:true},
+     {rows:[" B## a", "      ", " ###  ", " # #  ", "   b#A", "      "],mirror:true},
+     {rows:["     a", " b    ", "##  A ", "# # # ", "   #  ", "   #B "],mirror:true},
+     {rows:["     #", "    b ", "#     ", "#a# A ", "   # #", "B#    "],mirror:true},
+     {rows:["  #   ", "  #a# ", "  # # ", "  B   ", "      ", "# ##Ab"],mirror:true},
+     {rows:["   #  ", "B#  A#", "  #   ", "##b   ", "  #a  ", " ##   "],mirror:true},
+     {rows:[" ##   ", "##   b", " B #  ", "      ", "# #a  ", " A #  "],mirror:true},
+     {rows:["    ##", " #    ", "   b  ", "  B #A", "   #  ", " a## #"],mirror:true},
+     {rows:["#  B  ", "#a#   ", "     #", "# b  #", "# #A  ", "     #"],mirror:true},
+     {rows:[" #   #", "  ##  ", "B  #A ", "#    b", " #    ", " #a   "],mirror:true},
+     {rows:["  # # ", "   B# ", " ab   ", " #    ", "##    ", "#  #A "],mirror:true},
+     {rows:["# #b  ", " #  # ", "#     ", "# # a ", "      ", "A B#  "],mirror:true},
+     {rows:[" #A   ", "#  b #", " #    ", " #a   ", "     B", "# ## #"],mirror:true},
+     {rows:[" #  ##", "  b   ", " A#   ", "# B   ", "   #  ", " #  a#"],mirror:true},
+     {rows:[" # ## ", "  #   ", "  a# A", "  #   ", "#    b", "  # B "],mirror:true},
+     {rows:["A     ", " Ba  #", "   # #", "# # b ", "     #", "#     "],mirror:true},
+     {rows:["### b#", "      ", "      ", "##B  A", "##  # ", "a     "],mirror:true},
+     {rows:["  ##  ", " #   #", "    a ", "  A# B", "# # b ", "      "],mirror:true},
+     {rows:["# #  b", "   # #", "# A   ", "   a  ", "# # # ", "#   B "],mirror:true},
+     {rows:["#A   #", "  ##  ", "  ##  ", "ba #  ", "B     ", "     #"],mirror:true},
+     {rows:["a B## ", "      ", "#  #  ", "b  A# ", "      ", " ###  "],mirror:true},
+     {rows:["#  # B", "###A  ", "   #  ", "#  #  ", "  a  #", "   b  "],mirror:true},
+     {rows:["#    #", "#     ", "ab#B  ", "  # # ", "   #A ", "  #   "],mirror:true},
+     {rows:[" #   #", " #   b", "    # ", "   # #", "##   A", "B   a#"],mirror:true},
+     {rows:["  # # ", "   a# ", "##    ", " b  # ", "#A #B ", "    # "],mirror:true}]
+  ]/*END_TWIN_POOL*/;
+  var DIR_KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
 
-  // ---- 무게 맞추기: 택배 3개 중 둘을 저울에 올려 기준 무게에 딱 맞춘다. ← ↑ → 로 올리고/내리기. 넘치면 실수 + 저울 비움.
-  var WEIGH_ROUNDS = [3, 4, 5];
-  function weighRound() {
-    for (;;) {
-      var a = 1 + rand(9), b = 1 + rand(9), cc = 1 + rand(9), T = a + b;
-      if (a === b && Math.random() < 0.7) continue;
-      if (a === T || b === T || cc === T || a + cc === T || b + cc === T || a + b + cc === T) continue;
-      var w = shuffle([a, b, cc]);
-      // 정답 쌍 (같은 무게가 둘이면 아무 쌍이나 맞으면 된다 -- 판정은 합으로 한다)
-      var pair = [];
-      for (var i = 0; i < 3 && pair.length === 0; i++) for (var j = i + 1; j < 3; j++) if (w[i] + w[j] === T) { pair = [i, j]; break; }
-      return { w: w, T: T, pair: pair };
-    }
-  }
-  function weighGame(body, c) {
-    var total = WEIGH_ROUNDS[c.level - 1];
-    var rounds = []; for (var i = 0; i < total; i++) rounds.push(weighRound());
-    if (c.testHooks) body.setAttribute("data-seq", rounds.map(function (r) { return r.pair.map(function (k) { return PICK_KEYS[k].a; }).join("+"); }).join(","));
-    body.innerHTML = '<div class="mg-wg"><div class="mg-wg-scale"><span class="mg-wg-goal">기준 <b class="mg-wg-t"></b>kg</span>'
-      + '<div class="mg-wg-plate"><div class="mg-wg-on"></div></div><span class="mg-wg-sum"><b class="mg-wg-s">0</b>kg</span></div>'
-      + '<div class="mg-wg-opts">' + PICK_KEYS.map(function (k) {
-        return '<button type="button" class="mg-wg-pkg" data-a="' + k.a + '"><span class="mg-mt-k">' + k.g + '</span><b></b><small>kg</small></button>';
-      }).join('') + '</div></div>'
-      + '<p class="mg-progress">맞춤 <em class="mg-found">0</em> / ' + total + '</p><p class="mg-freeze-note"></p>';
-    var tEl = body.querySelector(".mg-wg-t"), sEl = body.querySelector(".mg-wg-s"), onEl = body.querySelector(".mg-wg-on");
-    var pk = body.querySelectorAll(".mg-wg-pkg"), found = body.querySelector(".mg-found"), note = body.querySelector(".mg-freeze-note"), scale = body.querySelector(".mg-wg-scale");
-    var idx = 0, on = [false, false, false], locked = false;
-    function sum() { var r = rounds[idx], t = 0; on.forEach(function (v, i) { if (v) t += r.w[i]; }); return t; }
-    function draw() {
-      var r = rounds[idx], t = sum();
-      tEl.textContent = r.T; sEl.textContent = t;
-      onEl.innerHTML = on.map(function (v, i) { return v ? '<span class="mg-wg-chip">' + r.w[i] + '</span>' : ''; }).join('');
-      Array.prototype.forEach.call(pk, function (b, i) { b.querySelector("b").textContent = r.w[i]; b.classList.toggle("is-on", on[i]); });
-      scale.style.setProperty("--tilt", Math.max(-1, Math.min(1, (t - r.T) / r.T)).toFixed(2));
-      scale.classList.toggle("is-hit", t === r.T);
-    }
-    function act(a) {
-      if (locked || idx >= total) return;
-      var k = ["left", "up", "right"].indexOf(a);
-      if (k < 0) return;
-      on[k] = !on[k];
-      draw();
-      var r = rounds[idx], t = sum();
-      if (t === r.T) {
-        locked = true; idx++; found.textContent = idx;
-        if (idx === total) { c.later(c.finish, 300); return; }
-        c.later(function () { on = [false, false, false]; locked = false; draw(); }, 380);
-      } else if (t > r.T) {
-        c.addMistake(); locked = true;
-        restartAnim(scale, "mg-shake");
-        note.textContent = "너무 무거워요! 저울을 비웠어요";
-        c.later(function () { on = [false, false, false]; locked = false; note.textContent = ""; draw(); }, 650);
-      }
-    }
-    bindKeys(c, function (a) { act(a); });
-    bindPads(body, act);
-    draw();
-    return { hint: function () { return "택배 두 개를 저울에 올려 기준 무게에 딱 맞추세요. ← ↑ → 로 올리고 한 번 더 누르면 내려요. 넘치면 저울이 비워져요."; } };
-  }
-
-  // ---- 테이프 봉하기: SPACE 연타로 상자 테이프를 끝까지 붙인다. 손을 멈추면 테이프가 조금씩 다시 떨어진다. 상자 3개.
-  var TAPE_PRESS = [12, 15, 18];  // 상자 하나당 눌러야 하는 횟수
-  var TAPE_BOXES = 3;
-  var TAPE_DRAIN_MS = 260;        // 이 시간 동안 안 누르면 한 칸씩 떨어진다
-  function tapeGame(body, c) {
-    var need = TAPE_PRESS[c.level - 1];
-    if (c.testHooks) body.setAttribute("data-seq", String(need * TAPE_BOXES));
-    var boxes = '';
-    for (var i = 0; i < TAPE_BOXES; i++) boxes += '<div class="mg-tp-box" data-i="' + i + '"><span class="mg-tp-flap"></span><span class="mg-tp-tape"></span></div>';
-    body.innerHTML = '<div class="mg-tp"><div class="mg-tp-row">' + boxes + '</div>'
-      + '<button type="button" class="mg-bin mg-discard mg-tp-btn" data-a="space"><span class="mg-bin-k">SPACE</span><span class="mg-bin-n">연타!</span></button></div>'
-      + '<p class="mg-progress">봉한 상자 <em class="mg-found">0</em> / ' + TAPE_BOXES + '</p>';
-    var els = body.querySelectorAll(".mg-tp-box"), found = body.querySelector(".mg-found"), btn = body.querySelector(".mg-tp-btn");
-    var box = 0, n = 0, last = performance.now();
-    function draw() {
-      Array.prototype.forEach.call(els, function (e, i) {
-        e.style.setProperty("--p", i < box ? 1 : (i === box ? (n / need).toFixed(3) : 0));
-        e.classList.toggle("is-done", i < box); e.classList.toggle("is-now", i === box);
-      });
-      found.textContent = box;
-    }
-    function press() {
-      if (box >= TAPE_BOXES) return;
-      last = performance.now(); n++;
-      restartAnim(btn, "is-ok");
-      if (n >= need) { box++; n = 0; if (box >= TAPE_BOXES) { draw(); c.later(c.finish, 200); return; } }
-      draw();
-    }
-    function drain() {
+  // 공통: 키보드/버튼 연결. onAct(a)는 a = up|down|left|right|undo|restart|space.
+  function bindPad(body, c, attr, onAct, keyMap) {
+    function onKey(e) {
       if (c.isFinished()) return;
-      if (n > 0 && performance.now() - last > TAPE_DRAIN_MS) { n--; draw(); }
-      c.later(drain, 120);
+      var a = DIR_KEYS[e.key] || null;
+      if (!a) {
+        if (e.key === "Backspace" || e.key === "z" || e.key === "Z") a = "undo";
+        else if (e.key === "r" || e.key === "R") a = "restart";
+        else if (e.code === "Space" || e.key === " ") a = "space";
+        else if (e.key === "Enter") a = "enter";
+        else if (keyMap && keyMap[e.key]) a = keyMap[e.key];
+      }
+      if (!a) return;
+      e.preventDefault(); e.stopPropagation();
+      if (e.repeat && a !== "up" && a !== "down" && a !== "left" && a !== "right") return;
+      onAct(a);
     }
-    bindKeys(c, function (a, e) { if (a === "space" && !e.repeat) press(); });
-    bindPads(body, function () { press(); });
-    draw(); c.later(drain, 120);
-    return { hint: function () { return "SPACE를 빠르게 연타해서 상자 3개에 테이프를 끝까지 붙이세요. 멈추면 테이프가 조금씩 떨어져요."; } };
+    var kt = c.keyTarget || document;
+    kt.addEventListener("keydown", onKey, true);
+    c.onCleanup(function () { kt.removeEventListener("keydown", onKey, true); });
+    Array.prototype.forEach.call(body.querySelectorAll(".mg-key[" + attr + "]"), function (b) {
+      b.addEventListener("pointerdown", function (e) { e.preventDefault(); onAct(b.getAttribute(attr)); });
+    });
+  }
+  function arrowPad(attr, extra) {
+    return '<button type="button" class="mg-key" ' + attr + '="up" aria-label="위">↑</button>'
+      + '<button type="button" class="mg-key" ' + attr + '="left" aria-label="왼쪽">←</button>'
+      + '<button type="button" class="mg-key" ' + attr + '="down" aria-label="아래">↓</button>'
+      + '<button type="button" class="mg-key" ' + attr + '="right" aria-label="오른쪽">→</button>' + (extra || "");
+  }
+  function actBtn(attr, name, label, sub) { return '<button type="button" class="mg-key pk-act" ' + attr + '="' + name + '">' + label + (sub ? "<small>" + sub + "</small>" : "") + "</button>"; }
+  function gridCells(S, cls) { var h = "", i; for (i = 0; i < S.W * S.H; i++) h += '<i class="sk-cell ' + cls(i) + '"></i>'; return h; }
+  function placeAt(node, idx, W) { node.style.setProperty("--x", idx % W); node.style.setProperty("--y", (idx / W) | 0); }
+  function slotAt(W, idx) { return [idx % W, (idx / W) | 0]; }
+
+  // ---------- 도마 미끄럼 ----------
+  function iceParse(rows) {
+    var H = rows.length, W = 0, x, y;
+    rows.forEach(function (r) { W = Math.max(W, r.length); });
+    var wall = [], S = 0, G = 0, P = [];
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+      var ch = rows[y].charAt(x) || " ", i = y * W + x;
+      wall[i] = ch === "#"; if (ch === "S") S = i; if (ch === "G") G = i; if (ch === "P") P.push(i);
+    }
+    return { W: W, H: H, wall: wall, S: S, G: G, P: P };
+  }
+  function iceSlide(S, from, d) { // d = [dx, dy]; 벽/바위/가장자리 직전까지. 지나간 칸 목록도 돌려준다
+    var x = from % S.W, y = (from / S.W) | 0, path = [];
+    for (;;) {
+      var nx = x + d[0], ny = y + d[1];
+      if (nx < 0 || ny < 0 || nx >= S.W || ny >= S.H || S.wall[ny * S.W + nx]) break;
+      x = nx; y = ny; path.push(y * S.W + x);
+    }
+    return { to: y * S.W + x, path: path };
+  }
+  function iceGame(body, c) {
+    var pool = ICE_POOL[c.level - 1] && ICE_POOL[c.level - 1].length ? ICE_POOL[c.level - 1] : ICE_POOL[1];
+    var rows = pool[rand(pool.length)], S = iceParse(rows), W = S.W;
+    var p = S.S, got = {}, hist = [], moves = 0, sliding = false;
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: rows }));
+    var floor = gridCells(S, function (i) { return S.wall[i] ? "is-rock" : i === S.G ? "is-tgt" : "is-ice"; });
+    var items = S.P.map(function (i) { return '<span class="sk-box ic-item">' + sushiSvg(c.sushi || "egg", "ic-sushi") + "</span>"; }).join("");
+    body.innerHTML = '<div class="sk-wrap"><div class="sk-board ic-board" style="--cols:' + W + ';--rows:' + S.H + '"><div class="sk-floor">' + floor + "</div>"
+      + items + '<span class="sk-man ic-man">' + SK_MAN_SVG + "</span></div></div>"
+      + '<p class="sk-status"><span>초밥 <b class="ic-got">0</b> / ' + S.P.length + "</span><span>미끄러짐 <b class=\"ic-moves\">0</b></span></p>"
+      + '<p class="mg-freeze-note"></p><div class="pk-pad sk-pad">' + arrowPad("data-ic", actBtn("data-ic", "undo", "되돌리기", "Z · ⌫") + actBtn("data-ic", "restart", "처음부터", "R")) + "</div>";
+    var man = body.querySelector(".ic-man"), itemEls = Array.prototype.slice.call(body.querySelectorAll(".ic-item"));
+    var gotEl = body.querySelector(".ic-got"), movesEl = body.querySelector(".ic-moves"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".sk-board");
+    function count() { return Object.keys(got).length; }
+    function paint(dist) {
+      man.style.transitionDuration = Math.max(90, (dist || 1) * 55) + "ms";
+      placeAt(man, p, W);
+      itemEls.forEach(function (e, k) { placeAt(e, S.P[k], W); e.classList.toggle("is-gone", !!got[S.P[k]]); });
+      gotEl.textContent = count(); movesEl.textContent = moves;
+      if (c.testHooks) body.setAttribute("data-ic", [p % W, (p / W) | 0, count(), moves].join(","));
+    }
+    function act(a) {
+      if (c.isFinished()) return;
+      if (a === "undo") { if (!hist.length) return; var h = hist.pop(); p = h.p; got = h.got; moves--; sliding = false; note.textContent = ""; paint(1); return; }
+      if (a === "restart") { p = S.S; got = {}; hist = []; moves = 0; sliding = false; note.textContent = ""; paint(1); return; }
+      var d = SOKO_DIRS[a]; if (!d || sliding) return;
+      var r = iceSlide(S, p, d);
+      if (r.to === p) { restartAnim(man, "is-bump"); return; }
+      hist.push({ p: p, got: JSON.parse(JSON.stringify(got)) });
+      r.path.forEach(function (i) { if (S.P.indexOf(i) >= 0) got[i] = 1; });
+      var dist = r.path.length; p = r.to; moves++;
+      sliding = true; c.later(function () { sliding = false; }, Math.max(90, dist * 55) - 10);
+      paint(dist);
+      if (p === S.G && count() === S.P.length) { note.textContent = "초밥 담기 완료!"; c.later(c.finish, Math.max(90, dist * 55) + 330); }
+      else if (p === S.G) note.textContent = "접시 칸에 멈췄지만 초밥을 아직 다 못 모았어요";
+      else note.textContent = "";
+    }
+    bindPad(body, c, "data-ic", act);
+    paint(1);
+    return { hint: function () { return "방향키를 누르면 와사비 덩어리나 도마 가장자리에 부딪힐 때까지 쭉 미끄러져요. 동그란 접시 칸에 정확히 멈추세요. 초밥은 지나가기만 해도 담겨요. Z로 되돌리고 R로 다시 시작해요."; } };
   }
 
-  var GAMES = { pack: packGame, inspect: inspectGame, sticker: stickerGame, map: mapGame, match: matchGame, weigh: weighGame, tape: tapeGame };
+  // ---------- 쌍둥이 서빙 ----------
+  function twinParse(rows) {
+    var H = rows.length, W = 0, x, y;
+    rows.forEach(function (r) { W = Math.max(W, r.length); });
+    var wall = [], a = 0, b = 0, A = 0, B = 0;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+      var ch = rows[y].charAt(x) || " ", i = y * W + x;
+      wall[i] = ch === "#"; if (ch === "a") a = i; if (ch === "b") b = i; if (ch === "A") A = i; if (ch === "B") B = i;
+    }
+    return { W: W, H: H, wall: wall, a: a, b: b, A: A, B: B };
+  }
+  function twinStep(S, p, dx, dy) {
+    var x = p % S.W + dx, y = ((p / S.W) | 0) + dy;
+    if (x < 0 || y < 0 || x >= S.W || y >= S.H || S.wall[y * S.W + x]) return p;
+    return y * S.W + x;
+  }
+  function twinGame(body, c) {
+    var pool = TWIN_POOL[c.level - 1] && TWIN_POOL[c.level - 1].length ? TWIN_POOL[c.level - 1] : TWIN_POOL[1];
+    var plan = pool[rand(pool.length)], S = twinParse(plan.rows), W = S.W, mirror = !!plan.mirror;
+    var a = S.a, b = S.b, hist = [], moves = 0;
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: plan.rows, mirror: mirror }));
+    var floor = gridCells(S, function (i) { return S.wall[i] ? "is-wall" : i === S.A ? "is-tgt tw-ga" : i === S.B ? "is-tgt tw-gb" : ""; });
+    body.innerHTML = '<div class="sk-wrap"><div class="sk-board" style="--cols:' + W + ';--rows:' + S.H + '"><div class="sk-floor">' + floor + "</div>"
+      + '<span class="sk-man tw-a">' + SK_MAN_SVG + '<b>A</b></span><span class="sk-man tw-b">' + SK_MAN_SVG + "<b>B</b></span></div></div>"
+      + '<p class="sk-status"><span>움직임 <b class="tw-moves">0</b></span>' + (mirror ? "<span>B는 좌우가 반대로 움직여요</span>" : "") + "</p>"
+      + '<p class="mg-freeze-note"></p><div class="pk-pad sk-pad">' + arrowPad("data-tw", actBtn("data-tw", "undo", "되돌리기", "Z · ⌫") + actBtn("data-tw", "restart", "처음부터", "R")) + "</div>";
+    // 목표 칸에 글자 표시
+    var cellEls = body.querySelectorAll(".sk-cell");
+    cellEls[S.A].textContent = "A"; cellEls[S.B].textContent = "B";
+    var ea = body.querySelector(".tw-a"), eb = body.querySelector(".tw-b"), movesEl = body.querySelector(".tw-moves"), note = body.querySelector(".mg-freeze-note");
+    function paint() {
+      placeAt(ea, a, W); placeAt(eb, b, W); movesEl.textContent = moves;
+      ea.classList.toggle("is-home", a === S.A); eb.classList.toggle("is-home", b === S.B);
+      if (c.testHooks) body.setAttribute("data-tw", [a % W, (a / W) | 0, b % W, (b / W) | 0, moves].join(","));
+    }
+    function act(x) {
+      if (c.isFinished()) return;
+      if (x === "undo") { if (!hist.length) return; var h = hist.pop(); a = h.a; b = h.b; moves--; note.textContent = ""; paint(); return; }
+      if (x === "restart") { a = S.a; b = S.b; hist = []; moves = 0; note.textContent = ""; paint(); return; }
+      var d = SOKO_DIRS[x]; if (!d) return;
+      var na = twinStep(S, a, d[0], d[1]), nb = twinStep(S, b, mirror ? -d[0] : d[0], d[1]);
+      if (na === a && nb === b) { restartAnim(ea, "is-bump"); restartAnim(eb, "is-bump"); return; }
+      hist.push({ a: a, b: b }); a = na; b = nb; moves++; paint();
+      if (a === S.A && b === S.B) { note.textContent = "둘 다 도착!"; c.later(c.finish, 420); }
+      else note.textContent = "";
+    }
+    bindPad(body, c, "data-tw", act);
+    paint();
+    return { hint: function () { return "방향키 하나로 A와 B가 동시에 움직여요. 한쪽이 벽에 막혀도 다른 쪽은 움직여요! A는 A 칸에, B는 B 칸에 동시에 들어가면 끝나요." + (mirror ? " 이번 판은 B가 좌우만 반대로 움직여요." : "") + " Z로 되돌리고 R로 다시 시작해요."; } };
+  }
+
+  // ---------- 도마 닦기 (격자 한붓그리기: 원래 스타일) ----------
+  var ROUTE_CFG = [
+    { W: 4, H: 4, cut: 2 },
+    { W: 5, H: 5, cut: 3 },
+    { W: 6, H: 5, cut: 3 },   // 2026-10-12: 7x6 으로 올렸다가 손질 단계를 앞에 붙이면서 원래 6x5로 복귀 (한붓그리기 그래프판은 '지나간 곳 표시가 안 된다'는 지적으로 폐기)
+  ];
+  // 직사각형 칸 전체를 한 번에 지나는 랜덤 한붓그리기 길(backbite 알고리즘)을 만든 뒤, 길의 앞뒤 몇 칸을 막아 구멍을 낸다.
+  // 남은 칸을 전부 지나는 길이 항상 존재하고(= 항상 풀림), 길만 따라 걷는 외길이 아니라 갈림길이 많다.
+  function makeRoutePlan(cfg) {
+    var W = cfg.W, H = cfg.H, N = W * H, path = [], x, y, i;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) path.push(y * W + (y % 2 ? W - 1 - x : x)); // 뱀 모양에서 시작
+    function nbrs(c) { var cx = c % W, cy = (c / W) | 0, o = []; if (cx > 0) o.push(c - 1); if (cx < W - 1) o.push(c + 1); if (cy > 0) o.push(c - W); if (cy < H - 1) o.push(c + W); return o; }
+    for (i = 0; i < N * 30; i++) {
+      var os = nbrs(path[0]).filter(function (n) { return n !== path[1]; });
+      var n = os[rand(os.length)], j = path.indexOf(n);
+      path = path.slice(0, j).reverse().concat(path.slice(j)); // path[0]과 n(=path[j])이 이웃이므로 앞부분을 뒤집어도 이어진다
+      if (i % 2) path.reverse();
+    }
+    var front = rand(cfg.cut + 1), back = cfg.cut - front;
+    var kept = path.slice(front, N - back), cells = [];
+    for (i = 0; i < N; i++) cells.push("#");
+    kept.forEach(function (q) { cells[q] = " "; });
+    cells[kept[0]] = "S";
+    var rows = []; for (y = 0; y < H; y++) rows.push(cells.slice(y * W, (y + 1) * W).join(""));
+    var dirs = ""; for (i = 1; i < kept.length; i++) { var df = kept[i] - kept[i - 1]; dirs += df === 1 ? "R" : df === -1 ? "L" : df === W ? "D" : "U"; }
+    return { rows: rows, solution: dirs };
+  }
+  function routeGame(body, c) {
+    var plan = makeRoutePlan(ROUTE_CFG[c.level - 1]), W = plan.rows[0].length, H = plan.rows.length;
+    var open = [], start = 0, i;
+    for (i = 0; i < W * H; i++) { var ch = plan.rows[(i / W) | 0].charAt(i % W); if (ch !== "#") open.push(i); if (ch === "S") start = i; }
+    var isOpen = {}; open.forEach(function (q) { isOpen[q] = 1; });
+    var trail = [start], visited = {}; visited[start] = 1; var doomed = false;
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ rows: plan.rows, path: plan.solution }));
+    var floor = ""; for (i = 0; i < W * H; i++) floor += '<i class="sk-cell ' + (isOpen[i] ? "is-road" : "is-wall") + '"></i>';
+    body.innerHTML = '<div class="sk-wrap"><div class="sk-board rt-board" style="--cols:' + W + ';--rows:' + H + '"><div class="sk-floor">' + floor + '</div><svg class="rt-line" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none"><polyline points="" fill="none"/></svg><span class="sk-man rt-man">' + SK_MAN_SVG + "</span></div></div>"
+      + '<p class="sk-status"><span>닦은 칸 <b class="rt-n">1</b> / ' + open.length + '</span></p><p class="mg-freeze-note"></p>'
+      + '<div class="pk-pad sk-pad">' + arrowPad("data-rt", actBtn("data-rt", "undo", "한 칸 되돌리기", "Z · ⌫") + actBtn("data-rt", "restart", "처음부터", "R")) + "</div>";
+    var cellEls = body.querySelectorAll(".sk-cell"), man = body.querySelector(".rt-man"), line = body.querySelector(".rt-line polyline");
+    var nEl = body.querySelector(".rt-n"), note = body.querySelector(".mg-freeze-note"), boardEl = body.querySelector(".sk-board");
+    cellEls[start].classList.add("is-start");
+    function reachableAll() { // 남은 칸을 전부 지나는 길이 아직 가능한가 (필요 조건 검사: 연결 + 막다른 칸은 최대 1개)
+      var head = trail[trail.length - 1], seen = {}, q = [head], cnt = 0; seen[head] = 1;
+      var around = function (cur) { var cx = cur % W, cy = (cur / W) | 0, o = [], dd = [[0, -1], [0, 1], [-1, 0], [1, 0]]; dd.forEach(function (d) { var nx = cx + d[0], ny = cy + d[1]; if (nx >= 0 && ny >= 0 && nx < W && ny < H) o.push(ny * W + nx); }); return o; };
+      while (q.length) {
+        var cur = q.pop();
+        around(cur).forEach(function (ni) { if (!isOpen[ni] || visited[ni] || seen[ni]) return; seen[ni] = 1; cnt++; q.push(ni); });
+      }
+      var remain = open.length - trail.length;
+      if (cnt !== remain) return false;
+      var ends = 0;
+      for (var u = 0; u < W * H; u++) {
+        if (!isOpen[u] || visited[u]) continue;
+        var deg = around(u).filter(function (ni) { return isOpen[ni] && (!visited[ni] || ni === head); }).length;
+        if (deg === 0) return false;
+        if (deg === 1) { ends++; if (ends > 1 && remain > 1) return false; }
+      }
+      return true;
+    }
+    function paint() {
+      placeAt(man, trail[trail.length - 1], W);
+      var inTrail = {}; trail.forEach(function (q) { inTrail[q] = 1; });
+      for (var k = 0; k < W * H; k++) cellEls[k].classList.toggle("is-trail", !!inTrail[k]);
+      line.setAttribute("points", trail.map(function (q) { return (q % W + 0.5) + "," + (((q / W) | 0) + 0.5); }).join(" "));
+      nEl.textContent = trail.length;
+      boardEl.classList.toggle("is-doomed", doomed);
+      if (c.testHooks) body.setAttribute("data-rt", [trail[trail.length - 1] % W, (trail[trail.length - 1] / W) | 0, trail.length].join(","));
+    }
+    function act(a) {
+      if (c.isFinished()) return;
+      if (a === "undo") {
+        if (trail.length < 2) return;
+        var gone = trail.pop(); delete visited[gone];
+        doomed = !reachableAll(); note.textContent = doomed ? "아직 막다른 길이에요 — 더 되돌려 보세요 (Z)" : ""; paint(); return;
+      }
+      if (a === "restart") { trail = [start]; visited = {}; visited[start] = 1; doomed = false; note.textContent = ""; paint(); return; }
+      var d = SOKO_DIRS[a]; if (!d) return;
+      var head = trail[trail.length - 1], nx = head % W + d[0], ny = ((head / W) | 0) + d[1];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
+      var ni = ny * W + nx;
+      if (!isOpen[ni] || visited[ni]) { restartAnim(man, "is-bump"); return; }
+      trail.push(ni); visited[ni] = 1;
+      if (trail.length === open.length) { paint(); note.textContent = "도마를 다 닦았어요!"; c.later(c.finish, 420); return; }
+      var ok = reachableAll();
+      if (!ok && !doomed) { c.addMistake(); note.textContent = "남은 길로 갈 수 없게 됐어요 — Z로 되돌려 보세요"; restartAnim(boardEl, "is-shake"); }
+      else if (ok) note.textContent = "";
+      doomed = !ok; paint();
+    }
+    bindPad(body, c, "data-rt", act);
+    paint();
+    return { hint: function () { return "주방 입구(주황 칸)에서 출발해 방향키로 도마의 모든 칸을 한 번씩만 닦으세요. 한 번 닦은 칸은 다시 못 가요. 막히면 Z로 한 칸씩 되돌리세요. 남은 칸을 다 닦을 수 없게 되면 알려줘요."; } };
+  }
+
+  // ---------- 컨베이어 잇기 (파이프) ----------
+  var PIPE_CFG = [{ W: 4, H: 3 }, { W: 5, H: 4 }, { W: 6, H: 5 }];
+  var PU = 1, PR = 2, PD = 4, PL = 8;
+  function rotMask(m, n) { n = ((n % 4) + 4) % 4; while (n--) m = ((m << 1) | (m >> 3)) & 15; return m; }
+  function makePipePlan(cfg) {
+    var W = cfg.W, H = cfg.H;
+    for (;;) {
+      var r0 = rand(H), r1 = rand(H), path = [r0 * W], used = {}; used[r0 * W] = 1;
+      var guard = 0, target = r1 * W + W - 1;
+      // 입구(왼쪽 r0행) -> 출구(오른쪽 r1행): 자기 교차 없는 랜덤 길 (최대 시도 횟수 안에서)
+      while (path[path.length - 1] !== target && guard++ < 400) {
+        var cur = path[path.length - 1], cx = cur % W, cy = (cur / W) | 0, opts = [];
+        [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function (d) { var nx = cx + d[0], ny = cy + d[1]; if (nx >= 0 && ny >= 0 && nx < W && ny < H && !used[ny * W + nx]) opts.push(ny * W + nx); });
+        if (!opts.length) { used[path.pop()] = 2; if (!path.length) break; continue; }
+        // 목표 쪽으로 약간 치우치게 고르되, 돌아가는 길도 섞는다
+        var nxt = opts[rand(opts.length)]; used[nxt] = 1; path.push(nxt);
+      }
+      if (path[path.length - 1] !== target || path.length < W + 1) continue;
+      var tiles = [], i;
+      for (i = 0; i < W * H; i++) { var kinds = [5, 3, 3, 7]; tiles.push({ mask: kinds[rand(4)], goal: -1 }); }
+      path.forEach(function (q, k) {
+        var inD = k === 0 ? PL : (q - path[k - 1] === 1 ? PL : q - path[k - 1] === -1 ? PR : q - path[k - 1] === W ? PU : PD);
+        var outD = k === path.length - 1 ? PR : (path[k + 1] - q === 1 ? PR : path[k + 1] - q === -1 ? PL : path[k + 1] - q === W ? PD : PU);
+        var need = inD | outD, base = (need === 5 || need === 10) ? 5 : 3, n;
+        tiles[q].mask = base; tiles[q].goal = -1;
+        for (n = 0; n < 4; n++) if (rotMask(base, n) === need) tiles[q].goal = n;
+      });
+      // 시작 회전은 전부 무작위 (정답 회전이 우연히 이어져 있으면 다시 섞는다)
+      for (var tries = 0; tries < 30; tries++) {
+        tiles.forEach(function (t) { t.rot = rand(4); });
+        if (!pipeFlow(W, H, r0, r1, tiles).ok) return { W: W, H: H, r0: r0, r1: r1, tiles: tiles, path: path };
+      }
+    }
+  }
+  function pipeFlow(W, H, r0, r1, tiles) { // 입구에서 막힘 없이 이어지는 칸 집합 + 출구 도달 여부
+    var seen = {}, q = [], ok = false;
+    var m0 = rotMask(tiles[r0 * W].mask, tiles[r0 * W].rot);
+    if (m0 & PL) { seen[r0 * W] = 1; q.push(r0 * W); }
+    while (q.length) {
+      var cur = q.pop(), cx = cur % W, cy = (cur / W) | 0, m = rotMask(tiles[cur].mask, tiles[cur].rot);
+      if (cur === r1 * W + W - 1 && (m & PR)) ok = true;
+      [[PU, 0, -1, PD], [PR, 1, 0, PL], [PD, 0, 1, PU], [PL, -1, 0, PR]].forEach(function (d) {
+        if (!(m & d[0])) return;
+        var nx = cx + d[1], ny = cy + d[2]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
+        var ni = ny * W + nx; if (seen[ni]) return;
+        if (rotMask(tiles[ni].mask, tiles[ni].rot) & d[3]) { seen[ni] = 1; q.push(ni); }
+      });
+    }
+    return { ok: ok, flow: seen };
+  }
+  function pipeSvg(mask) { // 칸 안에 열린 쪽으로 관을 그린다
+    var s = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="6" class="pp-hub"/>';
+    if (mask & PU) s += '<rect x="14" y="0" width="12" height="22" class="pp-arm"/>';
+    if (mask & PR) s += '<rect x="18" y="14" width="22" height="12" class="pp-arm"/>';
+    if (mask & PD) s += '<rect x="14" y="18" width="12" height="22" class="pp-arm"/>';
+    if (mask & PL) s += '<rect x="0" y="14" width="22" height="12" class="pp-arm"/>';
+    return s + "</svg>";
+  }
+  function pipeGame(body, c) {
+    var plan = makePipePlan(PIPE_CFG[c.level - 1]), W = plan.W, H = plan.H, tiles = plan.tiles, cx = 0, cy = plan.r0, hist = [];
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ W: W, H: H, src: plan.r0, snk: plan.r1, presses: tiles.map(function (t) { return t.goal < 0 ? 0 : ((t.goal - t.rot) % 4 + 4) % 4; }) }));
+    var cellsHtml = tiles.map(function () { return '<button type="button" class="pp-tile" tabindex="-1"></button>'; }).join("");
+    body.innerHTML = '<div class="pp-wrap"><div class="pp-in" style="--r:' + plan.r0 + ';--rows:' + H + '">입구 ▶</div><div class="pp-board" style="--cols:' + W + ';--rows:' + H + '">' + cellsHtml + '</div><div class="pp-out" style="--r:' + plan.r1 + ';--rows:' + H + '">▶ 출구</div></div>'
+      + '<p class="mg-freeze-note"></p><div class="pk-pad sk-pad">' + arrowPad("data-pp", actBtn("data-pp", "space", "돌리기", "SPACE") + actBtn("data-pp", "undo", "되돌리기", "Z · ⌫")) + "</div>";
+    var tileEls = Array.prototype.slice.call(body.querySelectorAll(".pp-tile")), note = body.querySelector(".mg-freeze-note");
+    function paint() {
+      var f = pipeFlow(W, H, plan.r0, plan.r1, tiles);
+      tileEls.forEach(function (e, i) {
+        e.innerHTML = pipeSvg(rotMask(tiles[i].mask, tiles[i].rot));
+        e.classList.toggle("is-flow", !!f.flow[i]); e.classList.toggle("is-cursor", i === cy * W + cx);
+      });
+      if (c.testHooks) body.setAttribute("data-pp", [cx, cy, Object.keys(f.flow).length, hist.length].join(","));
+      return f;
+    }
+    function act(a) {
+      if (c.isFinished()) return;
+      if (a === "left") cx = clamp(cx - 1, 0, W - 1); else if (a === "right") cx = clamp(cx + 1, 0, W - 1);
+      else if (a === "up") cy = clamp(cy - 1, 0, H - 1); else if (a === "down") cy = clamp(cy + 1, 0, H - 1);
+      else if (a === "space" || a === "enter") {
+        var i = cy * W + cx; tiles[i].rot = (tiles[i].rot + 1) % 4; hist.push(i);
+        var f = paint(); if (f.ok) { note.textContent = "컨베이어가 이어졌어요!"; c.later(c.finish, 450); }
+        return;
+      } else if (a === "undo") { if (!hist.length) return; var j = hist.pop(); tiles[j].rot = (tiles[j].rot + 3) % 4; cx = j % W; cy = (j / W) | 0; }
+      else return;
+      paint();
+    }
+    bindPad(body, c, "data-pp", act);
+    Array.prototype.forEach.call(tileEls, function (e, i) { e.addEventListener("pointerdown", function (ev) { ev.preventDefault(); cx = i % W; cy = (i / W) | 0; act("space"); }); });
+    paint();
+    return { hint: function () { return "방향키로 타일을 고르고 스페이스로 돌려서, 왼쪽 입구에서 오른쪽 출구까지 컨베이어를 이으세요. 이어진 칸은 파랗게 켜져요. Z로 되돌려요. (타일을 눌러도 돌아가요)"; } };
+  }
+
+  // ---------- 초밥 쌓기 (하노이) ----------
+  var HANOI_N = [3, 4, 5];
+  function hanoiGame(body, c) {
+    var n = HANOI_N[c.level - 1], pegs = [[], [], []], cur = 0, held = null, from = -1, hist = [], moves = 0, i;
+    for (i = n; i >= 1; i--) pegs[0].push(i);
+    function optimal() { var out = []; (function mv(k, a, b, via) { if (!k) return; mv(k - 1, a, via, b); out.push([a, b]); mv(k - 1, via, b, a); })(n, 0, 2, 1); return out; }
+    if (c.testHooks) body.setAttribute("data-plan", JSON.stringify({ n: n, solution: optimal() }));
+    body.innerHTML = '<div class="hn-board">' + [0, 1, 2].map(function (p) { return '<div class="hn-peg" data-peg="' + p + '"><div class="hn-pole"></div><div class="hn-stack"></div></div>'; }).join("") + '</div>'
+      + '<div class="hn-hand"></div><p class="sk-status"><span>움직임 <b class="hn-moves">0</b></span></p><p class="mg-freeze-note"></p>'
+      + '<div class="pk-pad sk-pad">' + '<button type="button" class="mg-key" data-hn="left" aria-label="왼쪽">←</button><button type="button" class="mg-key" data-hn="right" aria-label="오른쪽">→</button>'
+      + actBtn("data-hn", "space", "집기 / 놓기", "SPACE") + actBtn("data-hn", "undo", "되돌리기", "Z · ⌫") + "</div>";
+    var pegEls = Array.prototype.slice.call(body.querySelectorAll(".hn-peg")), handEl = body.querySelector(".hn-hand"), movesEl = body.querySelector(".hn-moves"), note = body.querySelector(".mg-freeze-note");
+    function boxHtml(sz) { return '<div class="hn-box" style="--w:' + (28 + sz * 14) + '%;--k:' + sz + '"><i></i></div>'; }
+    function paint() {
+      pegEls.forEach(function (e, p) {
+        e.classList.toggle("is-cursor", p === cur);
+        e.querySelector(".hn-stack").innerHTML = pegs[p].map(boxHtml).join("");
+      });
+      handEl.innerHTML = held ? '<div class="hn-held" style="--p:' + cur + '">' + boxHtml(held) + "</div>" : "";
+      movesEl.textContent = moves;
+      if (c.testHooks) body.setAttribute("data-hn", [cur, held || 0, moves].join(","));
+    }
+    function act(a) {
+      if (c.isFinished()) return;
+      if (a === "left") cur = clamp(cur - 1, 0, 2);
+      else if (a === "right") cur = clamp(cur + 1, 0, 2);
+      else if (a === "1" || a === "2" || a === "3") cur = parseInt(a, 10) - 1;
+      else if (a === "up") { /* 집기 */ if (!held && pegs[cur].length) { held = pegs[cur].pop(); from = cur; } }
+      else if (a === "down") { if (held) a = "space"; }
+      if (a === "space" || a === "enter") {
+        if (!held) { if (pegs[cur].length) { held = pegs[cur].pop(); from = cur; } }
+        else {
+          var top = pegs[cur].length ? pegs[cur][pegs[cur].length - 1] : 99;
+          if (held > top) { c.addMistake(); note.textContent = "큰 상자를 작은 상자 위에 놓을 수 없어요"; restartAnim(pegEls[cur], "is-shake"); c.later(function () { note.textContent = ""; }, 1100); return paint(); }
+          pegs[cur].push(held); held = null; note.textContent = "";
+          if (cur !== from) { hist.push([from, cur]); moves++; }
+          from = -1;
+          if (pegs[2].length === n) { paint(); note.textContent = "탑을 다 옮겼어요!"; c.later(c.finish, 420); return; }
+        }
+      } else if (a === "undo") {
+        if (held) { pegs[from].push(held); held = null; from = -1; }
+        else if (hist.length) { var m = hist.pop(); pegs[m[0]].push(pegs[m[1]].pop()); moves--; }
+        note.textContent = "";
+      } else if (a === "restart") {
+        pegs = [[], [], []]; for (var k = n; k >= 1; k--) pegs[0].push(k); held = null; from = -1; hist = []; moves = 0; cur = 0; note.textContent = "";
+      }
+      paint();
+    }
+    bindPad(body, c, "data-hn", act, { "1": "1", "2": "2", "3": "3" });
+    paint();
+    return { hint: function () { return "맨 왼쪽 탑을 맨 오른쪽 칸으로 옮기세요. ←→로 칸을 고르고 스페이스로 맨 위 상자를 집고, 다른 칸에서 스페이스로 놓아요. 큰 상자를 작은 상자 위에 놓으면 실수! (1·2·3 키로 칸 바로 선택, Z 되돌리기, R 처음부터)"; } };
+  }
+
+  // ---------- 손질 / 엿보기: 타이밍 액션 (2026-10-12) ----------
+  // 막대 위를 오가는 표시가 초록 구간에 있을 때 SPACE(또는 버튼 탭). 생각할 게 없고 손만 움직이는 게임이라
+  // "멈춰서 고민하는 공백"이 생기지 않는다. 구간은 매번 위치가 바뀌고 갈수록 좁아지며 표시는 빨라진다.
+  //   prep : 도마 위 생선을 pieces*3번 썰기 (비싼 초밥일수록 조각 수가 많아 오래 걸린다)
+  function timingGame(body, c, cfg) {
+    var total = cfg.total, done = 0, lock = 0, zoneW = cfg.zoneW0, zoneX = 0.4, speed = cfg.speed0, pos = 0, dir = 1, last = performance.now(), raf = 0;
+    if (c.testHooks) { zoneW = 1; zoneX = 0; }
+    function newZone() { zoneW = c.testHooks ? 1 : Math.max(cfg.zoneMin, zoneW - cfg.zoneStep); zoneX = c.testHooks ? 0 : 0.08 + Math.random() * (0.84 - zoneW); }
+    var pips = ""; for (var i = 0; i < total; i++) pips += '<i class="tm-pip"></i>';
+    body.innerHTML = '<div class="tm-wrap tm-' + cfg.skin + '">'
+      + '<div class="tm-stage">' + cfg.stageHtml + '</div>'
+      + '<div class="tm-bar"><span class="tm-zone"></span><span class="tm-mark">' + cfg.markHtml + '</span></div>'
+      + '<div class="tm-pips">' + pips + '</div>'
+      + '<p class="tm-note">&nbsp;</p>'
+      + '<button type="button" class="mg-key tm-btn" data-tm="hit">' + cfg.btn + '<small>SPACE</small></button></div>';
+    var zone = body.querySelector(".tm-zone"), mark = body.querySelector(".tm-mark"), note = body.querySelector(".tm-note"), pipEls = body.querySelectorAll(".tm-pip"), bar = body.querySelector(".tm-bar");
+    function paintZone() { zone.style.left = (zoneX * 100) + "%"; zone.style.width = (zoneW * 100) + "%"; }
+    function frame(now) {
+      if (c.isFinished()) return;
+      var dt = Math.min(64, now - last); last = now;
+      pos += dir * speed * dt / 1000;
+      if (pos >= 1) { pos = 1; dir = -1; } else if (pos <= 0) { pos = 0; dir = 1; }
+      mark.style.left = (pos * 100) + "%";
+      if (c.testHooks) body.setAttribute("data-tm", [done, total, zoneX.toFixed(3), zoneW.toFixed(3), pos.toFixed(3)].join(","));
+      raf = requestAnimationFrame(frame);
+    }
+    function hit() {
+      if (c.isFinished() || done >= total) return;
+      var now = performance.now(); if (now < lock) return;
+      var inZone = pos >= zoneX && pos <= zoneX + zoneW;
+      if (inZone) {
+        pipEls[done].classList.add("is-on"); done++;
+        speed = Math.min(cfg.speedMax, speed + cfg.speedStep); bar.classList.remove("is-miss"); bar.classList.add("is-hit"); setTimeout(function () { bar.classList.remove("is-hit"); }, 160);
+        note.textContent = cfg.okText(done, total);
+        if (done >= total) { cancelAnimationFrame(raf); mark.style.left = (pos * 100) + "%"; c.later(c.finish, 250); return; }
+        newZone(); paintZone();
+      } else {
+        c.addMistake(); lock = now + 450; bar.classList.add("is-miss"); setTimeout(function () { bar.classList.remove("is-miss"); }, 450);
+        note.textContent = "빗나갔어요! 잠깐 멈춤";
+      }
+    }
+    bindPad(body, c, "data-tm", function (a) { if (a === "space" || a === "enter" || a === "down" || a === "hit") hit(); });
+    c.onCleanup(function () { cancelAnimationFrame(raf); });
+    paintZone(); raf = requestAnimationFrame(frame);
+    return { hint: function () { return cfg.hint; } };
+  }
+  function cutPrep(body, c) {
+    var key = c.sushi || "egg", pieces = clamp(parseInt(c.opts.pieces, 10) || 3, 1, 5), total = pieces * 3;
+    var cuts = ""; for (var i = 1; i <= pieces; i++) cuts += '<i style="left:' + (i * 100 / (pieces + 1)) + '%"></i>';
+    return timingGame(body, c, {
+      skin: "prep", total: total, zoneW0: 0.30, zoneMin: 0.13, zoneStep: 0.02, speed0: 0.75, speedStep: 0.035, speedMax: 1.5,
+      stageHtml: '<div class="tm-fish">' + prepArt(key, "tm-fish-svg") + '<div class="tm-cuts">' + cuts + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' ' + pieces + '조각 손질</div>',
+      markHtml: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20L17 4l4 3L7 21z" fill="#cfd6dc" stroke="#2b1d12" stroke-width="1.6"/><path d="M17 4l4 3" stroke="#2b1d12" stroke-width="2"/></svg>',
+      btn: "썰기!", okText: function (d, t) { return d + " / " + t + " 썰었어요"; },
+      hint: "칼이 초록 구간에 올 때 SPACE(또는 버튼)로 썰어요. 빗나가면 잠깐 멈춰요. 갈수록 빨라지고 구간이 좁아져요.",
+    });
+  }
+  // ---- 손질 변형 (2026-10-12, "손질 게임이 다 똑같다"): 초밥 종류마다 다른 손놀림 ----
+  //   계란 = 휘젓기(연타) / 흰살생선 = 칼질(타이밍) / 장어 = 굽기(연타) / 연어 = 뼈 발라내기(방향 반응)
+  // 테스트 모드(?mgtest=1)에서는 SPACE/방향키 한두 번이면 끝난다 (passPrep이 SPACE만 눌러도 모든 변형이 통과).
+  // 2026-10-12 사용자 제공 재료 일러스트(art/prep_*.webp): 휘젓기 = 그릇, 칼질 = 흰살생선, 굽기 = 장어, 뼈 발라내기 = 연어. 이미지가 없으면 SVG로 대체.
+  var PREP_IMG = {}, PREP_ART_KEY = { egg: "bowl", whitefish: "whitefish", eel: "eel", salmon: "salmon" };
+  function prepArt(key, cls) {
+    var u = PREP_IMG[PREP_ART_KEY[key]];
+    return u ? '<img class="' + cls + ' pr-art" src="' + u + '" alt="" draggable="false">' : sushiSvg(key, cls);
+  }
+  function holdKeys(c, onDown, onUp) {
+    function kd(e) { if (c.isFinished() || (e.code !== "Space" && e.key !== " ")) return; e.preventDefault(); e.stopPropagation(); if (!e.repeat) onDown(); }
+    function ku(e) { if (e.code !== "Space" && e.key !== " ") return; onUp(); }
+    var kt = c.keyTarget || document;
+    kt.addEventListener("keydown", kd, true); kt.addEventListener("keyup", ku, true);
+    c.onCleanup(function () { kt.removeEventListener("keydown", kd, true); kt.removeEventListener("keyup", ku, true); });
+  }
+  function mashPrep(body, c) {
+    var key = c.sushi || "egg", pieces = clamp(parseInt(c.opts.pieces, 10) || 2, 1, 5);
+    var gain = c.testHooks ? 1 : 0.055, decay = 0.2, fill = 0, last = performance.now(), raf = 0, done = false;
+    body.innerHTML = '<div class="tm-wrap pr-mash"><div class="tm-stage"><div class="pr-bowl">' + prepArt(key, "tm-fish-svg") + '<i class="pr-whisk"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' 풀어서 섞기</div></div>'
+      + '<div class="pr-gauge"><i class="pr-gauge-fill"></i></div><p class="tm-note">&nbsp;</p>'
+      + '<button type="button" class="mg-key tm-btn" data-pr="hit">휘젓기!<small>SPACE 연타</small></button></div>';
+    var fillEl = body.querySelector(".pr-gauge-fill"), note = body.querySelector(".tm-note"), whisk = body.querySelector(".pr-whisk");
+    function hit() {
+      if (c.isFinished() || done) return;
+      fill = Math.min(1, fill + gain); whisk.classList.remove("is-hit"); void whisk.offsetWidth; whisk.classList.add("is-hit");
+      var bw = body.querySelector(".pr-bowl"); if (bw) { bw.classList.remove("is-hit-img"); void bw.offsetWidth; bw.classList.add("is-hit-img"); }
+      if (fill >= 1) { done = true; cancelAnimationFrame(raf); fillEl.style.width = "100%"; note.textContent = "잘 섞였어요!"; c.later(c.finish, 250); }
+    }
+    function frame(now) {
+      if (c.isFinished() || done) return;
+      var dt = Math.min(64, now - last) / 1000; last = now; fill = Math.max(0, fill - decay * dt);
+      fillEl.style.width = (fill * 100) + "%"; note.textContent = fill < 0.15 ? "빨리 연타! 멈추면 가라앉아요" : "좋아요, 계속!";
+      if (c.testHooks) body.setAttribute("data-pr", fill.toFixed(2));
+      raf = requestAnimationFrame(frame);
+    }
+    bindPad(body, c, "data-pr", function (a) { if (a === "space" || a === "enter" || a === "hit") hit(); });
+    c.onCleanup(function () { cancelAnimationFrame(raf); });
+    raf = requestAnimationFrame(frame);
+    return { hint: function () { return "SPACE(또는 버튼)를 빠르게 연타해서 계란물 게이지를 가득 채우세요. 멈추면 게이지가 줄어들어요."; } };
+  }
+  function grillPrep(body, c) {
+    // 2026-10-13: "너무 어렵다 -> 연타를 적당히" -- 누르고 있기/온도 균형을 없애고, SPACE 연타로 굽기 게이지를 채우는 방식(타는 실수 없음).
+    // 초당 약 4번 두드리면 5초 안쪽, 멈춰도 천천히만 식는다.
+    var key = c.sushi || "eel", pieces = clamp(parseInt(c.opts.pieces, 10) || 4, 1, 6);
+    var gain = c.testHooks ? 1 : 0.075, decay = 0.08, fill = 0, last = performance.now(), raf = 0, done = false;
+    body.innerHTML = '<div class="tm-wrap pr-grill"><div class="tm-stage"><div class="pr-fire">' + prepArt(key, "tm-fish-svg") + '<i class="pr-flame"></i></div><div class="tm-label">' + (SUSHI[key] || "") + ' ' + pieces + '조각 굽기</div></div>'
+      + '<div class="pr-gauge"><i class="pr-gauge-fill"></i></div><p class="tm-note">&nbsp;</p>'
+      + '<button type="button" class="mg-key tm-btn" data-pr="hit">굽기!<small>SPACE 연타</small></button></div>';
+    var fillEl = body.querySelector(".pr-gauge-fill"), note = body.querySelector(".tm-note"), fire = body.querySelector(".pr-fire");
+    function hit() {
+      if (c.isFinished() || done) return;
+      fill = Math.min(1, fill + gain); fire.classList.remove("is-hit-img"); void fire.offsetWidth; fire.classList.add("is-hit-img");
+      if (fill >= 1) { done = true; cancelAnimationFrame(raf); fillEl.style.width = "100%"; note.textContent = "노릇하게 구워졌어요!"; c.later(c.finish, 250); }
+    }
+    function frame(now) {
+      if (c.isFinished() || done) return;
+      var dt = Math.min(64, now - last) / 1000; last = now; fill = Math.max(0, fill - decay * dt);
+      fillEl.style.width = (fill * 100) + "%"; note.textContent = fill < 0.15 ? "SPACE를 연타해요!" : fill < 0.7 ? "잘 익고 있어요, 계속!" : "거의 다 됐어요!";
+      if (c.testHooks) body.setAttribute("data-pr", fill.toFixed(2));
+      raf = requestAnimationFrame(frame);
+    }
+    bindPad(body, c, "data-pr", function (a) { if (a === "space" || a === "enter" || a === "hit") hit(); });
+    c.onCleanup(function () { cancelAnimationFrame(raf); });
+    raf = requestAnimationFrame(frame);
+    return { hint: function () { return "SPACE(또는 버튼)를 적당히 연타해서 굽기 게이지를 채우세요. 잠깐 쉬어도 천천히만 줄어들어요."; } };
+  }
+  var PIN_LANES = ["left", "up", "right"], PIN_GLYPH = { left: "←", up: "↑", right: "→" };
+  function pinPrep(body, c) {
+    var key = c.sushi || "salmon", pieces = clamp(parseInt(c.opts.pieces, 10) || 3, 1, 6);
+    var total = c.testHooks ? 3 : pieces * 2 + 2, done = 0, cur = -1, limit = 1700, tmo = 0, locked = false;
+    var lanes = ""; PIN_LANES.forEach(function (l) { lanes += '<div class="pr-lane" data-lane="' + l + '"><svg class="pr-bone" viewBox="0 0 24 40" aria-hidden="true"><path d="M12 2v36M12 8l-7 5M12 8l7 5M12 16l-7 5M12 16l7 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></div>'; });
+    var btns = ""; PIN_LANES.forEach(function (l) { btns += '<button type="button" class="mg-key pr-pin" data-pr="' + l + '">' + PIN_GLYPH[l] + '</button>'; });
+    var pips = ""; for (var i = 0; i < total; i++) pips += '<i class="tm-pip"></i>';
+    body.innerHTML = '<div class="tm-wrap pr-pin-wrap"><div class="tm-stage"><div class="pr-fillet">' + prepArt(key, "tm-fish-svg pr-fillet-svg") + '<div class="pr-lanes">' + lanes + '</div></div><div class="tm-label">' + (SUSHI[key] || "") + ' 뼈 발라내기</div></div>'
+      + '<div class="pr-pins">' + btns + '</div><div class="tm-pips">' + pips + '</div><p class="tm-note">&nbsp;</p></div>';
+    var laneEls = body.querySelectorAll(".pr-lane"), pipEls = body.querySelectorAll(".tm-pip"), note = body.querySelector(".tm-note");
+    function next() {
+      if (c.isFinished()) return;
+      clearTimeout(tmo); locked = false;
+      Array.prototype.forEach.call(laneEls, function (e) { e.classList.remove("is-on"); });
+      var n; do { n = Math.floor(Math.random() * 3); } while (n === cur);
+      cur = n; laneEls[cur].classList.add("is-on");
+      limit = Math.max(1000, 1700 - done * 70);
+      tmo = setTimeout(function () { if (!c.isFinished()) miss("놓쳤어요!"); }, c.testHooks ? 60000 : limit);
+    }
+    function miss(t) { c.addMistake(); note.textContent = t; locked = true; clearTimeout(tmo); c.later(next, 350); }
+    function act(a) {
+      if (c.isFinished() || locked || cur < 0) return;
+      var lane = a === "space" ? (c.testHooks ? PIN_LANES[cur] : null) : a;
+      if (PIN_LANES.indexOf(lane) < 0) return;
+      if (lane === PIN_LANES[cur]) {
+        pipEls[done].classList.add("is-on"); done++; note.textContent = done + " / " + total + " 뽑았어요"; clearTimeout(tmo);
+        laneEls[cur].classList.remove("is-on");
+        if (done >= total) { c.later(c.finish, 250); locked = true; return; }
+        locked = true; c.later(next, 120);
+      } else miss("그 자리가 아니에요!");
+    }
+    bindPad(body, c, "data-pr", act);
+    c.onCleanup(function () { clearTimeout(tmo); });
+    c.later(next, 400);
+    return { hint: function () { return "뼈가 올라오는 자리의 방향키(← ↑ →)를 재빨리 누르세요(버튼 탭도 돼요). 놓치거나 틀리면 실수예요. 갈수록 빨라져요."; } };
+  }
+  var PREP_NAME = { egg: "휘젓기", whitefish: "칼질", eel: "굽기", salmon: "뼈 발라내기" };
+  function prepGame(body, c) {
+    var key = c.sushi || "egg";
+    return (key === "egg" ? mashPrep : key === "eel" ? grillPrep : key === "salmon" ? pinPrep : cutPrep)(body, c);
+  }
+  // ---- 엿보기 = 손님 응대 (2026-10-12, 사용자 지정): 손님이 원하는 간장·와사비·생강·차를 재빨리 가져다준다.
+  // 손님 6명(앞 4명은 1가지, 뒤 2명은 2가지 -- 순서 무관). 틀리거나 늦으면 실수. 실수 0~1 = 엿보기 1회, 2+ = 0회 (최대 1회).
+  var CONDS = [
+    { name: "간장", key: "1", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><rect x="9" y="12" width="14" height="25" rx="4" fill="#3b2418" stroke="#1f120b" stroke-width="2"/><rect x="12" y="4" width="8" height="9" rx="2" fill="#d2402a" stroke="#1f120b" stroke-width="2"/><rect x="11" y="21" width="10" height="8" rx="1.5" fill="#f1e2c0"/></svg>' },
+    { name: "와사비", key: "2", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M6 33c0-10 6-20 20-24 0 12-6 22-20 24z" fill="#5fae3c" stroke="#2c5a18" stroke-width="2"/><ellipse cx="16" cy="29" rx="9" ry="5" fill="#a8d86a" stroke="#2c5a18" stroke-width="2"/></svg>' },
+    { name: "생강", key: "3", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="28" rx="12" ry="6" fill="#f6b9bd" stroke="#b45a66" stroke-width="2"/><ellipse cx="14" cy="22" rx="10" ry="5" fill="#f9cdd0" stroke="#b45a66" stroke-width="2"/><ellipse cx="18" cy="16" rx="9" ry="4.5" fill="#fbdcde" stroke="#b45a66" stroke-width="2"/></svg>' },
+    { name: "차", key: "4", svg: '<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M6 14h20l-2 20a4 4 0 01-4 3h-8a4 4 0 01-4-3z" fill="#f4efe2" stroke="#7a5a30" stroke-width="2"/><path d="M8 18h16" stroke="#6fa94a" stroke-width="5"/><path d="M12 6c-2 3 2 4 0 7M18 6c-2 3 2 4 0 7" stroke="#b9a37a" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' },
+  ];
+  var PS_ACTS = { left: 0, up: 1, down: 2, right: 3, i0: 0, i1: 1, i2: 2, i3: 3 };
+  function peekGame(body, c) {
+    var total = c.testHooks ? 3 : 6, done = 0, want = [], got = {}, tmo = 0, locked = false, timerRaf = 0, endAt = 0, limit = 0;
+    var pips = ""; for (var i = 0; i < total; i++) pips += '<i class="tm-pip"></i>';
+    var btns = ""; CONDS.forEach(function (d, k) { btns += '<button type="button" class="mg-key ps-item" data-ps="i' + k + '" data-item="' + k + '">' + d.svg + '<b>' + d.name + '</b><small>' + d.key + '</small></button>'; });
+    body.innerHTML = '<div class="tm-wrap ps-wrap"><div class="tm-stage"><div class="ps-cust"><svg class="ps-face" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="24" fill="#f6d2a8" stroke="#7a5a30" stroke-width="3"/><path d="M8 24c4-14 40-14 44 0z" fill="#2b1d12"/><circle cx="22" cy="32" r="2.6" fill="#2b1d12"/><circle cx="38" cy="32" r="2.6" fill="#2b1d12"/><path d="M23 42q7 5 14 0" stroke="#2b1d12" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>'
+      + '<div class="ps-bubble"><span class="ps-say">손님이 찾아요!</span><div class="ps-wants"></div></div></div><div class="ps-timer"><i></i></div></div>'
+      + '<div class="ps-items">' + btns + '</div><div class="tm-pips">' + pips + '</div><p class="tm-note">&nbsp;</p></div>';
+    var wantsEl = body.querySelector(".ps-wants"), timerEl = body.querySelector(".ps-timer i"), note = body.querySelector(".tm-note"), pipEls = body.querySelectorAll(".tm-pip"), itemEls = body.querySelectorAll(".ps-item"), say = body.querySelector(".ps-say");
+    function paintWants() {
+      wantsEl.innerHTML = want.map(function (k) { return '<span class="ps-want' + (got[k] ? ' is-got' : '') + '" data-i="' + k + '">' + CONDS[k].svg + '<b>' + CONDS[k].name + '</b></span>'; }).join("");
+      if (c.testHooks) body.setAttribute("data-want", want.filter(function (k) { return !got[k]; }).join(","));
+    }
+    function tickTimer() {
+      if (c.isFinished() || locked || c.testHooks) return;
+      var left = Math.max(0, endAt - performance.now());
+      timerEl.style.width = (left / limit * 100) + "%";
+      if (left <= 0) { miss("늦었어요!"); return; }
+      timerRaf = requestAnimationFrame(tickTimer);
+    }
+    function next() {
+      if (c.isFinished()) return;
+      locked = false; got = {};
+      var n = (!c.testHooks && done >= 4) ? 2 : 1, pool = [0, 1, 2, 3]; want = [];
+      while (want.length < n) want.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      say.textContent = n === 2 ? "두 가지 부탁해요!" : "이거 주세요!";
+      limit = n === 2 ? 4200 : Math.max(2000, 3000 - done * 150); endAt = performance.now() + limit;
+      paintWants(); cancelAnimationFrame(timerRaf); timerRaf = requestAnimationFrame(tickTimer);
+    }
+    function miss(t) { c.addMistake(); note.textContent = t; locked = true; cancelAnimationFrame(timerRaf); c.later(next, 400); }
+    function act(a) {
+      if (c.isFinished() || locked) return;
+      var k;
+      if (a === "space") { if (!c.testHooks) return; k = want.filter(function (x) { return !got[x]; })[0]; } else k = PS_ACTS[a];
+      if (k === undefined || k === null) return;
+      itemEls[k].classList.remove("is-press"); void itemEls[k].offsetWidth; itemEls[k].classList.add("is-press");
+      if (want.indexOf(k) < 0) { miss("그건 아니에요!"); return; }
+      if (got[k]) return;
+      got[k] = true; paintWants();
+      if (want.every(function (x) { return got[x]; })) {
+        locked = true; cancelAnimationFrame(timerRaf); pipEls[done].classList.add("is-on"); done++; note.textContent = "맛있게 드세요! " + done + " / " + total;
+        if (done >= total) { c.later(c.finish, 250); return; }
+        c.later(next, 350);
+      }
+    }
+    bindPad(body, c, "data-ps", act, { "1": "i0", "2": "i1", "3": "i2", "4": "i3" });
+    c.onCleanup(function () { cancelAnimationFrame(timerRaf); });
+    c.later(next, 300);
+    return { hint: function () { return "손님이 말한 것을 재빨리 눌러 가져다주세요 (← 간장 · ↑ 와사비 · ↓ 생강 · → 차, 또는 1~4키/버튼). 두 가지를 부탁하면 둘 다요. 틀리거나 늦으면 실수! 실수 0~1번이어야 엿보기 1회를 얻어요."; } };
+  }
+
+  var GAMES = { prep: prepGame, peek: peekGame, pack: packGame, inspect: inspectGame, sticker: stickerGame, map: mapGame, soko: sokoGame, ice: iceGame, route: routeGame, twin: twinGame, pipe: pipeGame, hanoi: hanoiGame };
 
   // ======================================================================
   // 공통 진행: 헤더(제목/시간/실수/포기), 타이머, 완료 배너, 정리
   // ======================================================================
+  // 게임 시작 전 설명 (2026-10-12): 3줄 = 목표 / 조작 / 주의. 처음 만났을 때만 뜨고(클라이언트가 opts.intro로 결정) 4초 뒤 자동 시작,
+  // SPACE/Enter/버튼으로 바로 시작할 수 있다. 시간 기록(ms)은 설명이 끝난 뒤부터 잰다. 테스트 모드에서는 건너뛴다.
+  var INTRO_MS = 4000;
+  var INTRO = {
+    "prep:egg": ["손질 · 휘젓기", "계란물을 저어 게이지를 가득 채워요", "SPACE(또는 버튼)를 빠르게 연타", "멈추면 게이지가 가라앉아요"],
+    "prep:whitefish": ["손질 · 칼질", "흰살생선을 조각 수만큼 썰어요", "칼이 초록 구간에 올 때 SPACE", "빗나가면 잠깐 멈춰요 · 갈수록 빨라져요"],
+    "prep:eel": ["손질 · 굽기", "장어를 노릇하게 구워요", "SPACE를 적당히 연타하면 게이지가 차올라요", "잠깐 쉬어도 천천히만 줄어들어요"],
+    "prep:salmon": ["손질 · 뼈 발라내기", "연어의 가시를 하나씩 뽑아요", "가시가 뜬 자리의 방향키(← ↑ →)", "늦거나 틀리면 실수예요"],
+    peek: ["손님 응대", "손님이 원하는 간장·와사비·생강·차를 가져다줘요", "← 간장 · ↑ 와사비 · ↓ 생강 · → 차 (1~4키/버튼도 돼요)", "틀리거나 늦으면 실수 · 실수 0~1번이어야 엿보기 1회를 얻어요"],
+    ice: ["초밥 담기", "도마 위 초밥을 모두 접시 칸에 담아요", "방향키를 누르면 부딪힐 때까지 미끄러져요", "접시 칸에 정확히 멈추기 · Z 되돌리기 · R 처음부터"],
+    map: ["주문 서빙", "주문표의 순서와 번호를 외워 손님에게 서빙해요", "주문표가 먼저 뜬 뒤 지도에서 방향키 이동 + SPACE", "비슷한 번호가 섞여 있어요 · 엉뚱한 자리는 실수"],
+    soko: ["재료 정리", "재료 상자를 밀어 접시 칸에 모두 올려요", "방향키로 걸으며 밀기 (당길 수 없어요)", "구석에 끼면 Z 되돌리기 · R 처음부터"],
+    route: ["도마 닦기", "도마의 모든 칸을 한 번씩만 지나며 닦아요", "방향키로 이동 (지나간 칸은 색이 바뀌고 선이 남아요)", "막다른 길이면 알려줘요 · Z 되돌리기 · R 처음부터"],
+  };
+  function introFor(kind, sushi) { return INTRO[kind === "prep" ? "prep:" + (sushi || "egg") : kind] || null; }
   function start(host, opts) {
     opts = opts || {};
     var kind = GAMES[opts.kind] ? opts.kind : "pack";
@@ -1132,8 +2090,9 @@
 
     var rootEl = el("div", "mg-root mg-kind-" + kind);
     rootEl.innerHTML =
-      '<header class="mg-head"><div class="mg-title"><span class="mg-name">' + KINDS[kind].name + '</span>'
-      + '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span></div>'
+      '<header class="mg-head"><div class="mg-title"><span class="mg-name">' + (kind === "prep" && PREP_NAME[opts.sushi] ? KINDS[kind].name + ' · ' + PREP_NAME[opts.sushi] : KINDS[kind].name) + '</span>'
+      + (KINDS[kind].noLevel ? '' : '<span class="mg-level">난이도 ' + LEVEL_NAME[level - 1] + '</span>')
+      + (opts.sushi && SUSHI[opts.sushi] ? '<span class="mg-making" data-sushi="' + opts.sushi + '">' + sushiSvg(opts.sushi) + '<b>' + SUSHI[opts.sushi] + ' 초밥</b> 제작 중</span>' : '') + '</div>'
       + '<div class="mg-stats"><span class="mg-time">0.0초</span><span class="mg-miss">실수 0</span></div>'
       + '<button type="button" class="mg-giveup">포기</button></header>'
       + '<div class="mg-body"></div><p class="mg-hint"></p>'
@@ -1145,12 +2104,14 @@
     var timeEl = rootEl.querySelector(".mg-time");
     var missEl = rootEl.querySelector(".mg-miss");
 
-    var t0 = performance.now(), mistakes = 0, finished = false, destroyed = false;
+    var t0 = performance.now(), mistakes = 0, finished = false, destroyed = false, started = false;
     var timers = [], cleanups = [];
-    var tick = setInterval(function () { if (!finished) timeEl.textContent = fmtSec(performance.now() - t0); }, 100);
+    var tick = setInterval(function () { if (!finished && started) timeEl.textContent = fmtSec(performance.now() - t0); }, 100);
 
     var ctx = {
-      level: level, label: opts.label, testHooks: !!opts.testHooks, opts: opts,
+      // keyTarget: 레일 화면처럼 한 문서에서 두 게임이 동시에 돌 때, 키 입력을 이 게임 전용 요소로 따로 받는다 (기본은 문서 전체).
+      keyTarget: opts.keyTarget || null,
+      level: level, label: opts.label, sushi: SUSHI[opts.sushi] ? opts.sushi : null, testHooks: !!opts.testHooks, opts: opts,
       isFinished: function () { return finished || destroyed; },
       later: function (fn, ms) {
         var id = setTimeout(function () { if (!destroyed) fn(); }, ms);
@@ -1176,8 +2137,48 @@
       },
     };
 
-    var game = GAMES[kind](body, ctx);
-    rootEl.querySelector(".mg-hint").textContent = game.hint();
+    var game = null;
+    function begin() {
+      if (started || destroyed) return;
+      started = true; t0 = performance.now(); body.innerHTML = "";
+      game = GAMES[kind](body, ctx);
+      rootEl.querySelector(".mg-hint").textContent = game.hint();
+    }
+    // 레일 화면용 키 표기 치환 (2026-10-13): 게임 안내 문구의 SPACE/방향키를 이 패널의 실제 키 이름으로 바꾼다 (게임 로직은 그대로).
+    //   opts.relabel = { space: "S", wasd: true|false } -- 텍스트 노드만 치환하고, 게임이 문구를 바꿀 때마다 다시 치환한다.
+    if (opts.relabel) {
+      var rl = opts.relabel, busyRl = false;
+      var relabelNode = function (t) {
+        var v = t.nodeValue, n = v.replace(/SPACE/g, rl.space);
+        if (rl.wasd) n = n.replace(/방향키/g, "A W D 키").replace(/←/g, "A").replace(/↑/g, "W").replace(/→/g, "D").replace(/↓/g, "S");
+        if (n !== v) t.nodeValue = n;
+      };
+      var relabelAll = function () {
+        if (busyRl) return; busyRl = true;
+        var w = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null), nd;
+        while ((nd = w.nextNode())) relabelNode(nd);
+        busyRl = false;
+      };
+      var mo = new MutationObserver(relabelAll);
+      mo.observe(rootEl, { childList: true, subtree: true, characterData: true });
+      cleanups.push(function () { mo.disconnect(); });
+      relabelAll();
+    }
+    var intro = opts.intro && !opts.testHooks ? introFor(kind, opts.sushi) : null;
+    if (intro) {
+      var secs = Math.round(INTRO_MS / 1000);
+      body.innerHTML = '<div class="mg-intro"><h3>' + intro[0] + '</h3>'
+        + '<ol><li><b>목표</b><span>' + intro[1] + '</span></li><li><b>조작</b><span>' + intro[2] + '</span></li><li><b>주의</b><span>' + intro[3] + '</span></li></ol>'
+        + '<button type="button" class="mg-key mg-intro-go">시작<small>SPACE · <span class="mg-intro-sec">' + secs + '</span>초 뒤 자동</small></button></div>';
+      var left = secs, goBtn = body.querySelector(".mg-intro-go"), secEl = body.querySelector(".mg-intro-sec");
+      var iv = setInterval(function () { left--; if (secEl) secEl.textContent = Math.max(0, left); if (left <= 0) go(); }, 1000);
+      var introKT = opts.keyTarget || document;
+      function go() { clearInterval(iv); introKT.removeEventListener("keydown", onIntroKey, true); begin(); }
+      function onIntroKey(e) { if (e.code === "Space" || e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); go(); } }
+      introKT.addEventListener("keydown", onIntroKey, true);
+      goBtn.addEventListener("click", go);
+      cleanups.push(function () { clearInterval(iv); introKT.removeEventListener("keydown", onIntroKey, true); });
+    } else begin();
     rootEl.querySelector(".mg-giveup").addEventListener("click", function () {
       if (finished || destroyed) return;
       if (opts.onCancel) opts.onCancel();
@@ -1197,8 +2198,12 @@
   root.MiniGames = {
     start: start,
     KINDS: KINDS,
+    SUSHI: SUSHI,
+    sushiSvg: sushiSvg,
     LEVEL_NAME: LEVEL_NAME,
     MAP_REPLAY_AFTER_MS: MAP_REPLAY_AFTER_MS,
+    setPrepImages: function (m) { PREP_IMG = m || {}; },
+    prepImage: function (k) { return PREP_IMG[k] || null; },
     setMistakeRule: function (rule) { if (rule === "reset" || rule === "freeze" || rule === "ignore") config.mistakeRule = rule; },
     getMistakeRule: function () { return config.mistakeRule; },
   };

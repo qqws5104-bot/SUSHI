@@ -7,8 +7,8 @@ const { TYPES } = require("./game-data.js");
 function log(...a) { console.log("[test-shared-board]", ...a); }
 
 function newRoom() {
-  const room = new GameRoom("T", () => {}, { raceMode: false }); // 2026-10-14: 예전 확보 방식(공유 보드 선착순) 회귀용. 레이스는 test_race.js
-  room.pickCourier("cookbang", "A"); room.pickCourier("cheonil", "B");
+  const room = new GameRoom("T", () => {});
+  room.joinTeam("A"); room.joinTeam("B");
   room.setReady("1"); room.setReady("2"); // -> secure
   assert.strictEqual(room.state.phase, "secure");
   return room;
@@ -17,17 +17,17 @@ const left = (room, key) => room.state.board.filter((c) => c.catIdx === TYPES.fi
 const inv = (room, seat) => room.state.players[seat].invoices;
 
 const total = TYPES.reduce((a, t) => a + t.count, 0);
-// 1) 처음엔 종류별 TYPES[].count개 (2026-10-07: 일반 4 / 깨지기 4 / 귀중품 3 / 확정 층수 6 = 17칸)
+// 1) 처음엔 종류별 TYPES[].count개 (2026-10-07: 일반 4 / 중급 4 / 특선 초밥 3 / 지정 접시 6 = 17칸)
 {
   const r = newRoom();
   for (const t of TYPES) assert.strictEqual(left(r, t.key), t.count, `${t.key} starts with ${t.count}`);
-  assert.deepStrictEqual(TYPES.map((t) => t.count), [4, 4, 3, 6], "희소성 조정: 일반 4 / 깨지기 4 / 귀중품 3 / 확정 층수 6");
+  assert.deepStrictEqual(TYPES.map((t) => t.count), [4, 4, 3, 6], "희소성 조정: 일반 4 / 중급 4 / 특선 초밥 3 / 지정 접시 6");
   assert.strictEqual(r.state.board.length, total);
   assert.strictEqual(total, 17);
   log("종류별 4/4/3/6개 / 총 17칸");
 }
 
-// 2) 한 사람이 확보할 때마다 줄어든다 -- 두 사람 합쳐서 4개(일반)
+// 2) 한 사람이 제작할 때마다 줄어든다 -- 두 사람 합쳐서 4개(일반)
 {
   const r = newRoom();
   r.secureCell("1", "normal-1"); r.secureCell("1", "normal-2");
@@ -67,17 +67,17 @@ const total = TYPES.reduce((a, t) => a + t.count, 0);
   log("마지막 1개: 먼저 끝낸 한 명만 가져감");
 }
 
-// 5) 확정 층수 택배: 칸=층이라 대체 불가, 먼저 확보한 사람이 그 층을 가진다
+// 5) 지정 초밥: 칸=접시라 대체 불가, 먼저 제작한 사람이 그 접시를 가진다
 {
   const r = newRoom();
   r.secureCell("1", "fixed-floor-3");
   r.secureCell("2", "fixed-floor-3");
   assert.strictEqual(inv(r, "1").length, 1); assert.strictEqual(inv(r, "2").length, 0, "taken floor is not substituted");
-  assert.strictEqual(inv(r, "1")[0].floorIdx, 2, "fixed-floor-3 -> FLOORS[2] (2F)");
+  assert.strictEqual(inv(r, "1")[0].floorIdx, 2, "fixed-floor-3 -> FLOORS[2] (노랑)");
   r.secureCell("2", "fixed-floor-4");
   assert.strictEqual(inv(r, "2")[0].floorIdx, 3);
   assert.strictEqual(left(r, "fixed-floor"), 4);
-  log("확정 층수: 선점자 우선, 이미 가져간 층은 대체 없이 무시");
+  log("지정 접시: 선점자 우선, 이미 가져간 접시는 대체 없이 무시");
 }
 
 // 6) 같은 사람이 같은 칸 완료 메시지를 두 번 보내도 두 개가 되지 않는다
@@ -103,7 +103,7 @@ const total = TYPES.reduce((a, t) => a + t.count, 0);
   log("secure 단계 밖에서는 무시, 후반에는 종류별 개수가 처음대로 다시 시작");
 }
 
-// 8) 보드가 다 비면 남은 시간을 기다리지 않고 곧 엘리베이터로 넘어간다 (2026-10-07)
+// 8) 보드가 다 비면 남은 시간을 기다리지 않고 곧 회전 벨트으로 넘어간다 (2026-10-07)
 (async () => {
   const r = newRoom();
   assert.strictEqual(r.state.phase, "secure");
@@ -116,10 +116,10 @@ const total = TYPES.reduce((a, t) => a + t.count, 0);
   r.secureCell("1", all[all.length - 1]);
   assert.ok(r.state.board.every((c) => c.taken), "board is empty");
   assert.ok(r.state.secureEndsAt - Date.now() <= 1500, "남은 시간이 1.5초 이하로 당겨짐: " + (r.state.secureEndsAt - Date.now()));
-  assert.strictEqual(r.state.phase, "secure", "마지막 확보가 보일 여유 시간 동안은 secure");
+  assert.strictEqual(r.state.phase, "secure", "마지막 제작가 보일 여유 시간 동안은 secure");
   await new Promise((res) => setTimeout(res, 1700));
-  assert.strictEqual(r.state.phase, "elevator", "보드가 다 비면 곧 엘리베이터로");
-  log("보드가 다 비면 3분을 기다리지 않고 1.5초 뒤 엘리베이터로 (조기 종료)");
+  assert.strictEqual(r.state.phase, "elevator", "보드가 다 비면 곧 회전 벨트으로");
+  log("보드가 다 비면 3분을 기다리지 않고 1.5초 뒤 회전 벨트으로 (조기 종료)");
   console.log("[test-shared-board] ALL CHECKS PASSED");
   process.exit(0); // GameRoom의 타이머가 남아 있어 프로세스가 안 끝나므로 명시적으로 종료
 })();

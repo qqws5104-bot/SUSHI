@@ -1,13 +1,13 @@
-// 2026-08-28 회귀 테스트: "한번씩 대기 시간에 택배사 선택이 안 떠" 버그 리포트.
+// 2026-08-28 회귀 테스트: "한번씩 대기 시간에 셰프 선택이 안 떠" 버그 리포트.
 //
 // 근본 원인: server.js의 ws.on("close")가 유예 없이 즉시 releaseSeatIfOrphaned를 호출했다.
 // 클라이언트는 연결이 끊기면 1.2초 뒤 자동 재접속하는데(build_client.py connectWS), 재접속하기도
 // 전에 서버가 로비 단계의 courierPick을 지워버려서, 재접속한 클라이언트가 좌석은 되찾아도(pick-seat
-// reclaim) 택배사 선택은 잃어버린 채 "스페이스바 대기" 화면만 보게 됐다.
+// reclaim) 셰프 선택은 잃어버린 채 "스페이스바 대기" 화면만 보게 됐다.
 //
 // 이 테스트는 실제 WS 연결을 끊었다가(context.setOffline) 클라이언트의 자동 재접속 지연(1.2초)보다
 // 조금 더 길게, 하지만 서버의 유예 시간(SEAT_RELEASE_GRACE_MS, 5초)보다는 짧게 끊어둔 뒤 다시
-// 연결해서, 재접속 후에도 "내 좌석 · <택배사 이름>"이 그대로 남아 있는지 확인한다.
+// 연결해서, 재접속 후에도 "내 팀 · <셰프 이름>"이 그대로 남아 있는지 확인한다.
 "use strict";
 const { chromium } = require("playwright");
 const { COURIERS } = require("./game-data.js");
@@ -69,13 +69,13 @@ async function main() {
   await p1.goto(roomUrl);
   await p2.goto(roomUrl);
 
-  await clickSel(p1, '[data-action="pick-courier"][data-courier="cookbang"]');
-  await waitFor(async () => (await bodyText(p1)).includes("내 좌석 · " + COURIER_NAME.cookbang),
-    { label: "p1 picked cookbang courier" });
-  await clickSel(p2, '[data-action="pick-courier"][data-courier="cheonil"]');
-  await waitFor(async () => (await bodyText(p2)).includes("내 좌석 · " + COURIER_NAME.cheonil),
-    { label: "p2 picked cheonil courier" });
-  log("p1 -> " + COURIER_NAME.cookbang + ", p2 -> " + COURIER_NAME.cheonil + " (둘 다 로비, 아직 스페이스바 안 누름)");
+  await clickSel(p1, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p1)).includes("내 팀 · " + COURIER_NAME.king),
+    { label: "p1 picked haru courier" });
+  await clickSel(p2, '[data-action="join-team"]');
+  await waitFor(async () => (await bodyText(p2)).includes("내 팀 · " + COURIER_NAME.hunter),
+    { label: "p2 picked pado courier" });
+  log("p1 -> " + COURIER_NAME.king + ", p2 -> " + COURIER_NAME.hunter + " (둘 다 로비, 아직 스페이스바 안 누름)");
 
   // ---- p1의 WS만 실제로 강제 종료 (routeWebSocket으로 가로챈 실제 연결을 close) ----
   // 클라이언트는 이 close를 감지하고 1.2초 뒤 자동으로 재접속한다(connectWS의 ws.onclose 참고).
@@ -85,14 +85,14 @@ async function main() {
   await p1.waitForTimeout(2500);
   log("waited past the 1.2s auto-reconnect delay, checking p1's state");
 
-  // 재접속 후: 서버가 courierPick을 지우지 않았어야 하므로, 좌석 선택 화면(택배사 아이콘 5개)이
-  // 아니라 "내 좌석 · 쿡방" 로비 화면이 그대로 유지돼야 한다.
+  // 재접속 후: 서버가 courierPick을 지우지 않았어야 하므로, 좌석 선택 화면(셰프 아이콘 5개)이
+  // 아니라 "내 팀 · 빨강팀" 로비 화면이 그대로 유지돼야 한다.
   await waitFor(async () => {
     const t = await bodyText(p1);
-    return t.includes("내 좌석 · " + COURIER_NAME.cookbang);
+    return t.includes("내 팀 · " + COURIER_NAME.king);
   }, { label: "p1 still shows its courier after reconnect", timeout: 8000 });
 
-  const seatPickerVisibleAfterReconnect = await p1.evaluate(() => document.querySelectorAll(".seat-pick").length > 0);
+  const seatPickerVisibleAfterReconnect = await p1.evaluate(() => document.querySelectorAll(".splash").length > 0);
   if (seatPickerVisibleAfterReconnect) {
     throw new Error("REGRESSION: p1 fell back to the courier picker after a brief reconnect -- seat/courierPick was wiped");
   }
