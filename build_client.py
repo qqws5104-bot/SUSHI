@@ -14,6 +14,7 @@ TYPES/CELLS/FLOORS/ROOMS 경제 상수는 game-data.js(서버가 require하는 �
 유지되며 몰래 어긋나는 일을 원천적으로 막기 위함.
 """
 
+import datetime
 import os
 import re
 import base64
@@ -772,6 +773,7 @@ HEAD_HTML = """<!doctype html>
   .splash-panel .team-row { margin:0 0 0.9rem; }
   .screen-links { margin-top:0.55rem; display:flex; flex-wrap:wrap; gap:0.4rem 0.6rem; justify-content:center; align-items:center; font-size:0.78rem; color:var(--muted); }
   .screen-links a { color:var(--ink); background:#fff; border:2px solid var(--ink); border-radius:999px; padding:0.1rem 0.7rem; text-decoration:none; font-family:var(--font-pop); box-shadow:0 2px 0 var(--ink); }
+  .build-tag { margin-top:0.5rem; font-size:0.7rem; opacity:0.6; }
   .splash-panel .room-share { margin-top:0.9rem; padding-top:0.7rem; font-size:0.8rem; }
   .lobby-box { max-width:720px; width:100%; }
   .lobby-box h2 { font-size:clamp(1.7rem,4vw,2.4rem); margin:0 0 0.4rem; }
@@ -900,6 +902,7 @@ APP_JS_TEMPLATE = r"""
 (function () {
   "use strict";
 
+  var BUILD_TAG = @@BUILD_TAG@@;   // 배포가 새 빌드인지 화면에서 확인하는 용도(시작 화면 아래쪽 작은 글씨)
   var TYPES = @@TYPES_JSON@@;
   // 2026-08-28: 전반/후반이 서로 다른 21장 퍼즐 이미지 세트를 쓴다 (build_client.py의 REF_DIR_1/
   // REF_DIR_2 참고). 보드 구조(id/catIdx/num)는 동일하고 src(이미지)만 다르므로 배열을 통째로
@@ -1305,6 +1308,7 @@ APP_JS_TEMPLATE = r"""
       + '<button class="btn primary big join-btn" data-action="join-team"' + (roomFull ? ' disabled' : '') + '>'
       + (roomFull ? '방이 가득 찼어요' : '입장하기') + '</button>'
       + '<div class="room-share">팀 이름은 입장 전·대기실에서 바꿀 수 있어요(최대 ' + NAME_MAX + '글자) · 방 코드 <strong>' + esc(ROOM) + '</strong><br>상대방에게는 지금 이 페이지의 링크를 그대로 보내주면 같은 방으로 들어와요.</div>'
+      + '<div class="build-tag">빌드 ' + BUILD_TAG + ' · 조립 게임: ' + (TYPES.every(function (t) { return !!t.mini; }) ? '디지털 미니게임' : '실물 우봉고') + '</div>'
       + '<div class="screen-links">초밥 확보(레일)·관전(메인)은 다른 화면에서: <a href="/rail?room=' + encodeURIComponent(ROOM) + '" target="_blank" rel="noopener">레일 화면 열기</a><a href="/?room=' + encodeURIComponent(ROOM) + '&view=main" target="_blank" rel="noopener">메인 화면 열기</a></div>'
       + '</div></div>';
   }
@@ -2684,6 +2688,7 @@ APP_JS_TEMPLATE = r"""
 """
 
 APP_JS = (APP_JS_TEMPLATE
+          .replace("@@BUILD_TAG@@", json.dumps(datetime.date.today().isoformat()))
           .replace("@@TYPES_JSON@@", TYPES_JSON)
           .replace("@@CELLS_1_JSON@@", CELLS_1_JSON)
           .replace("@@CELLS_2_JSON@@", CELLS_2_JSON)

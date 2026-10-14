@@ -83,6 +83,12 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify(out, null, 2));
     return;
   }
+  if (url.pathname === "/version") {
+    // 배포가 어느 빌드인지 확인하는 용도: 조립 게임이 디지털(mini 키 있음)인지 우봉고(null)인지.
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ assembly: TYPES.every((t) => t.mini) ? "digital" : "ubongo", mini: TYPES.map((t) => t.mini || null) }));
+    return;
+  }
   if (url.pathname === "/health") {
     res.writeHead(200, { "content-type": "text/plain" });
     res.end("ok");
